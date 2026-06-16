@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Calendar, Loader2, Sparkles, Plus, Trash2, Check, AlertCircle, RefreshCw, FilePlus
+  Calendar, Loader2, Sparkles, Plus, Trash2, Check, AlertCircle, RefreshCw, FilePlus, BookOpen, ChevronRight
 } from 'lucide-react';
 import { Division, UserRole, DayMenu, SOPDocument } from '../types';
 import { DIVISION_CREATOR_MAP, getDefaultTasksForDivision } from '../presetData';
@@ -14,6 +14,8 @@ interface SOPCreatorProps {
   onSaveMenu: (date: string, menuList: string[]) => void;
   onGenerateSOPs: (date: string, menuList: string[]) => void;
   onUpdateSOP: (updatedSOP: SOPDocument) => void;
+  allDayMenus: DayMenu[];
+  onSelectDate: (date: string) => void;
 }
 
 export default function SOPCreator({
@@ -24,7 +26,9 @@ export default function SOPCreator({
   currentUsername,
   onSaveMenu,
   onGenerateSOPs,
-  onUpdateSOP
+  onUpdateSOP,
+  allDayMenus,
+  onSelectDate
 }: SOPCreatorProps) {
   const [editedMenuList, setEditedMenuList] = useState<string[]>(
     dayMenu ? [...dayMenu.menuList] : []
@@ -269,6 +273,111 @@ export default function SOPCreator({
           )}
         </div>
       </div>
+
+      {/* REKAPITULASI MENU PER TANGGAL SEKSI BARU */}
+      <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+          <div>
+            <h3 className="font-bold text-neutral-800 text-sm font-display flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4 text-emerald-700" />
+              Seksi Rekapitulasi Menu Makanan SPPG per Tanggal
+            </h3>
+            <p className="text-[11px] text-neutral-500">
+              Berikut adalah rangkuman menu sehat yang didistribusikan ke dapur pesantren sesuai tanggal edaran. Klik "Atur & Sunting Menu" untuk meninjau SOP tanggal tersebut.
+            </p>
+          </div>
+          <span className="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-2.5 py-1 rounded-md">
+            Total Hari Terbit: {allDayMenus.length}
+          </span>
+        </div>
+
+        {allDayMenus.length === 0 ? (
+          <div className="p-8 text-center text-xs text-neutral-400">
+            Tidak ada data rilis menu saat ini.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-sans text-neutral-700 border-collapse">
+              <thead>
+                <tr className="border-b border-neutral-100 text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
+                  <th className="py-3 px-2">Tanggal Hidangan</th>
+                  <th className="py-3 px-2">Rincian Menu Makanan Hari Tersebut</th>
+                  <th className="py-3 px-2">Status</th>
+                  <th className="py-3 px-2 text-right">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...allDayMenus]
+                  .sort((a, b) => b.date.localeCompare(a.date)) // Sort newest dates first
+                  .map((menu) => {
+                    const isActive = menu.date === selectedDate;
+                    return (
+                      <tr 
+                        key={menu.date} 
+                        className={`border-b border-neutral-50 hover:bg-neutral-50/50 transition-colors ${
+                          isActive ? 'bg-emerald-50/20 font-medium' : ''
+                        }`}
+                      >
+                        <td className="py-3.5 px-2 font-display">
+                          <span className="block font-bold text-neutral-800">
+                            {formatIndoDate(menu.date)}
+                          </span>
+                          <span className="text-[9px] font-mono text-neutral-400">
+                            ID: {menu.date}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-2">
+                          <div className="flex flex-wrap gap-1.5 max-w-xl">
+                            {menu.menuList && menu.menuList.length > 0 ? (
+                              menu.menuList.map((dish, i) => (
+                                <span 
+                                  key={i} 
+                                  className="bg-neutral-100 hover:bg-neutral-200/80 text-neutral-700 text-[10px] px-2 py-0.5 rounded-md font-sans border border-neutral-200/40"
+                                >
+                                  {dish}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-neutral-400 text-[11px] italic">Kosong & belum diinput</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-2">
+                          {isActive ? (
+                            <span className="inline-flex items-center gap-1 bg-emerald-600/10 text-emerald-800 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border border-emerald-500/20">
+                              <Check className="h-3 w-3 text-emerald-700" /> Aktif Diedit
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-neutral-400">Tersimpan</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSelectDate(menu.date);
+                              // Smooth scroll to top
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all ${
+                              isActive
+                                ? 'bg-emerald-800 text-white cursor-default shadow-xs'
+                                : 'bg-neutral-100 hover:bg-emerald-800 hover:text-white text-neutral-700 border border-neutral-200'
+                            }`}
+                          >
+                            <span>Atur &amp; Sunting</span>
+                            <ChevronRight className="h-3 w-3 shrink-0" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

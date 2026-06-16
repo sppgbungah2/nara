@@ -11,7 +11,6 @@ import SOPCreator from './components/SOPCreator';
 import SOPChecklistView from './components/SOPChecklistView';
 import SOPRecap from './components/SOPRecap';
 import MockModules from './components/MockModules';
-import SQLExporter from './components/SQLExporter';
 import Login from './components/Login';
 import { isSupabaseConfigured, supabase, mapUserToProfile, UserProfile } from './lib/supabase';
 
@@ -32,7 +31,7 @@ export default function App() {
   const [sops, setSops] = useState<SOPDocument[]>([]);
   
   // Inner SOP Sub-Tab selection
-  const [currentSubTab, setCurrentSubTab] = useState<'dashboard' | 'create' | 'recap' | 'sql-export'>('dashboard');
+  const [currentSubTab, setCurrentSubTab] = useState<'dashboard' | 'create' | 'recap'>('dashboard');
   
   // Currently viewed SOP Detail (matches printed form view)
   const [activeSopDetail, setActiveSopDetail] = useState<SOPDocument | null>(null);
@@ -772,17 +771,6 @@ export default function App() {
                   >
                     Bank Rekapitulasi
                   </button>
-                  <button
-                    onClick={() => setCurrentSubTab('sql-export')}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      currentSubTab === 'sql-export'
-                        ? 'bg-cyan-800 text-white shadow-2xs'
-                        : 'text-neutral-500 hover:text-neutral-800'
-                    }`}
-                  >
-                    <span className="h-2 w-2 rounded-full bg-cyan-400 inline-block animate-pulse"></span>
-                    Query SQL Supabase
-                  </button>
                 </div>
               </div>
 
@@ -797,14 +785,14 @@ export default function App() {
                   onSaveMenu={handleSaveMenu}
                   onGenerateSOPs={handleGenerateSOPs}
                   onUpdateSOP={handleUpdateSOP}
+                  allDayMenus={dayMenus}
+                  onSelectDate={(date) => setSelectedDate(date)}
                 />
               ) : currentSubTab === 'recap' ? (
                 <SOPRecap
                   sops={sops}
                   onSelectSOP={(sop) => setActiveSopDetail(sop)}
                 />
-              ) : currentSubTab === 'sql-export' ? (
-                <SQLExporter />
               ) : (
                 /* 2.A MAIN SOP DASHBOARD SUB-TAB */
                 <div className="space-y-6">
