@@ -264,7 +264,7 @@ export default function SOPChecklistView({
       )}
 
       {/* PRINT-READY CONTAINER / HARDCOPY PAPER SHEET */}
-      <div className="print-area print-container bg-white border border-neutral-300 shadow-lg max-w-3xl mx-auto rounded-none p-8 md:p-12 font-serif text-neutral-900 leading-relaxed relative overflow-hidden">
+      <div className="print-area print-container bg-white border border-neutral-300 shadow-lg max-w-3xl mx-auto rounded-none p-4 xs:p-5 sm:p-8 md:p-12 font-serif text-neutral-900 leading-relaxed relative overflow-x-auto sm:overflow-visible">
         {/* Paper Watermark for authentic printing feel */}
         <div className="absolute top-2 right-4 text-[9px] font-mono tracking-widest text-neutral-300 no-print">
           ID BERKAS: {sop.id} / {sop.status === 'selesai' ? 'VERIFIED' : 'ACTIVE_LOG'}
@@ -273,7 +273,7 @@ export default function SOPChecklistView({
         {/* Paper Header */}
         <div className="flex items-center gap-4 border-b-2 border-black pb-5 mb-6">
           {/* Authentic National Nutrition Board Logo (Badan Gizi Nasional) in CSS SVG */}
-          <div className="h-20 w-20 shrink-0 bg-transparent flex items-center justify-center">
+          <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 bg-transparent flex items-center justify-center">
             <svg viewBox="0 0 100 100" className="w-full h-full">
               {/* Outer Golden Circle Ring */}
               <circle cx="50" cy="50" r="45" fill="#ffffff" stroke="#c5a84b" strokeWidth="3" />
@@ -298,19 +298,19 @@ export default function SOPChecklistView({
           </div>
 
           <div className="flex-1 text-center md:text-left space-y-1">
-            <h1 className="text-sm md:text-base font-bold tracking-widest text-[#0c2448] uppercase leading-none">
+            <h1 className="text-xs sm:text-sm md:text-base font-bold tracking-widest text-[#0c2448] uppercase leading-none">
               STANDAR OPERASIONAL PROSEDUR
             </h1>
-            <h2 className="text-xs md:text-sm font-bold tracking-wider text-neutral-800 uppercase leading-none">
+            <h2 className="text-[10px] sm:text-xs md:text-sm font-bold tracking-wider text-neutral-800 uppercase leading-none mt-1">
               SPPG GRESIK BUNGAH BUNGAH 2
             </h2>
-            <h3 className="text-xs font-semibold tracking-wide text-neutral-700 uppercase leading-snug">
+            <h3 className="text-[9px] sm:text-xs font-semibold tracking-wide text-neutral-700 uppercase leading-snug mt-1">
               YAYASAN PONDOK PESANTREN QOMARUDDIN
             </h3>
-            <div className="h-0.5 bg-black/80 w-full mt-1"></div>
-            <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-600 pt-1 font-mono uppercase">
+            <div className="h-0.5 bg-black/80 w-full mt-1.5"></div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] sm:text-[11px] font-semibold text-neutral-600 pt-1 font-mono uppercase gap-1">
               <span>DIVISI: {sop.division}</span>
-              <span className="text-black font-bold border border-black px-2 py-0.5 bg-neutral-100 rounded-sm">
+              <span className="text-black font-bold border border-black px-2 py-0.5 bg-neutral-100 rounded-sm self-start sm:self-auto">
                 {getDivisionHeadingName(sop.division)}
               </span>
             </div>
@@ -320,19 +320,19 @@ export default function SOPChecklistView({
         {/* Info Grid (Menu & Date) */}
         <table className="w-full border-2 border-black border-collapse text-xs md:text-sm print-table mb-6">
           <tbody>
-            <tr className="border-b border-black">
-              <td className="w-1/3 py-3 px-4 font-bold bg-neutral-50/70 border-r border-black select-none">
+            <tr className="border-b border-black flex flex-col sm:table-row">
+              <td className="w-full sm:w-1/3 py-3 px-3 sm:px-4 font-bold bg-neutral-50/70 border-b sm:border-b-0 border-r-0 sm:border-r border-black select-none block sm:table-cell">
                 Menu Hari
                 <div className="text-xs font-normal text-neutral-500 font-serif mt-1">
                   Untuk Tanggal Masak:
                   <div className="font-bold text-black mt-0.5">{getDayOnlyStr(sop.date)}</div>
                 </div>
               </td>
-              <td className="w-2/3 py-3 px-4">
+              <td className="w-full sm:w-2/3 py-3 px-3 sm:px-4 block sm:table-cell">
                 <ol className="list-decimal list-inside space-y-1 font-sans text-neutral-800">
                   {menuList.length > 0 ? (
                     menuList.map((item, index) => (
-                      <li key={index} className="font-medium text-[13px]">
+                      <li key={index} className="font-medium text-[13px] whitespace-normal break-words">
                         {item}
                       </li>
                     ))
@@ -344,27 +344,27 @@ export default function SOPChecklistView({
             </tr>
 
             {/* Checklist Header Row */}
-            <tr className="border-b border-black bg-neutral-100 text-xs uppercase tracking-wide font-bold">
-              <td colSpan={2} className="py-2 px-4 select-none">
+            <tr className="border-b border-black bg-neutral-100 text-xs uppercase tracking-wide font-bold flex flex-col sm:table-row">
+              <td colSpan={2} className="py-2 px-3 sm:px-4 block sm:table-cell select-none">
                 INSTRUKSI & TUGAS HARIAN LAPANGAN
               </td>
             </tr>
 
             {/* Checklist Items Row */}
-            <tr>
-              <td className="py-4 px-4 font-bold bg-neutral-50/70 border-r border-black select-none align-top">
+            <tr className="flex flex-col sm:table-row">
+              <td className="w-full sm:w-1/3 py-3 sm:py-4 px-3 sm:px-4 font-bold bg-neutral-50/70 border-b sm:border-b-0 border-r-0 sm:border-r border-black select-none align-top block sm:table-cell">
                 Tugas Harian
               </td>
-              <td className="py-4 px-4">
+              <td className="w-full sm:w-2/3 py-3 sm:py-4 px-3 sm:px-4 block sm:table-cell">
                 <div className="space-y-6">
                   {/* Category 1: Persiapan (General) */}
                   <div className="space-y-2">
-                    <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest border-b pb-0.5 font-sans">
+                    <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest border-b pb-1 font-sans">
                       I. Tahap Persiapan & K3
                     </h4>
                     <div className="space-y-2">
                       {sopsByCategory('persiapan').map((task) => (
-                        <div key={task.id} className="flex items-start gap-3 group">
+                        <div key={task.id} className="flex items-start gap-2.5 sm:gap-3 group">
                           <input
                             type="checkbox"
                             checked={task.completed}
@@ -372,15 +372,15 @@ export default function SOPChecklistView({
                             disabled={sop.status === 'selesai'}
                             className="mt-0.5 h-4.5 w-4.5 accent-emerald-800 rounded-sm border-neutral-300 focus:ring-emerald-500 shrink-0 cursor-pointer disabled:cursor-not-allowed"
                           />
-                          <div className="flex-1 flex justify-between gap-2">
-                            <span className={`text-[12.5px] font-medium leading-relaxed font-sans ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
+                          <div className="flex-1 flex justify-between gap-2 min-w-0">
+                            <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
                             {sop.status !== 'selesai' && task.id.includes('custom') && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
-                                className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print"
+                                className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print shrink-0"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -393,12 +393,12 @@ export default function SOPChecklistView({
 
                   {/* Category 2: Tugas Aktif (Specific) */}
                   <div className="space-y-2">
-                    <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest border-b pb-0.5 font-sans">
+                    <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest border-b pb-1 font-sans">
                       II. Tugas Inti Aktif Hari Ini
                     </h4>
                     <div className="space-y-2">
                       {sopsByCategory('aktif').map((task) => (
-                        <div key={task.id} className="flex items-start gap-3 group">
+                        <div key={task.id} className="flex items-start gap-2.5 sm:gap-3 group">
                           <input
                             type="checkbox"
                             checked={task.completed}
@@ -406,15 +406,15 @@ export default function SOPChecklistView({
                             disabled={sop.status === 'selesai'}
                             className="mt-0.5 h-4.5 w-4.5 accent-emerald-800 rounded-sm border-neutral-300 focus:ring-emerald-500 shrink-0 cursor-pointer disabled:cursor-not-allowed"
                           />
-                          <div className="flex-1 flex justify-between gap-2">
-                            <span className={`text-[12.5px] font-medium leading-relaxed font-sans ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
+                          <div className="flex-1 flex justify-between gap-2 min-w-0">
+                            <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
                             {sop.status !== 'selesai' && task.id.includes('custom') && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
-                                className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print"
+                                className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print shrink-0"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -427,12 +427,12 @@ export default function SOPChecklistView({
 
                   {/* Category 3: Penutup (Cleanup) */}
                   <div className="space-y-2">
-                    <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest border-b pb-0.5 font-sans">
+                    <h4 className="text-[11px] font-bold text-neutral-500 uppercase tracking-widest border-b pb-1 font-sans">
                       III. Tahap Penutupan & Resanitasi
                     </h4>
                     <div className="space-y-2">
                       {sopsByCategory('penutup').map((task) => (
-                        <div key={task.id} className="flex items-start gap-3 group">
+                        <div key={task.id} className="flex items-start gap-2.5 sm:gap-3 group">
                           <input
                             type="checkbox"
                             checked={task.completed}
@@ -440,15 +440,15 @@ export default function SOPChecklistView({
                             disabled={sop.status === 'selesai'}
                             className="mt-0.5 h-4.5 w-4.5 accent-emerald-800 rounded-sm border-neutral-300 focus:ring-emerald-500 shrink-0 cursor-pointer disabled:cursor-not-allowed"
                           />
-                          <div className="flex-1 flex justify-between gap-2">
-                            <span className={`text-[12.5px] font-medium leading-relaxed font-sans ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
+                          <div className="flex-1 flex justify-between gap-2 min-w-0">
+                            <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
                             {sop.status !== 'selesai' && task.id.includes('custom') && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
-                                className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print"
+                                className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print shrink-0"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -463,34 +463,34 @@ export default function SOPChecklistView({
                 {/* Inline Task Adder form (Only when document is active) */}
                 {sop.status !== 'selesai' && (
                   <form onSubmit={handleAddTask} className="mt-6 pt-5 border-t border-dashed border-neutral-200 no-print">
-                    <h5 className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-2">
-                      + Sisipkan Instruksi Tambahan Khusus
-                    </h5>
-                    <div className="flex gap-2">
-                      <select 
-                        value={newTaskCategory}
-                        onChange={e => setNewTaskCategory(e.target.value as any)}
-                        className="text-xs bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/10"
-                      >
-                        <option value="persiapan">I. Persiapan</option>
-                        <option value="aktif">II. Tugas Inti</option>
-                        <option value="penutup">III. Penutup</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Tulis tugas (mis. Iris timba bumbu sisa kunyit 250gr)..."
-                        value={newTaskText}
-                        onChange={e => setNewTaskText(e.target.value)}
-                        className="flex-1 text-xs border border-neutral-200 bg-neutral-50/50 rounded-lg px-3 py-1.5 outline-hidden focus:ring-2 focus:ring-emerald-500/20"
-                      />
-                      <button
-                        type="submit"
-                        className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-1.5 rounded-lg flex items-center gap-1.5"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Tambah
-                      </button>
-                    </div>
+                     <h5 className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-2">
+                       + Sisipkan Instruksi Tambahan Khusus
+                     </h5>
+                     <div className="flex flex-col sm:flex-row gap-2">
+                       <select 
+                         value={newTaskCategory}
+                         onChange={e => setNewTaskCategory(e.target.value as any)}
+                         className="text-xs bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/10 w-full sm:w-auto"
+                       >
+                         <option value="persiapan">I. Persiapan</option>
+                         <option value="aktif">II. Tugas Inti</option>
+                         <option value="penutup">III. Penutup</option>
+                       </select>
+                       <input
+                         type="text"
+                         placeholder="Tulis tugas (mis. Iris timba bumbu sisa kunyit 250gr)..."
+                         value={newTaskText}
+                         onChange={e => setNewTaskText(e.target.value)}
+                         className="flex-1 text-xs border border-neutral-200 bg-neutral-50/50 rounded-lg px-3 py-1.5 outline-hidden focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-auto"
+                       />
+                       <button
+                         type="submit"
+                         className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-1.5 rounded-lg flex items-center justify-center gap-1.5 w-full sm:w-auto shrink-0"
+                       >
+                         <Plus className="h-3.5 w-3.5" />
+                         Tambah
+                       </button>
+                     </div>
                   </form>
                 )}
               </td>

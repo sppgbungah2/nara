@@ -883,6 +883,7 @@ export default function App() {
               onGenerateSOPs={handleGenerateSOPs}
               onDeleteMenu={handleDeleteMenu}
               currentUserRole={currentUserRole}
+              loggedInUser={loggedInUser}
             />
           ) : activeSopDetail ? (
             /* Render Full-depth checklist printed form sheet */
