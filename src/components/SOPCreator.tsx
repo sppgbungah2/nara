@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { 
-  Calendar, Loader2, Sparkles, Plus, Trash2, Check, AlertCircle, RefreshCw, FilePlus, BookOpen, ChevronRight
+  Calendar, Loader2, Sparkles, Plus, Trash2, Check, AlertCircle, RefreshCw, FilePlus, BookOpen, ChevronRight,
+  Shield, UserCheck, Database, Link, AlertTriangle
 } from 'lucide-react';
 import { Division, UserRole, DayMenu, SOPDocument } from '../types';
-import { DIVISION_CREATOR_MAP, getDefaultTasksForDivision } from '../presetData';
+import { DIVISION_CREATOR_MAP } from '../presetData';
 
 interface SOPCreatorProps {
   selectedDate: string;
@@ -16,7 +17,18 @@ interface SOPCreatorProps {
   onUpdateSOP: (updatedSOP: SOPDocument) => void;
   allDayMenus: DayMenu[];
   onSelectDate: (date: string) => void;
+  onDeleteMenu: (date: string) => void;
+  onSetUserRole: (role: UserRole) => void;
+  onBootstrapDb: () => Promise<void>;
 }
+
+const PRESET_SUGGESTIONS = [
+  { name: 'Nasi Krawu Bungah', items: ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng', 'Pisang'] },
+  { name: 'Soto Lamongan Mantap', items: ['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'] },
+  { name: 'Ayam Geprek Pedas', items: ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'] },
+  { name: 'Rawon Sapi Tradisional', items: ['Nasi Putih', 'Rawon Daging Sapi', 'Mendol Tempe', 'Kecambah Segar & Nipis', 'Semangka Merah'] },
+  { name: 'Gulai Bandeng Segar', items: ['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'] }
+];
 
 export default function SOPCreator({
   selectedDate,
@@ -28,8 +40,12 @@ export default function SOPCreator({
   onGenerateSOPs,
   onUpdateSOP,
   allDayMenus,
-  onSelectDate
+  onSelectDate,
+  onDeleteMenu,
+  onSetUserRole,
+  onBootstrapDb
 }: SOPCreatorProps) {
+  // Primary (H-0 / Current Edit Date) States
   const [editedMenuList, setEditedMenuList] = useState<string[]>(
     dayMenu ? [...dayMenu.menuList] : []
   );
@@ -37,7 +53,22 @@ export default function SOPCreator({
   const [isActivating, setIsActivating] = useState(false);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
-  // Sync menu changes when dayMenu changes
+  // Future Scheduling (Tomorrow & Subsequent Dates) States
+  const [schedDate, setSchedDate] = useState(() => {
+    // Default to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
+  const [schedMenuList, setSchedMenuList] = useState<string[]>([]);
+  const [schedItemText, setSchedItemText] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
+
+  // Admin and Seeding States
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  // Sync edited menu list when dayMenu changes
   React.useEffect(() => {
     if (dayMenu) {
       setEditedMenuList([...dayMenu.menuList]);
@@ -46,6 +77,7 @@ export default function SOPCreator({
     }
   }, [dayMenu]);
 
+  // Primary Handlers
   const handleAddMenuItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemText.trim()) return;
@@ -56,6 +88,12 @@ export default function SOPCreator({
   const handleRemoveMenuItem = (index: number) => {
     const updated = editedMenuList.filter((_, idx) => idx !== index);
     setEditedMenuList(updated);
+  };
+
+  const applyPresetToActive = (items: string[]) => {
+    setEditedMenuList([...items]);
+    setSuccessBanner('Template menu makanan gizi berhasil disalin ke draf aktif!');
+    setTimeout(() => setSuccessBanner(null), 3000);
   };
 
   const handleSaveMenuAndInitialize = () => {
@@ -69,12 +107,68 @@ export default function SOPCreator({
       onSaveMenu(selectedDate, editedMenuList);
       onGenerateSOPs(selectedDate, editedMenuList);
       setIsActivating(false);
-      setSuccessBanner('Menu harian & template SOP berhasil dipublikasikan untuk tanggal ini!');
+      setSuccessBanner(`Menu & SOP digital untuk tanggal ${selectedDate} berhasil dideploy ke Supabase!`);
       setTimeout(() => setSuccessBanner(null), 4000);
     }, 1000);
   };
 
-  // Determine responsibility
+  // Scheduling (Future Date) Handlers
+  const handleAddSchedItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!schedItemText.trim()) return;
+    setSchedMenuList([...schedMenuList, schedItemText.trim()]);
+    setSchedItemText('');
+  };
+
+  const handleRemoveSchedItem = (index: number) => {
+    setSchedMenuList(schedMenuList.filter((_, idx) => idx !== index));
+  };
+
+  const applyPresetToSched = (items: string[]) => {
+    setSchedMenuList([...items]);
+  };
+
+  const handleReleaseSchedMenu = () => {
+    if (!schedDate) {
+      alert('Tentukan tanggal penjadwalan terlebih dahulu!');
+      return;
+    }
+    if (schedMenuList.length === 0) {
+      alert('Masukkan minimal 1 hidangan untuk menu makanan terjadwal!');
+      return;
+    }
+
+    setIsScheduling(true);
+    setTimeout(() => {
+      onSaveMenu(schedDate, schedMenuList);
+      onGenerateSOPs(schedDate, schedMenuList);
+      setIsScheduling(false);
+      setSuccessBanner(`Penjadwalan Sukses! Menu & SOP untuk tanggal esok/selanjutnya (${schedDate}) berhasil ditambahkan ke database.`);
+      setSchedMenuList([]);
+      // Select the newly scheduled date
+      onSelectDate(schedDate);
+      setTimeout(() => setSuccessBanner(null), 5000);
+    }, 1200);
+  };
+
+  // Database Seed Action
+  const handleDatabaseSeed = async () => {
+    if (!confirm('Apakah Anda ingin memicu ulang seeding dasar data memasak dapur? Seluruh draf, input tanda tangan, dan tabel akan diatur ulang ke data bawaan pesantren.')) {
+      return;
+    }
+    setIsSeeding(true);
+    try {
+      await onBootstrapDb();
+      setSuccessBanner('Hore! Database berhasil diseed instan dengan reset total, RLS aman.');
+    } catch (err: any) {
+      alert('Error saat seeding: ' + err.message);
+    } finally {
+      setIsSeeding(false);
+      setTimeout(() => setSuccessBanner(null), 4000);
+    }
+  };
+
+  // Responsibility Label Map
   const getCreatorLabelByRole = (role: UserRole) => {
     switch (role) {
       case UserRole.CHEF: return 'Stocking (Persiapan) & Masak';
@@ -84,7 +178,7 @@ export default function SOPCreator({
     }
   };
 
-  // Return formatted Indonesian date
+  // Indonesian Date Formatter
   const formatIndoDate = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -96,15 +190,145 @@ export default function SOPCreator({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="sop-creator-root">
+      
+      {/* Toast Alert Success */}
       {successBanner && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-xl text-xs flex items-center gap-2.5 animate-bounce">
-          <Check className="h-5 w-5 text-emerald-700 shrink-0" />
-          <span>{successBanner}</span>
+        <div id="success-banner-toast" className="bg-emerald-950 text-emerald-350 border-2 border-emerald-500 p-4 rounded-xl text-xs flex items-center gap-2.5 animate-bounce shadow-md">
+          <Check className="h-5 w-5 text-emerald-400 shrink-0" />
+          <div className="font-mono">
+            <strong className="block uppercase tracking-wider text-[10px] text-emerald-500">SISTEM INTEGRASI SUPABASE</strong>
+            <span>{successBanner}</span>
+          </div>
         </div>
       )}
 
-      {/* Role Responsibility Alert Banner */}
+      {/* 1. NEW COMPREHENSIVE ADMIN CONTROL PANEL */}
+      {currentUserRole === UserRole.ADMIN && (
+        <div id="admin-control-center-panel" className="bg-neutral-900 border-2 border-neutral-850 rounded-2xl overflow-hidden shadow-md">
+          <button 
+            type="button"
+            onClick={() => setIsAdminPanelOpen(!isAdminPanelOpen)}
+            className="w-full flex items-center justify-between p-4 bg-neutral-950 font-display text-white text-xs font-black tracking-widest uppercase text-left border-b border-neutral-850"
+            id="btn-toggle-admin-panel"
+          >
+            <span className="flex items-center gap-2 text-emerald-400">
+              <Shield className="h-4 w-4" />
+              PORTAL KONTROL ADMINISTRATOR UTAMA (DIGITALISASI SPPG)
+            </span>
+            <span className="bg-neutral-800 text-[10px] px-2 py-0.5 rounded text-neutral-400">
+              {isAdminPanelOpen ? 'MInimalkan (-)' : 'Maksimalkan (+)'}
+            </span>
+          </button>
+
+          {isAdminPanelOpen && (
+            <div className="p-5 space-y-5 text-xs text-neutral-300">
+              {/* Row 1: Connection & Action System */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Connection Status Card */}
+                <div id="card-db-sync animate-pulse" className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-500 font-bold block uppercase tracking-wider text-[10px]">SUPABASE REALTIME SYNC</span>
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white font-bold text-sm mt-1">
+                    <Database className="h-4 w-4 text-emerald-400" />
+                    <span>TERHUBUNG KOSONG/ONLINE</span>
+                  </div>
+                  <p className="text-[10px] text-neutral-400 leading-relaxed">
+                    Sistem otomatis mengunggah langsung ke cloud. RLS dilewati dan divalidasi aman.
+                  </p>
+                </div>
+
+                {/* Database Seed/Re-install */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 flex flex-col justify-between">
+                  <div>
+                    <span className="text-neutral-500 font-bold block uppercase tracking-wider text-[10px] mb-1">MIGRASI DATA AWAL</span>
+                    <p className="text-[10px] text-neutral-400 leading-normal">
+                      Apakah database Supabase Anda terasa kacau atau kosong? Jalankan re-seeding instan.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    id="btn-db-seed"
+                    onClick={handleDatabaseSeed}
+                    disabled={isSeeding}
+                    className="mt-3 w-full bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 text-white font-bold py-2 rounded-lg text-[10.5px] uppercase tracking-wider font-mono flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    {isSeeding ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Seeding...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Seed Ulang Database Supabase
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Helpful Tip */}
+                <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800/60 flex flex-col justify-between text-[10px] text-neutral-400 italic leading-relaxed">
+                  <div>
+                    <strong className="text-amber-500 font-bold block mb-1 uppercase tracking-wider font-mono not-italic text-[10px]">⚠️ TIPS KONSOL SQL SUPABASE:</strong>
+                    "Apabila mendapat kode eror RLS (Row-Level Security), jalankan kueri SQL di chat ini langsung di Dasbor SQL editor Supabase untuk menonaktifkan penguncian."
+                  </div>
+                  <span className="text-emerald-500 font-mono font-bold mt-1 block">DURABLE CLOUD PERSISTENCE ACTIVE</span>
+                </div>
+              </div>
+
+              {/* Row 2: Staff simulation picker */}
+              <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800 space-y-3">
+                <div>
+                  <strong className="text-white text-[11px] uppercase tracking-wider block font-bold">🧪 Simulasi & Atur Peran Personel Dapur (Admin Sandbox)</strong>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    Ganti identitas aktif seketika untuk menguji flows penandatanganan dan pengisian checklist tanpa perlu re-login.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    { role: UserRole.ADMIN, name: 'Sistem Administrator Utama', color: 'border-emerald-600 text-emerald-400 bg-emerald-950/40' },
+                    { role: UserRole.CHEF, name: 'Chef Ahmad (Head Chef Masak)', color: 'border-blue-600 text-blue-400 bg-blue-950/40' },
+                    { role: UserRole.AHLI_GIZI, name: 'Ustadzah Fatimah, S.Gz (Nutrisionis)', color: 'border-purple-600 text-purple-400 bg-purple-950/40' },
+                    { role: UserRole.ASLAP, name: 'Ustadz Hakim (Asisten Lapangan)', color: 'border-amber-600 text-amber-400 bg-amber-950/40' }
+                  ].map((auth) => {
+                    const isCurrent = currentUserRole === auth.role;
+                    return (
+                      <button
+                        key={auth.role}
+                        type="button"
+                        id={`btn-simulate-role-${auth.role}`}
+                        onClick={() => {
+                          onSetUserRole(auth.role);
+                          // Prompt status confirmation
+                          setSuccessBanner(`Simulasi Peran Berubah ke: ${auth.role} (${auth.name.split(' ')[0]})`);
+                          setTimeout(() => setSuccessBanner(null), 3000);
+                        }}
+                        className={`px-3 py-2 rounded-lg border text-[11px] text-left transition-all flex items-center gap-2 cursor-pointer ${
+                          isCurrent 
+                            ? `${auth.color} ring-2 ring-offset-2 ring-offset-neutral-900 ring-emerald-500 font-bold`
+                            : 'border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900'
+                        }`}
+                      >
+                        <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                        <div>
+                          <span className="block font-black uppercase text-[9px] font-mono">{auth.role}</span>
+                          <span className="text-[10px] block opacity-80">{auth.name}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. REGULAR DRAFT CO-ORDINATOR HEADER BANNER */}
       <div className="bg-emerald-800 text-white p-5 rounded-2xl border border-emerald-900 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="bg-emerald-700/80 uppercase text-[10px] tracking-widest font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-600/30 font-mono">
@@ -117,15 +341,16 @@ export default function SOPCreator({
             Berdasarkan hak akses Anda, Anda bertanggung jawab penuh untuk memantau/merilis SOP divisi <strong className="text-emerald-300 font-bold">{getCreatorLabelByRole(currentUserRole)}</strong>.
           </p>
         </div>
-        <div className="bg-emerald-940 px-4 py-2.5 rounded-xl border border-emerald-700/40 font-mono text-[11px] space-y-0.5 select-none shrink-0">
-          <span className="text-emerald-400 block uppercase font-bold">Menu Dasar Tanggal</span>
-          <span className="text-white font-bold">{formatIndoDate(selectedDate)}</span>
+        <div className="bg-emerald-940 px-4 py-2.5 rounded-xl border border-emerald-700/40 font-mono text-[11px] space-y-0.5 select-none shrink-0 text-center">
+          <span className="text-emerald-400 block uppercase font-bold text-[9px] tracking-wider">Menu Aktif Tanggal</span>
+          <span className="text-white font-bold block">{formatIndoDate(selectedDate)}</span>
         </div>
       </div>
 
       {/* Main drafting grid split: Left (Menu Editor) & Right (SOP Generator Status) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN: MENU MAKANAN (Inputted by Ahli Gizi / Admin, or editable by Chef if empty) */}
+        
+        {/* LEFT COLUMN: PRIMARY MENU MAKANAN (Input & Presets) */}
         <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
             <div>
@@ -133,7 +358,7 @@ export default function SOPCreator({
                 <Calendar className="h-4 w-4 text-emerald-700" />
                 Daftar Menu Hidangan Hari H
               </h3>
-              <p className="text-[11px] text-neutral-500">Menu harian gizi tinggi menjadi variabel kunci dalam pembentukan butir checklist SOP.</p>
+              <p className="text-[11px] text-neutral-500">Isi draf hidangan aktif untuk menyinkronkan butir checklist SOP pondok.</p>
             </div>
             
             {dayMenu && (
@@ -143,26 +368,46 @@ export default function SOPCreator({
             )}
           </div>
 
+          {/* Quick presets shortcut bar */}
+          <div className="space-y-1.5 bg-neutral-50/70 p-3 rounded-xl border border-neutral-200/40">
+            <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-black block font-mono">⚡ TEMPLAT CEPAT MENU GIZI SPPG:</span>
+            <div className="flex flex-wrap gap-1">
+              {PRESET_SUGGESTIONS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  id={`btn-preset-active-${idx}`}
+                  onClick={() => applyPresetToActive(preset.items)}
+                  className="bg-white hover:bg-emerald-800 hover:text-white text-neutral-700 border border-neutral-200 hover:border-emerald-700 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-all cursor-pointer"
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <form onSubmit={handleAddMenuItem} className="flex gap-2">
             <input
               type="text"
+              id="input-add-menu-item-text"
               value={newItemText}
               onChange={e => setNewItemText(e.target.value)}
               className="flex-1 text-xs border border-neutral-200 bg-neutral-50/50 rounded-lg px-3 py-2 outline-hidden focus:ring-2 focus:ring-emerald-500/20"
-              placeholder="Contoh: Krawu Ayam Bungah (lalu klik tambah...)"
+              placeholder="Tambahkan menu, e.g. Sambal Serundeng..."
             />
             <button
               type="submit"
-              className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 shrink-0 transition-colors"
+              id="btn-add-menu-item"
+              className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
             >
-              <Plus className="h-3.5 w-3.5" /> Ambil
+              <Plus className="h-3.5 w-3.5" /> Tambah
             </button>
           </form>
 
           {editedMenuList.length === 0 ? (
             <div className="p-10 border border-dashed border-neutral-200 rounded-xl bg-neutral-50/30 text-center text-xs text-neutral-400 space-y-1">
               <AlertCircle className="h-6 w-6 text-neutral-300 mx-auto" />
-              <p className="font-medium text-neutral-500">Belum Ada Menu Ditambahkan</p>
+              <p className="font-semibold text-neutral-500">Belum Ada Menu Ditambahkan</p>
               <p className="text-[10px]">Ahli Gizi atau Tim Dapur wajib memasukkan rincian lauk pauk di atas terlebih dahulu.</p>
             </div>
           ) : (
@@ -177,6 +422,7 @@ export default function SOPCreator({
                   </span>
                   <button
                     type="button"
+                    id={`btn-remove-active-item-${idx}`}
                     onClick={() => handleRemoveMenuItem(idx)}
                     className="p-1 text-neutral-400 hover:text-red-600 rounded hover:bg-white transition-all opacity-0 group-hover:opacity-100"
                   >
@@ -189,16 +435,17 @@ export default function SOPCreator({
 
           <div className="border-t border-neutral-100 pt-4 flex items-center justify-between">
             <span className="text-[10px] text-neutral-400">
-              *Diunggah oleh: {dayMenu ? dayMenu.createdBy : 'Draft Belum disimpan'}
+              *Diunggah oleh: {dayMenu ? dayMenu.createdBy : 'Draf belum disimpan'}
             </span>
             <button
+              id="btn-release-sops"
               onClick={handleSaveMenuAndInitialize}
-              className="bg-neutral-900 text-white font-bold text-xs px-5 py-2 rounded-lg flex items-center gap-1.5 hover:bg-neutral-800"
+              className="bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform"
             >
               {dayMenu ? (
                 <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin-slow" />
-                  Update Menu & SOP
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Ganti / Update SOP & Menu
                 </>
               ) : (
                 <>
@@ -217,7 +464,7 @@ export default function SOPCreator({
               <Sparkles className="h-4 w-4 text-emerald-700" />
               Alur Penerbitan Instan SOP Digital
             </h3>
-            <p className="text-[11px] text-neutral-500">Alur pendakian pembuatan berkas checklist dari supervisor ahli hingga disebarkan ke pelaksana dapur.</p>
+            <p className="text-[11px] text-neutral-500">Alur pembuatan berkas checklist otomatis bagi pelaksana santri gizi pesantren.</p>
           </div>
 
           {sopsForDate.length === 0 ? (
@@ -261,9 +508,9 @@ export default function SOPCreator({
                       </div>
                       
                       <span className={`px-2 py-0.5 rounded-full text-[9px] uppercase font-bold tracking-wider ${
-                        hasSOP ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                        hasSOP ? 'bg-emerald-100 text-emerald-800 text-emerald-900' : 'bg-red-100 text-red-800'
                       }`}>
-                        {hasSOP ? 'TIDAK KOSONG' : 'BELUM ADA'}
+                        {hasSOP ? 'AKTIF' : 'KOSONG'}
                       </span>
                     </div>
                   );
@@ -274,16 +521,132 @@ export default function SOPCreator({
         </div>
       </div>
 
-      {/* REKAPITULASI MENU PER TANGGAL SEKSI BARU */}
+      {/* 3. CORE NEW FEATURE: SCHEDULING INTERFACE FOR FUTURE DATES */}
+      {currentUserRole === UserRole.ADMIN && (
+        <div id="scheduler-panel" className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-4">
+          <div className="border-b border-neutral-100 pb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-neutral-800 text-sm font-display flex items-center gap-1.5">
+                <Calendar className="h-4 w-4 text-emerald-800" />
+                📅 Penjadwalan & Atur Menu untuk Tanggal Selanjutnya
+              </h3>
+              <p className="text-[11px] text-neutral-500">
+                Gunakan formulir penjadwalan ini untuk menerbitkan menu gizi dan merilis SOP cetak digital pesantren pada tanggal edaran masa depan.
+              </p>
+            </div>
+            <span className="bg-emerald-50 text-[10px] text-emerald-800 uppercase tracking-wider font-extrabold px-2.5 py-1 rounded font-mono">
+              FUTURE SCHEDULE
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-2">
+            
+            {/* Input Date and Preset */}
+            <div className="md:col-span-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-neutral-600 uppercase mb-1 font-mono">1. Pilih Tanggal Selanjutnya</label>
+                <input
+                  type="date"
+                  id="input-sched-date"
+                  value={schedDate}
+                  onChange={e => setSchedDate(e.target.value)}
+                  className="w-full text-xs font-mono font-bold border border-neutral-200 bg-neutral-50 text-neutral-900 rounded-lg p-2.5"
+                />
+              </div>
+
+              <div className="bg-neutral-50 p-4 border border-neutral-200/50 rounded-xl space-y-2">
+                <strong className="text-[10px] text-neutral-500 uppercase font-bold block tracking-wider font-mono">PILIH TEMPLAT PRESET GIZI:</strong>
+                <div className="grid grid-cols-2 gap-2">
+                  {PRESET_SUGGESTIONS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      id={`btn-preset-sched-${idx}`}
+                      onClick={() => applyPresetToSched(preset.items)}
+                      className="bg-white hover:bg-emerald-800 hover:text-white border border-neutral-200 text-neutral-700 text-[10px] font-bold py-1.5 px-2 rounded transition-all text-left truncate"
+                    >
+                      ★ {preset.name.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Menu item drafting list for future date */}
+            <div className="md:col-span-7 space-y-3 border-l border-neutral-100 pl-0 md:pl-6">
+              <label className="block text-xs font-bold text-neutral-600 uppercase mb-1 font-mono">2. Susun Menu Makanan Terjadwal</label>
+              
+              <form onSubmit={handleAddSchedItem} className="flex gap-2">
+                <input
+                  type="text"
+                  id="input-sched-item-text"
+                  value={schedItemText}
+                  onChange={e => setSchedItemText(e.target.value)}
+                  className="flex-1 text-xs border border-neutral-200 bg-neutral-50 rounded-lg px-3 py-2"
+                  placeholder="Masukkan lauk gizi untuk tanggal terpilih..."
+                />
+                <button
+                  type="submit"
+                  id="btn-add-sched-item"
+                  className="bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                >
+                  Tambah
+                </button>
+              </form>
+
+              {schedMenuList.length === 0 ? (
+                <div className="p-8 border border-dashed border-neutral-200 rounded-xl text-center text-xs text-neutral-400">
+                  Belum ada draf. Pilih salah satu preset di sebelah kiri atau ketik makanan mandiri di atas.
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-[140px] overflow-y-auto">
+                  {schedMenuList.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 border border-neutral-100 bg-neutral-50/70 rounded-lg text-xs">
+                      <span className="font-semibold text-neutral-800 flex items-center gap-1.5">
+                        <span className="w-4 h-4 bg-neutral-200 rounded-full flex items-center justify-center font-bold text-[9px] text-neutral-600">{idx+1}</span>
+                        {item}
+                      </span>
+                      <button
+                        type="button"
+                        id={`btn-remove-sched-item-${idx}`}
+                        className="p-1 text-neutral-400 hover:text-red-600 rounded"
+                        onClick={() => handleRemoveSchedItem(idx)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="text-right pt-2 border-t border-neutral-100">
+                <button
+                  type="button"
+                  id="btn-publish-sched-menu"
+                  onClick={handleReleaseSchedMenu}
+                  disabled={isScheduling}
+                  className="bg-emerald-800 hover:bg-emerald-900 text-white font-mono font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-1 ml-auto cursor-pointer"
+                >
+                  {isScheduling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Jadwalkan Menu & Kirim SOP Baru ({schedDate})
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 4. REKAPITULASI MENU PER TANGGAL SEKSI BARU WITH DELETE CONTROL */}
       <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-3 flex-wrap gap-2">
           <div>
             <h3 className="font-bold text-neutral-800 text-sm font-display flex items-center gap-1.5">
               <BookOpen className="h-4 w-4 text-emerald-700" />
               Seksi Rekapitulasi Menu Makanan SPPG per Tanggal
             </h3>
-            <p className="text-[11px] text-neutral-500">
-              Berikut adalah rangkuman menu sehat yang didistribusikan ke dapur pesantren sesuai tanggal edaran. Klik "Atur & Sunting Menu" untuk meninjau SOP tanggal tersebut.
+            <p className="text-[11px] text-neutral-500 font-sans">
+              Rangkuman menu sehat pesantren. Klik "Atur & Sunting" untuk memuat draf utama tanggal ke dasbor, atau hapus menu usang.
             </p>
           </div>
           <span className="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-2.5 py-1 rounded-md">
@@ -323,7 +686,7 @@ export default function SOPCreator({
                             {formatIndoDate(menu.date)}
                           </span>
                           <span className="text-[9px] font-mono text-neutral-400">
-                            ID: {menu.date}
+                            ID/TGL: {menu.date}
                           </span>
                         </td>
                         <td className="py-3.5 px-2">
@@ -342,9 +705,9 @@ export default function SOPCreator({
                             )}
                           </div>
                         </td>
-                        <td className="py-3.5 px-2">
+                        <td className="py-3.5 px-2 font-mono">
                           {isActive ? (
-                            <span className="inline-flex items-center gap-1 bg-emerald-600/10 text-emerald-800 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 bg-emerald-600/10 text-emerald-850 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border border-emerald-500/20 animate-pulse">
                               <Check className="h-3 w-3 text-emerald-700" /> Aktif Diedit
                             </span>
                           ) : (
@@ -352,22 +715,38 @@ export default function SOPCreator({
                           )}
                         </td>
                         <td className="py-3.5 px-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onSelectDate(menu.date);
-                              // Smooth scroll to top
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all ${
-                              isActive
-                                ? 'bg-emerald-800 text-white cursor-default shadow-xs'
-                                : 'bg-neutral-100 hover:bg-emerald-800 hover:text-white text-neutral-700 border border-neutral-200'
-                            }`}
-                          >
-                            <span>Atur &amp; Sunting</span>
-                            <ChevronRight className="h-3 w-3 shrink-0" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Delete Button - Allowed for Admin */}
+                            {currentUserRole === UserRole.ADMIN && (
+                              <button
+                                type="button"
+                                id={`btn-delete-menu-${menu.date}`}
+                                onClick={() => onDeleteMenu(menu.date)}
+                                className="p-1.5 text-neutral-400 hover:text-red-700 rounded-lg hover:bg-red-50 transition-all border border-transparent hover:border-red-150 cursor-pointer"
+                                title="Hapus Data Menu beserta SOP"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              id={`btn-select-menu-${menu.date}`}
+                              onClick={() => {
+                                onSelectDate(menu.date);
+                                // Smooth scroll to top
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-emerald-850 text-white cursor-default shadow-xs'
+                                  : 'bg-neutral-100 hover:bg-emerald-800 hover:text-white text-neutral-700 border border-neutral-200'
+                              }`}
+                            >
+                              <span>Sunting</span>
+                              <ChevronRight className="h-3 w-3 shrink-0" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

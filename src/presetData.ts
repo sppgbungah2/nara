@@ -178,13 +178,18 @@ export function generateInitialSOPsForDate(date: string, menuList: string[]): Re
       creatorName = 'Ustadz Hakim, S.Pd (Aslap)';
     }
 
+    const defaultTasks = getDefaultTasksForDivision(div, menuList).map((t, idx) => ({
+      ...t,
+      id: `${date}-${div}-t-${idx}`
+    }));
+
     sops.push({
       id: `${date}-${div}`,
       date,
       division: div,
       creatorRole: creatorInfo.role,
       creatorName,
-      tasks: getDefaultTasksForDivision(div, menuList),
+      tasks: defaultTasks,
       isCheckedAll: false,
       signerSupervisor: creatorName,
       signatureSupervisorUrl: '',

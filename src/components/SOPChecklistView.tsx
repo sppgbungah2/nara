@@ -12,6 +12,7 @@ interface SOPChecklistViewProps {
   currentUsername: string;
   onUpdateSOP: (updatedSOP: SOPDocument) => void;
   onBack: () => void;
+  isCoordinator?: boolean;
 }
 
 export default function SOPChecklistView({ 
@@ -20,7 +21,8 @@ export default function SOPChecklistView({
   currentUserRole, 
   currentUsername, 
   onUpdateSOP, 
-  onBack 
+  onBack,
+  isCoordinator = false
 }: SOPChecklistViewProps) {
   const [activeSignType, setActiveSignType] = useState<'supervisor' | 'coordinator' | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
@@ -91,6 +93,7 @@ export default function SOPChecklistView({
         ...sop,
         signatureSupervisorUrl: dataUrl,
         signedSupervisorAt: timestamp,
+        signerSupervisor: currentUsername || sop.signerSupervisor,
         updatedAt: new Date().toISOString()
       });
     } else if (activeSignType === 'coordinator') {
@@ -98,6 +101,7 @@ export default function SOPChecklistView({
         ...sop,
         signatureCoordinatorUrl: dataUrl,
         signedCoordinatorAt: timestamp,
+        signerCoordinator: currentUsername || sop.signerCoordinator,
         updatedAt: new Date().toISOString()
       });
     }
@@ -192,13 +196,20 @@ export default function SOPChecklistView({
     <div className="space-y-6">
       {/* Upper navigation actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 no-print bg-neutral-50 p-4 rounded-2xl border border-neutral-100">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 font-semibold transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Kembali ke Dashboard
-        </button>
+        {isCoordinator ? (
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl font-sans">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            Halaman Kerja SOP Digital - {sop.division}
+          </div>
+        ) : (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 font-semibold transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Dashboard
+          </button>
+        )}
 
         <div className="flex items-center gap-2">
           <button
@@ -516,13 +527,19 @@ export default function SOPChecklistView({
                   <div className="h-16 w-36 border border-dashed border-neutral-200 rounded-lg flex items-center justify-center bg-neutral-50">
                     <span className="text-[10px] text-neutral-400 italic">Belum Ditandatangani</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenSignaturePad('supervisor')}
-                    className="bg-emerald-800/90 hover:bg-emerald-800 text-white text-[10px] font-extrabold px-3 py-1 rounded-sm uppercase tracking-wider"
-                  >
-                    Bubuhkan TTD
-                  </button>
+                  {isCoordinator ? (
+                    <span className="text-[10px] text-neutral-400 italic bg-neutral-100 text-neutral-500 py-1.5 px-3 rounded-md font-sans font-medium border border-neutral-200/50">
+                      Hanya untuk Supervisor
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSignaturePad('supervisor')}
+                      className="bg-emerald-800/90 hover:bg-emerald-800 text-white text-[10px] font-extrabold px-3 py-1 rounded-sm uppercase tracking-wider"
+                    >
+                      Bubuhkan TTD
+                    </button>
+                  )}
                 </div>
               )}
 

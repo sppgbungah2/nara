@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { UserRole } from '../types';
+import { UserRole, Division } from '../types';
 
 const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
@@ -21,6 +21,8 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   fullName: string;
+  isCoordinator?: boolean;
+  coordinatorDivision?: Division;
 }
 
 // Map emails or user UIDs to the relevant operational role in SPPG Kitchen
@@ -34,6 +36,84 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       email: 'maghfurmunif@gmail.com',
       role: UserRole.ADMIN,
       fullName: 'Ustadz Maghfur Munif (Admin Utama)'
+    };
+  }
+
+  // Predefined convenience coordinator accounts
+  if (normEmail === 'stocking@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.CHEF,
+      fullName: 'Koordinator Stocking',
+      isCoordinator: true,
+      coordinatorDivision: Division.STOCKING
+    };
+  }
+
+  if (normEmail === 'persiapan@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.CHEF,
+      fullName: 'Koordinator Persiapan',
+      isCoordinator: true,
+      coordinatorDivision: Division.STOCKING
+    };
+  }
+
+  if (normEmail === 'masak@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.CHEF,
+      fullName: 'Koordinator Masak',
+      isCoordinator: true,
+      coordinatorDivision: Division.MASAK
+    };
+  }
+
+  if (normEmail === 'driver@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ASLAP,
+      fullName: 'Koordinator Driver (Distribusi)',
+      isCoordinator: true,
+      coordinatorDivision: Division.DRIVER
+    };
+  }
+
+  if (normEmail === 'cuci@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ASLAP,
+      fullName: 'Koordinator Cuci Ompreng',
+      isCoordinator: true,
+      coordinatorDivision: Division.CUCI
+    };
+  }
+
+  if (normEmail === 'kebersihan@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ASLAP,
+      fullName: 'Koordinator Kebersihan & Sanitasi',
+      isCoordinator: true,
+      coordinatorDivision: Division.KEBERSIHAN
+    };
+  }
+
+  if (normEmail === 'kemanan@sppg.com' || normEmail === 'keamanan@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ASLAP,
+      fullName: 'Koordinator Keamanan & Utility',
+      isCoordinator: true,
+      coordinatorDivision: Division.KEAMANAN
     };
   }
 

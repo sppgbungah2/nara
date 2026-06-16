@@ -1,15 +1,38 @@
 import React, { useState } from 'react';
 import { 
   Package, Wrench, ShieldCheck, ShoppingCart, Truck, Calendar, Sparkles,
-  Camera, Users, FileText, CheckCircle, Search, AlertCircle, Plus, ClipboardCheck, ArrowRight
+  Camera, Users, FileText, CheckCircle, Search, AlertCircle, Plus, ClipboardCheck, ArrowRight,
+  Trash2, Loader2, RefreshCw
 } from 'lucide-react';
+import { DayMenu, UserRole } from '../types';
 
 interface MockModulesProps {
   moduleIndex: number;
   onSetMenu: (date: string, items: string[]) => void;
+  allDayMenus?: DayMenu[];
+  onSaveMenu?: (date: string, menuList: string[]) => void;
+  onGenerateSOPs?: (date: string, menuList: string[]) => void;
+  onDeleteMenu?: (date: string) => void;
+  currentUserRole?: UserRole;
 }
 
-export default function MockModules({ moduleIndex, onSetMenu }: MockModulesProps) {
+const PRESET_SUGGESTIONS = [
+  { name: 'Nasi Krawu Bungah', items: ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng', 'Pisang'] },
+  { name: 'Soto Lamongan Mantap', items: ['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'] },
+  { name: 'Ayam Geprek Pedas', items: ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'] },
+  { name: 'Rawon Sapi Tradisional', items: ['Nasi Putih', 'Rawon Daging Sapi', 'Mendol Tempe', 'Kecambah Segar & Nipis', 'Semangka Merah'] },
+  { name: 'Gulai Bandeng Segar', items: ['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'] }
+];
+
+export default function MockModules({ 
+  moduleIndex, 
+  onSetMenu,
+  allDayMenus = [],
+  onSaveMenu,
+  onGenerateSOPs,
+  onDeleteMenu,
+  currentUserRole
+}: MockModulesProps) {
   // Common states
   const [searchTerm, setSearchTerm] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -447,23 +470,77 @@ export default function MockModules({ moduleIndex, onSetMenu }: MockModulesProps
         </div>
       );
 
-    case 10: // Menu Harian
+    case 10: // Menu Harian Gizi Ponpes
+      const [localSchedDate, setLocalSchedDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 2); // default to Day H+2
+        return d.toISOString().split('T')[0];
+      });
+      const [localSchedItems, setLocalSchedItems] = useState<string[]>([]);
+      const [localItemInput, setLocalItemInput] = useState('');
+      const [isSavingSched, setIsSavingSched] = useState(false);
+
+      const handleAddLocalItem = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!localItemInput.trim()) return;
+        setLocalSchedItems([...localSchedItems, localItemInput.trim()]);
+        setLocalItemInput('');
+      };
+
+      const handlePresetLocalSched = (presetItems: string[]) => {
+        setLocalSchedItems([...presetItems]);
+      };
+
+      const handleLocalSubmitSchedule = () => {
+        if (!localSchedDate) {
+          alert('Silakan pilih tanggal terlebih dahulu!');
+          return;
+        }
+        if (localSchedItems.length === 0) {
+          alert('Masukkan minimal 1 hidangan makanan gizi untuk dijadwalkan!');
+          return;
+        }
+        if (!onSaveMenu || !onGenerateSOPs) {
+          alert('Fasilitas penyimpanan data sandboxed!');
+          return;
+        }
+
+        setIsSavingSched(true);
+        setTimeout(() => {
+          onSaveMenu(localSchedDate, localSchedItems);
+          onGenerateSOPs(localSchedDate, localSchedItems);
+          setIsSavingSched(false);
+          triggerSuccessMsg(`Jadwal Menu & SOP baru untuk tanggal ${localSchedDate} berhasil diterbitkan & diunggah ke database!`);
+          setLocalSchedItems([]);
+        }, 1000);
+      };
+
+      const getIndoDayName = (dateStr: string) => {
+        try {
+          const parts = dateStr.split('-');
+          const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+          return `${days[date.getDay()]}, ${parts[2]} ${months[date.getMonth()]}`;
+        } catch (e) {
+          return dateStr;
+        }
+      };
+
       return (
         <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h2 className="text-xl font-bold font-sans text-neutral-800 flex items-center gap-2">
                 <Calendar className="h-6 w-6 text-emerald-700" />
-                Menu Harian Gizi Ponpes SPPG
+                Menu Harian Gizi Ponpes SPPG (Data Real-Time Cloud)
               </h2>
-              <p className="text-xs text-neutral-500">Berikut adalah jadwal menu harian gizi tinggi yang diunggah oleh Ahli Gizi Pesantren.</p>
+              <p className="text-xs text-neutral-500">Jadwal menu gizi santri yang disinkronkan langsung dengan sops dan database Supabase.</p>
             </div>
-            <button
-              onClick={() => triggerSuccessMsg("Fungsi penyusunan jadwal menu gizi baru telah dibuka!")}
-              className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold px-4 py-2 rounded-lg"
-            >
-              + Buat Menu Baru
-            </button>
+            
+            <span className="bg-emerald-50 text-[10px] text-emerald-800 uppercase tracking-widest font-extrabold px-3 py-1 rounded font-mono">
+              ROLE: {currentUserRole}
+            </span>
           </div>
 
           {successMsg && (
@@ -472,42 +549,164 @@ export default function MockModules({ moduleIndex, onSetMenu }: MockModulesProps
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {[
-              { day: 'Senin, 15 Juni', color: 'bg-emerald-50/70 border-emerald-300', menu: ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'], cal: '580 Kcal' },
-              { day: 'Selasa, 16 Juni', color: 'bg-indigo-50/70 border-indigo-300', menu: ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng', 'Pisang'], cal: '620 Kcal' },
-              { day: 'Rabu, 17 Juni', color: 'bg-amber-50/70 border-amber-300', menu: ['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'], cal: '600 Kcal' },
-              { day: 'Kamis, 18 Juni', color: 'bg-orange-50/70 border-orange-300', menu: ['Nasi Putih', 'Rawon Daging Sapi', 'Mendol Tempe', 'Kecambah Segar & Nipis', 'Semangka Merah'], cal: '640 Kcal' },
-              { day: 'Jumat, 19 Juni', color: 'bg-pink-50/70 border-pink-300', menu: ['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'], cal: '590 Kcal' }
-            ].map((mn, idx) => (
-              <div key={idx} className={`border p-4 rounded-xl shadow-xs flex flex-col justify-between ${mn.color}`}>
-                <div>
-                  <span className="font-bold text-xs text-neutral-800 block mb-2">{mn.day}</span>
-                  <ul className="space-y-1.5 text-xs text-neutral-600">
-                    {mn.menu.map((food, i) => (
-                      <li key={i} className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                        {food}
-                      </li>
-                    ))}
-                  </ul>
+          {/* scheduler form for admins */}
+          {currentUserRole === UserRole.ADMIN && (
+            <div className="bg-neutral-50 p-5 rounded-2xl border border-neutral-200/50 space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider font-mono text-emerald-900">
+                  📅 Tambah & Jadwalkan Menu Hari Selanjutnya (Tanggal Esok+)
+                </h3>
+                <span className="text-[9px] bg-neutral-200 text-neutral-600 font-bold px-1.5 py-0.5 rounded">ADMIN PANEL</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 text-xs">
+                {/* select date & presets */}
+                <div className="md:col-span-5 space-y-3.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1">Pilih Tanggal Selanjutnya</label>
+                    <input 
+                      type="date"
+                      value={localSchedDate}
+                      onChange={e => setLocalSchedDate(e.target.value)}
+                      className="w-full bg-white border border-neutral-200 p-2 rounded-lg font-mono font-bold text-neutral-800"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide">Pilih Paket Templat:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {PRESET_SUGGESTIONS.map((preset, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handlePresetLocalSched(preset.items)}
+                          className="bg-white hover:bg-emerald-800 hover:text-white border border-neutral-200 text-[10px] py-1 px-2.5 rounded transition-all truncate"
+                        >
+                          {preset.name.split(' ')[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-4 pt-2 border-t border-neutral-200/50 flex items-center justify-between">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-neutral-900/10 font-bold uppercase tracking-wide text-neutral-800">{mn.cal}</span>
-                  <button 
-                    onClick={() => {
-                        const dateMap: any = {0: '2026-06-15', 1: '2026-06-16', 2: '2026-06-17', 3: '2026-06-18', 4: '2026-06-19'};
-                        onSetMenu(dateMap[idx], mn.menu);
-                        triggerSuccessMsg(`SOP untuk tanggal tersebut disinkronkan dengan menu: ${mn.menu.join(', ')}!`);
-                    }}
-                    className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold flex items-center gap-0.5"
-                    title="Gunakan menu ini untuk meregenerasi atau membuat SOP"
-                  >
-                    Tulis SOP <ArrowRight className="h-3 w-3" />
-                  </button>
+
+                {/* list editor */}
+                <div className="md:col-span-7 space-y-3 border-l border-neutral-200/50 pl-0 md:pl-5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1">Draf Items Makanan</label>
+                    <form onSubmit={handleAddLocalItem} className="flex gap-2">
+                      <input 
+                        type="text"
+                        value={localItemInput}
+                        onChange={e => setLocalItemInput(e.target.value)}
+                        placeholder="Contoh: Tempe Goreng Mendoan..."
+                        className="flex-1 bg-white border border-neutral-200 px-3 py-1.5 rounded-lg text-xs"
+                      />
+                      <button type="submit" className="bg-neutral-800 text-white text-xs font-bold px-4 py-1.5 rounded-lg shrink-0">
+                        Tambah
+                      </button>
+                    </form>
+                  </div>
+
+                  {localSchedItems.length === 0 ? (
+                    <div className="p-6 border border-dashed border-neutral-200 rounded-xl bg-white text-center text-neutral-400 text-[11px]">
+                      Belum ada draf. Ketuk templat paket menu di sebelah kiri atau ketik hidangan mandiri.
+                    </div>
+                  ) : (
+                    <div className="bg-white border rounded-xl overflow-hidden divide-y divide-neutral-100 max-h-[120px] overflow-y-auto">
+                      {localSchedItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 text-neutral-700 text-xs">
+                          <span className="font-semibold flex items-center gap-1.5 text-neutral-800">
+                            <span className="w-4 h-4 bg-neutral-100 rounded-full flex items-center justify-center font-bold text-[9px] text-neutral-500">{idx+1}</span>
+                            {item}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setLocalSchedItems(localSchedItems.filter((_, i) => i !== idx))}
+                            className="text-neutral-400 hover:text-red-500 font-bold px-1"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-right pt-2 border-t border-neutral-200/30">
+                    <button
+                      type="button"
+                      onClick={handleLocalSubmitSchedule}
+                      className="bg-emerald-800 hover:bg-emerald-900 active:bg-emerald-950 font-bold font-mono text-white text-[10.5px] px-4 py-2 rounded-lg inline-flex items-center gap-1.5 tracking-wider transition-all"
+                    >
+                      {isSavingSched ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                      PUBLIKASIKAN JADWAL MENU ({localSchedDate})
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* grid listing of our real menus */}
+          <div className="space-y-3">
+            <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider font-mono">
+              📚 DAFTAR JADWAL MENU SAAT INI DI DATABASE ({allDayMenus.length} Hari Terbit)
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+              {[...allDayMenus]
+                .sort((a,b) => a.date.localeCompare(b.date))
+                .map((mn, idx) => (
+                <div 
+                  key={mn.date} 
+                  className={`border p-4 rounded-xl shadow-xs flex flex-col justify-between bg-white border-neutral-200 hover:border-emerald-600 hover:shadow-xs transition-all relative`}
+                >
+                  {/* Delete Button for Admin */}
+                  {currentUserRole === UserRole.ADMIN && onDeleteMenu && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteMenu(mn.date);
+                      }}
+                      className="absolute top-2.5 right-2.5 p-1 text-neutral-300 hover:text-red-600 rounded bg-neutral-50 hover:bg-red-50 border border-transparent hover:border-red-100 transition-all text-[11px]"
+                      title="Hapus menu gizi ini"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+
+                  <div>
+                    <span className="font-bold text-xs text-neutral-900 block mb-2 font-display pr-5">
+                      {getIndoDayName(mn.date)}
+                    </span>
+                    <ul className="space-y-1 text-xs text-neutral-600">
+                      {mn.menuList.map((food, i) => (
+                        <li key={i} className="flex items-center gap-1.5 truncate">
+                          <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0"></span>
+                          <span className="truncate text-[11.5px]">{food}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-4 pt-2.5 border-t border-neutral-100 flex items-center justify-between">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700 font-mono">
+                      620 Kcal
+                    </span>
+                    <button 
+                      onClick={() => {
+                        onSetMenu(mn.date, mn.menuList);
+                        triggerSuccessMsg(`SOP untuk tanggal ${mn.date} diaktifkan dengan menu: ${mn.menuList.join(', ')}!`);
+                      }}
+                      className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold flex items-center gap-0.5 hover:underline"
+                      title="Aktifkan menu dan tampilkan SOP harian"
+                    >
+                      Gunakan SOP <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       );

@@ -39,8 +39,99 @@ export default function App() {
   // Mobile navigation drawer toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const getTabFromPage = (pageName: string): number => {
+    const norm = pageName.toLowerCase().trim();
+    if (norm === 'sop') return 15;
+    if (norm === 'keluhan') return 14;
+    if (norm === 'order-alat' || norm === 'order_alat') return 4;
+    if (norm === 'order-operasional' || norm === 'order_operasional') return 5;
+    return 15; // default to SOP
+  };
+
+  const getPageFromTab = (tabNum: number): string => {
+    if (tabNum === 15) return 'sop';
+    if (tabNum === 14) return 'keluhan';
+    if (tabNum === 4) return 'order-alat';
+    if (tabNum === 5) return 'order-operasional';
+    return '';
+  };
+
+  // Listen for route changes (hash route: #/prefix/page)
+  useEffect(() => {
+    const handleRouteChange = () => {
+      let path = window.location.hash.replace(/^#\/?/, '/');
+      if (!path || path === '/') {
+        path = window.location.pathname;
+      }
+      
+      if (!path || path === '/') return;
+      
+      const parts = path.split('/').filter(Boolean); // e.g. ["aslap", "sop"]
+      if (parts.length >= 1) {
+        // Find which page we are on
+        const page = parts[1] || 'sop';
+        const tab = getTabFromPage(page);
+        setActiveTab(tab);
+      }
+    };
+
+    window.addEventListener('hashchange', handleRouteChange);
+    handleRouteChange(); // Run on mount
+
+    return () => window.removeEventListener('hashchange', handleRouteChange);
+  }, []);
+
+  // Update browser URL hash when tab changes
+  useEffect(() => {
+    if (!loggedInUser) return;
+    
+    let prefix = 'user';
+    if (loggedInUser.isCoordinator && loggedInUser.coordinatorDivision) {
+      // Map division to short prefix
+      const div = loggedInUser.coordinatorDivision;
+      if (div === Division.STOCKING) prefix = 'stocking';
+      else if (div === Division.MASAK) prefix = 'masak';
+      else if (div === Division.DRIVER) prefix = 'driver';
+      else if (div === Division.CUCI) prefix = 'cuci';
+      else if (div === Division.KEBERSIHAN) prefix = 'kebersihan';
+      else if (div === Division.KEAMANAN) prefix = 'keamanan';
+    } else {
+      // For Admin, Chef, Ahli Gizi, Aslap, map their role as prefix
+      const role = loggedInUser.role;
+      if (role === UserRole.CHEF) prefix = 'chef';
+      else if (role === UserRole.AHLI_GIZI) prefix = 'gizi';
+      else if (role === UserRole.ASLAP) prefix = 'aslap';
+      else if (role === UserRole.ADMIN) prefix = 'admin';
+    }
+    
+    const page = getPageFromTab(activeTab);
+    if (page) {
+      const newHash = `#/${prefix}/${page}`;
+      if (window.location.hash !== newHash) {
+        window.history.pushState(null, '', newHash);
+      }
+    }
+  }, [activeTab, loggedInUser]);
+
+  // Automatically load the coordinator's specific division's SOP checklist in active detail view
+  useEffect(() => {
+    if (loggedInUser?.isCoordinator && loggedInUser?.coordinatorDivision && activeTab === 15) {
+      const matchedSOP = sops.find(s => s.date === selectedDate && s.division === loggedInUser.coordinatorDivision);
+      if (matchedSOP) {
+        setActiveSopDetail(matchedSOP);
+      } else {
+        setActiveSopDetail(null);
+      }
+    }
+  }, [loggedInUser, selectedDate, sops, activeTab]);
+
   // Synchronise usernames based on active role
   useEffect(() => {
+    if (loggedInUser?.isCoordinator) {
+      // Keep name mapped directly from login profile
+      setCurrentUsername(loggedInUser.fullName);
+      return;
+    }
     switch (currentUserRole) {
       case UserRole.CHEF:
         setCurrentUsername('Chef Ahmad (Head Chef)');
@@ -55,7 +146,7 @@ export default function App() {
         setCurrentUsername('Admin Utama SPPG');
         break;
     }
-  }, [currentUserRole]);
+  }, [currentUserRole, loggedInUser]);
 
   // Try to recover the active Supabase session on startup
   useEffect(() => {
@@ -383,14 +474,46 @@ export default function App() {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from('day_menus').upsert({
+        const { error } = await supabase.from('day_menus').upsert({
           date,
           menu_list: menuList,
           created_at: newMenu.createdAt,
           created_by: newMenu.createdBy
         });
+        if (error) {
+          console.error('Failed to save menu on Supabase:', error);
+          alert('Gagal menyimpan menu ke Supabase: ' + error.message);
+        } else {
+          console.log('Successfully saved menu on Supabase:', date);
+        }
       } catch (e) {
         console.error('Failed to save menu to Supabase:', e);
+      }
+    }
+  };
+
+  const handleDeleteMenu = async (date: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus menu dan semua SOP digital untuk tanggal ${date}?`)) {
+      return;
+    }
+
+    // Update local state immediately
+    setDayMenus(prev => prev.filter(m => m.date !== date));
+    setSops(prev => prev.filter(s => s.date !== date));
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error: errMenu } = await supabase.from('day_menus').delete().eq('date', date);
+        const { error: errSops } = await supabase.from('sops').delete().eq('date', date);
+        
+        if (errMenu || errSops) {
+          console.error('Supabase deletion error:', errMenu || errSops);
+          alert('Gagal menghapus data dari Supabase: ' + (errMenu?.message || errSops?.message));
+        } else {
+          console.log('Successfully deleted menu and SOPs from Supabase:', date);
+        }
+      } catch (e) {
+        console.error('Failed to delete menu on Supabase:', e);
       }
     }
   };
@@ -410,7 +533,12 @@ export default function App() {
     if (isSupabaseConfigured && supabase) {
       try {
         // Cascade delete old sops for this date (cascade deletes tasks as well)
-        await supabase.from('sops').delete().eq('date', date);
+        const { error: delErr } = await supabase.from('sops').delete().eq('date', date);
+        if (delErr) {
+          console.error('Failed to delete old SOPs:', delErr);
+          alert('Gagal menghapus SOP lama: ' + delErr.message);
+          return;
+        }
 
         const sopsPayload = generated.map(s => ({
           id: s.id,
@@ -443,10 +571,22 @@ export default function App() {
           });
         });
 
-        await supabase.from('sops').insert(sopsPayload);
-        if (tasksPayload.length > 0) {
-          await supabase.from('sop_tasks').insert(tasksPayload);
+        const { error: sopsErr } = await supabase.from('sops').insert(sopsPayload);
+        if (sopsErr) {
+          console.error('Failed to insert new SOPs:', sopsErr);
+          alert('Gagal menyisipkan SOP baru: ' + sopsErr.message);
+          return;
         }
+
+        if (tasksPayload.length > 0) {
+          const { error: tasksErr } = await supabase.from('sop_tasks').insert(tasksPayload);
+          if (tasksErr) {
+            console.error('Failed to insert initial tasks:', tasksErr);
+            alert('Gagal menyisipkan tugas SOP baru: ' + tasksErr.message);
+            return;
+          }
+        }
+        console.log('Successfully generated and saved initial SOPs on Supabase for:', date);
       } catch (e) {
         console.error('Failed to generate template SOPs on Supabase:', e);
       }
@@ -464,7 +604,7 @@ export default function App() {
     if (isSupabaseConfigured && supabase) {
       try {
         // Upsert SOP header
-        await supabase.from('sops').upsert({
+        const { error: headerErr } = await supabase.from('sops').upsert({
           id: updatedSOP.id,
           date: updatedSOP.date,
           division: updatedSOP.division,
@@ -481,8 +621,19 @@ export default function App() {
           updated_at: updatedSOP.updatedAt
         });
 
+        if (headerErr) {
+          console.error('Failed to update SOP header on Supabase:', headerErr);
+          alert('Gagal menyinkronkan data SOP ke Supabase: ' + headerErr.message);
+          return;
+        }
+
         // Delete all old tasks for this specific SOP and insert the new list
-        await supabase.from('sop_tasks').delete().eq('sop_id', updatedSOP.id);
+        const { error: delTasksErr } = await supabase.from('sop_tasks').delete().eq('sop_id', updatedSOP.id);
+        if (delTasksErr) {
+          console.error('Failed to delete old tasks for SOP on Supabase:', delTasksErr);
+          alert('Gagal menyinkronkan tugas SOP ke Supabase: ' + delTasksErr.message);
+          return;
+        }
 
         const tasksPayload = updatedSOP.tasks.map((t, idx) => ({
           id: t.id,
@@ -494,8 +645,14 @@ export default function App() {
         }));
 
         if (tasksPayload.length > 0) {
-          await supabase.from('sop_tasks').insert(tasksPayload);
+          const { error: insTasksErr } = await supabase.from('sop_tasks').insert(tasksPayload);
+          if (insTasksErr) {
+            console.error('Failed to insert updated tasks on Supabase:', insTasksErr);
+            alert('Gagal memperbarui rincian tugas SOP di Supabase: ' + insTasksErr.message);
+            return;
+          }
         }
+        console.log('Successfully synchronized SOP details with Supabase:', updatedSOP.id);
       } catch (e) {
         console.error('Failed to synchronize status with Supabase:', e);
       }
@@ -545,10 +702,17 @@ export default function App() {
           setLoggedInUser(profile);
           setCurrentUserRole(profile.role);
           setCurrentUsername(profile.fullName);
+          if (profile.isCoordinator) {
+            setActiveTab(15);
+          }
         }} 
       />
     );
   }
+
+  const visibleMenus = loggedInUser.isCoordinator
+    ? FEATURE_MENUS.filter(menu => [15, 14, 4, 5].includes(menu.num))
+    : FEATURE_MENUS;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-neutral-800">
@@ -566,7 +730,7 @@ export default function App() {
         id="nav-sidebar" 
         className={`w-72 bg-neutral-900 text-white shrink-0 shadow-lg flex flex-col border-r border-[#151c2c] fixed md:relative inset-y-0 left-0 z-[99] transform ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        } transition-transform duration-300 ease-in-out md:flex`}
+         } transition-transform duration-300 ease-in-out md:flex`}
       >
         {/* Boarding school branding */}
         <div className="p-5 border-b border-[#252f44] bg-[#0c1421] flex items-center justify-between gap-3">
@@ -599,7 +763,7 @@ export default function App() {
             Modul Operasional
           </div>
           <div className="space-y-1">
-            {FEATURE_MENUS.map((menu) => {
+            {visibleMenus.map((menu) => {
               const IconComp = menu.icon;
               const isSelected = activeTab === menu.num;
               
@@ -714,6 +878,11 @@ export default function App() {
             <MockModules 
               moduleIndex={activeTab} 
               onSetMenu={syncMenuFromSchedule}
+              allDayMenus={dayMenus}
+              onSaveMenu={handleSaveMenu}
+              onGenerateSOPs={handleGenerateSOPs}
+              onDeleteMenu={handleDeleteMenu}
+              currentUserRole={currentUserRole}
             />
           ) : activeSopDetail ? (
             /* Render Full-depth checklist printed form sheet */
@@ -724,7 +893,37 @@ export default function App() {
               currentUsername={currentUsername}
               onUpdateSOP={handleUpdateSOP}
               onBack={() => setActiveSopDetail(null)}
+              isCoordinator={loggedInUser?.isCoordinator}
             />
+          ) : loggedInUser.isCoordinator ? (
+            /* Coordinator Empty State: No SOP generated for this date yet */
+            <div className="bg-white p-12 rounded-3xl border border-neutral-100 shadow-xl text-center space-y-6 max-w-2xl mx-auto my-12">
+              <div className="w-16 h-16 bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center mx-auto text-amber-600">
+                <ShieldAlert className="w-8 h-8 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-neutral-800">
+                  Lembar Kerja SOP Belum Dirilis
+                </h3>
+                <p className="text-sm text-neutral-500">
+                  SOP harian untuk divisi <strong className="text-emerald-800">{loggedInUser.coordinatorDivision}</strong> pada tanggal {selectedDate} belum dipublikasikan oleh Supervisor / Admin.
+                </p>
+              </div>
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={() => {
+                    const menuItems = getMenuForSelectedDate()?.menuList || ['Nasi Putih', 'Lauk Protein', 'Lauk Nabati', 'Sayuran Segar'];
+                    handleGenerateSOPs(selectedDate, menuItems);
+                  }}
+                  className="bg-emerald-800 hover:bg-emerald-950 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-xs transition-colors w-full sm:w-auto"
+                >
+                  Inisialisasi SOP Mandiri
+                </button>
+                <span className="text-xs text-neutral-400">
+                  Atau hubungi Supervisor/Admin Utama di Ruang Admin.
+                </span>
+              </div>
+            </div>
           ) : (
             /* SOP Management Page */
             <div className="space-y-6">
@@ -787,6 +986,9 @@ export default function App() {
                   onUpdateSOP={handleUpdateSOP}
                   allDayMenus={dayMenus}
                   onSelectDate={(date) => setSelectedDate(date)}
+                  onDeleteMenu={handleDeleteMenu}
+                  onSetUserRole={setCurrentUserRole}
+                  onBootstrapDb={bootstrapSupabase}
                 />
               ) : currentSubTab === 'recap' ? (
                 <SOPRecap
