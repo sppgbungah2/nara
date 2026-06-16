@@ -114,7 +114,8 @@ INSERT INTO day_menus (date, menu_list, created_at, created_by) VALUES
 ('2026-06-16', ARRAY['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'], '2026-06-15 08:15:00+07', 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'),
 ('2026-06-17', ARRAY['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'], '2026-06-16 09:00:00+07', 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'),
 ('2026-06-18', ARRAY['Nasi Putih', 'Rawon Daging Sapi', 'Mendol Tempe', 'Kecambah Segar & Nipis', 'Semangka Merah'], '2026-06-17 07:45:00+07', 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'),
-('2026-06-19', ARRAY['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'], '2026-06-18 10:30:00+07', 'Ahli Gizi (Ustadzah Fatimah, S.Gz)');
+('2026-06-19', ARRAY['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'], '2026-06-18 10:30:00+07', 'Ahli Gizi (Ustadzah Fatimah, S.Gz)')
+ON CONFLICT (date) DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- SEED: SOP Headers (Tuesday - 2026-06-16)
@@ -124,7 +125,8 @@ INSERT INTO sops (id, date, division, creator_role, creator_name, is_checked_all
 ('2026-06-16-Masak', '2026-06-16', 'Masak', 'Chef / Juru Masak', 'Chef Ahmad', FALSE, 'Chef Ahmad', 'aktif', '2026-06-16 05:01:00+07'),
 ('2026-06-16-Pemorsian', '2026-06-16', 'Pemorsian', 'Ahli Gizi', 'Ustadzah Fatimah, S.Gz', FALSE, 'Ustadzah Fatimah, S.Gz', 'aktif', '2026-06-16 05:02:00+07'),
 ('2026-06-16-Driver', '2026-06-16', 'Driver', 'Aslap (Asisten Lapangan)', 'Ustadz Hakim, S.Pd (Aslap)', FALSE, 'Ustadz Hakim, S.Pd (Aslap)', 'aktif', '2026-06-16 05:03:00+07'),
-('2026-06-16-Cuci', '2026-06-16', 'Cuci', 'Aslap (Asisten Lapangan)', 'Ustadz Hakim, S.Pd (Aslap)', FALSE, 'Ustadz Hakim, S.Pd (Aslap)', 'aktif', '2026-06-16 05:04:00+07');
+('2026-06-16-Cuci', '2026-06-16', 'Cuci', 'Aslap (Asisten Lapangan)', 'Ustadz Hakim, S.Pd (Aslap)', FALSE, 'Ustadz Hakim, S.Pd (Aslap)', 'aktif', '2026-06-16 05:04:00+07')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- SEED: SOP Tasks
@@ -144,21 +146,24 @@ INSERT INTO sop_tasks (id, sop_id, text, completed, category, sort_order) VALUES
 ('masak-tue-act1', '2026-06-16-Masak', 'Merebus kuah kaldu utama atau menanak dan mengukus nasi putih sejumlah porsi gizi santri.', FALSE, 'aktif', 4),
 ('masak-tue-act2', '2026-06-16-Masak', 'Menggoreng atau menumis protein ayam hingga matang merata di suhu minimal 75°C.', FALSE, 'aktif', 5),
 ('masak-tue-act3', '2026-06-16-Masak', 'Melakukan marinasi tempe/tahu dengan bumbu ketumbar bawang lalu goreng deep-fry hingga kuning keemasan.', FALSE, 'aktif', 6),
-('masak-tue-close1', '2026-06-16-Masak', 'Membersihkan dan mengeringkan seluruh peralatan yang digunakan dalam tugas tim.', FALSE, 'penutup', 7),
-('masak-tue-close2', '2026-06-16-Masak', 'Membersihkan area kerja masing-masing divisi (Meja dapur, lantai, atau kendaraan dsb.) setelah selesai.', FALSE, 'penutup', 8);
+('masak-tue-close1', '2026-06-16-Masak', 'Membersihkan and mengeringkan seluruh peralatan yang digunakan dalam tugas tim.', FALSE, 'penutup', 7),
+('masak-tue-close2', '2026-06-16-Masak', 'Membersihkan area kerja masing-masing divisi (Meja dapur, lantai, atau kendaraan dsb.) setelah selesai.', FALSE, 'penutup', 8)
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- SEED: Supporting Operational Tables
 -- ---------------------------------------------------------------------
-INSERT INTO inventaris_alat (name, quantity, status, label) VALUES
-('Kuali Raksasa Diameter 1.2 Meter', '4 Unit', 'Baik', 'Heavy Duty cooking'),
-('Blender Komersial Heavy Duty 3HP', '2 Unit', 'Butuh Servis', 'Bumbu Halus stocking'),
-('Meja Assembly Lines Premium Stainless 304', '3 Unit', 'Baik', 'Pemorsian'),
-('Lemari Pendingin Industri (Cold Room Freezer)', '1 Unit', 'Baik', 'Penyimpanan Dapur');
+INSERT INTO inventaris_alat (id, name, quantity, status, label) VALUES
+(1, 'Kuali Raksasa Diameter 1.2 Meter', '4 Unit', 'Baik', 'Heavy Duty cooking'),
+(2, 'Blender Komersial Heavy Duty 3HP', '2 Unit', 'Butuh Servis', 'Bumbu Halus stocking'),
+(3, 'Meja Assembly Lines Premium Stainless 304', '3 Unit', 'Baik', 'Pemorsian'),
+(4, 'Lemari Pendingin Industri (Cold Room Freezer)', '1 Unit', 'Baik', 'Penyimpanan Dapur')
+ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO stok_sisa (name, category, quantity, condition, action_plan) VALUES
-('Karkas Ayam Broiler', 'Protein Basah', '4.5 Kg', 'Sangat Segar (Chiller)', 'Masuk Menu Masak Esok Hari'),
-('Bawang Merah Kupas', 'Bumbu Dapur', '12.0 Kg', 'Kering, Bagus', 'Gunakan untuk Stocking Persiapan');`;
+INSERT INTO stok_sisa (id, name, category, quantity, condition, action_plan) VALUES
+(1, 'Karkas Ayam Broiler', 'Protein Basah', '4.5 Kg', 'Sangat Segar (Chiller)', 'Masuk Menu Masak Esok Hari'),
+(2, 'Bawang Merah Kupas', 'Bumbu Dapur', '12.0 Kg', 'Kering, Bagus', 'Gunakan untuk Stocking Persiapan')
+ON CONFLICT (id) DO NOTHING;`;
 
   const fullQuery = `-- =====================================================================
 -- DATABASE SCHEMA & DUMMY DATA FOR SUPABASE (POSTGRESQL)

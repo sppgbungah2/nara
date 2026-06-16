@@ -85,76 +85,287 @@ export default function App() {
     }
   }, []);
 
-  // Initial Seeding: Seed historical Monday (completed) and Tuesday (active) SOPs
+  // Bootstrap Supabase with baseline preset-menus and SOP checklists if empty
+  const bootstrapSupabase = async () => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      console.log('Bootstrapping Supabase database tables with baseline values...');
+      
+      // 1. Seed day_menus
+      const menuPayload = PRESET_MENUS.map(m => ({
+        date: m.date,
+        menu_list: m.menuList,
+        created_at: m.createdAt,
+        created_by: m.createdBy
+      }));
+      await supabase.from('day_menus').upsert(menuPayload);
+
+      // 2. Generate initial blank/completed SOP documents
+      const initialSopsInDatabase: any[] = [];
+      const initialTasksInDatabase: any[] = [];
+
+      // Monday 2026-06-15 sops (Seeded as completed & signed)
+      const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
+      Object.values(Division).forEach((div) => {
+        const creatorInfo = DIVISION_CREATOR_MAP[div];
+        const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+        
+        const sopId = `2026-06-15-${div}`;
+        initialSopsInDatabase.push({
+          id: sopId,
+          date: '2026-06-15',
+          division: div,
+          creator_role: creatorInfo.role,
+          creator_name: supervisorName,
+          is_checked_all: true,
+          signer_supervisor: supervisorName,
+          signature_supervisor_url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
+          signed_supervisor_at: '15/06/2026, 08.00 WIB',
+          signer_coordinator: `Koordinator ${div.split(' ')[0]}`,
+          signature_coordinator_url: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
+          signed_coordinator_at: '15/06/2026, 08.30 WIB',
+          status: 'selesai',
+          updated_at: '2026-06-15T08:30:00Z'
+        });
+
+        const defaultTasks = generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks || [];
+        defaultTasks.forEach((t: any, idx: number) => {
+          initialTasksInDatabase.push({
+            id: `${sopId}-t-${idx}`,
+            sop_id: sopId,
+            text: t.text,
+            completed: true,
+            category: t.category,
+            sort_order: idx
+          });
+        });
+      });
+
+      // Tuesday 2026-06-16 sops (Active, pre-checked partial)
+      const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
+      Object.values(Division).forEach((div) => {
+        const creatorInfo = DIVISION_CREATOR_MAP[div];
+        const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+        
+        const sopId = `2026-06-16-${div}`;
+        initialSopsInDatabase.push({
+          id: sopId,
+          date: '2026-06-16',
+          division: div,
+          creator_role: creatorInfo.role,
+          creator_name: supervisorName,
+          is_checked_all: false,
+          signer_supervisor: supervisorName,
+          signature_supervisor_url: '',
+          signed_supervisor_at: null,
+          signer_coordinator: `Koordinator ${div.split(' ')[0]}`,
+          signature_coordinator_url: '',
+          signed_coordinator_at: null,
+          status: 'aktif',
+          updated_at: '2026-06-16T05:00:00Z'
+        });
+
+        const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
+        defaultTasks.forEach((t: any, idx: number) => {
+          initialTasksInDatabase.push({
+            id: `${sopId}-t-${idx}`,
+            sop_id: sopId,
+            text: t.text,
+            completed: idx < 3,
+            category: t.category,
+            sort_order: idx
+          });
+        });
+      });
+
+      await supabase.from('sops').upsert(initialSopsInDatabase);
+      await supabase.from('sop_tasks').upsert(initialTasksInDatabase);
+      console.log('Bootstrapping Supabase database completed successfully!');
+    } catch (e) {
+      console.error('Failed to bootstrap Supabase:', e);
+    }
+  };
+
+  // Load data from Supabase if configured or fall back to mock memory
   useEffect(() => {
-    // 1. Prepare historical Completed Monday (2026-06-15)
-    const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
-    const seededSOPs: SOPDocument[] = [];
+    async function loadAllFromSupabase() {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data: menuData, error: menuErr } = await supabase
+            .from('day_menus')
+            .select('*')
+            .order('date', { ascending: true });
+          
+          if (menuErr) throw menuErr;
 
-    // Monday - Seed as all completed and signed!
-    Object.values(Division).forEach((div, idx) => {
-      const creatorInfo = DIVISION_CREATOR_MAP[div];
-      let supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                          creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
-      
-      const monSOP: SOPDocument = {
-        id: `2026-06-15-${div}`,
-        date: '2026-06-15',
-        division: div,
-        creatorRole: creatorInfo.role,
-        creatorName: supervisorName,
-        tasks: generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks.map((t: any) => ({ ...t, completed: true })) || [],
-        isCheckedAll: true,
-        signerSupervisor: supervisorName,
-        signatureSupervisorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
-        signedSupervisorAt: '15/06/2026, 08.00 WIB',
-        signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
-        signatureCoordinatorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
-        signedCoordinatorAt: '15/06/2026, 08.30 WIB',
-        status: 'selesai',
-        updatedAt: '2026-06-15T08:30:00Z'
-      };
-      seededSOPs.push(monSOP);
-    });
+          const { data: sopData, error: sopErr } = await supabase
+            .from('sops')
+            .select('*')
+            .order('date', { ascending: true });
 
-    // 2. Prepare today's Active Tuesday (2026-06-16) (Partially completed to showcase progress!)
-    const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
-    Object.values(Division).forEach((div, idx) => {
-      const creatorInfo = DIVISION_CREATOR_MAP[div];
-      let supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                          creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
-      
-      // Some finished tasks
-      const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
-      const populatedTasks = defaultTasks.map((t: any, i: number) => 
-        i < 3 ? { ...t, completed: true } : t // Pre-check the first three items (Preparation stage)
-      );
+          if (sopErr) throw sopErr;
 
-      const tueSOP: SOPDocument = {
-        id: `2026-06-16-${div}`,
-        date: '2026-06-16',
-        division: div,
-        creatorRole: creatorInfo.role,
-        creatorName: supervisorName,
-        tasks: populatedTasks,
-        isCheckedAll: false,
-        signerSupervisor: supervisorName,
-        signatureSupervisorUrl: '',
-        signedSupervisorAt: null,
-        signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
-        signatureCoordinatorUrl: '',
-        signedCoordinatorAt: null,
-        status: 'aktif',
-        updatedAt: '2026-06-16T05:00:00Z'
-      };
-      seededSOPs.push(tueSOP);
-    });
+          const { data: taskData, error: taskErr } = await supabase
+            .from('sop_tasks')
+            .select('*')
+            .order('sort_order', { ascending: true });
 
-    setSops(seededSOPs);
-  }, []);
+          if (taskErr) throw taskErr;
+
+          if (menuData && menuData.length > 0) {
+            // Re-format day menus
+            const formattedMenus: DayMenu[] = menuData.map((m: any) => ({
+              date: m.date,
+              menuList: m.menu_list || [],
+              createdAt: m.created_at,
+              createdBy: m.created_by as UserRole
+            }));
+            setDayMenus(formattedMenus);
+
+            // Re-format SOP Documents
+            const formattedSops: SOPDocument[] = (sopData || []).map((s: any) => {
+              const matchedTasks = (taskData || [])
+                .filter((t: any) => t.sop_id === s.id)
+                .map((t: any) => ({
+                  id: t.id,
+                  text: t.text,
+                  completed: t.completed,
+                  category: t.category as 'persiapan' | 'aktif' | 'penutup'
+                }));
+
+              return {
+                id: s.id,
+                date: s.date,
+                division: s.division as Division,
+                creatorRole: s.creator_role as UserRole,
+                creatorName: s.creator_name,
+                tasks: matchedTasks,
+                isCheckedAll: s.is_checked_all,
+                signerSupervisor: s.signer_supervisor || '',
+                signatureSupervisorUrl: s.signature_supervisor_url || '',
+                signedSupervisorAt: s.signed_supervisor_at || null,
+                signerCoordinator: s.signer_coordinator || '',
+                signatureCoordinatorUrl: s.signature_coordinator_url || '',
+                signedCoordinatorAt: s.signed_coordinator_at || null,
+                status: s.status as 'aktif' | 'selesai',
+                updatedAt: s.updated_at
+              };
+            });
+            setSops(formattedSops);
+          } else {
+            // database is empty, seed it
+            await bootstrapSupabase();
+            // recall loading
+            const { data: freshMenus } = await supabase.from('day_menus').select('*');
+            const { data: freshSops } = await supabase.from('sops').select('*');
+            const { data: freshTasks } = await supabase.from('sop_tasks').select('*').order('sort_order', { ascending: true });
+
+            if (freshMenus && freshMenus.length > 0) {
+              setDayMenus(freshMenus.map((m: any) => ({
+                date: m.date,
+                menuList: m.menu_list,
+                createdAt: m.created_at,
+                createdBy: m.created_by as UserRole
+              })));
+
+              setSops((freshSops || []).map((s: any) => ({
+                id: s.id,
+                date: s.date,
+                division: s.division as Division,
+                creatorRole: s.creator_role as UserRole,
+                creatorName: s.creator_name,
+                tasks: (freshTasks || []).filter((t: any) => t.sop_id === s.id).map((t: any) => ({
+                  id: t.id,
+                  text: t.text,
+                  completed: t.completed,
+                  category: t.category as 'persiapan' | 'aktif' | 'penutup'
+                })),
+                isCheckedAll: s.is_checked_all,
+                signerSupervisor: s.signer_supervisor || '',
+                signatureSupervisorUrl: s.signature_supervisor_url || '',
+                signedSupervisorAt: s.signed_supervisor_at || null,
+                signerCoordinator: s.signer_coordinator || '',
+                signatureCoordinatorUrl: s.signature_coordinator_url || '',
+                signedCoordinatorAt: s.signed_coordinator_at || null,
+                status: s.status as 'aktif' | 'selesai',
+                updatedAt: s.updated_at
+              })));
+            }
+          }
+        } catch (e) {
+          console.error('Supabase fetch failed, sliding back to offline fallback state:', e);
+        }
+      } else {
+        // Fall back to setup standard seed for local mock memory
+        const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
+        const seededSOPs: SOPDocument[] = [];
+
+        Object.values(Division).forEach((div) => {
+          const creatorInfo = DIVISION_CREATOR_MAP[div];
+          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+          
+          const monSOP: SOPDocument = {
+            id: `2026-06-15-${div}`,
+            date: '2026-06-15',
+            division: div,
+            creatorRole: creatorInfo.role,
+            creatorName: supervisorName,
+            tasks: generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks.map((t: any) => ({ ...t, completed: true })) || [],
+            isCheckedAll: true,
+            signerSupervisor: supervisorName,
+            signatureSupervisorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
+            signedSupervisorAt: '15/06/2026, 08.00 WIB',
+            signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
+            signatureCoordinatorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
+            signedCoordinatorAt: '15/06/2026, 08.30 WIB',
+            status: 'selesai',
+            updatedAt: '2026-06-15T08:30:00Z'
+          };
+          seededSOPs.push(monSOP);
+        });
+
+        const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
+        Object.values(Division).forEach((div) => {
+          const creatorInfo = DIVISION_CREATOR_MAP[div];
+          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+          
+          const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
+          const populatedTasks = defaultTasks.map((t: any, i: number) => 
+            i < 3 ? { ...t, completed: true } : t
+          );
+
+          const tueSOP: SOPDocument = {
+            id: `2026-06-16-${div}`,
+            date: '2026-06-16',
+            division: div,
+            creatorRole: creatorInfo.role,
+            creatorName: supervisorName,
+            tasks: populatedTasks,
+            isCheckedAll: false,
+            signerSupervisor: supervisorName,
+            signatureSupervisorUrl: '',
+            signedSupervisorAt: null,
+            signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
+            signatureCoordinatorUrl: '',
+            signedCoordinatorAt: null,
+            status: 'aktif',
+            updatedAt: '2026-06-16T05:00:00Z'
+          };
+          seededSOPs.push(tueSOP);
+        });
+
+        setSops(seededSOPs);
+      }
+    }
+    loadAllFromSupabase();
+  }, [loggedInUser]);
 
   // Handlers
-  const handleSaveMenu = (date: string, menuList: string[]) => {
+  const handleSaveMenu = async (date: string, menuList: string[]) => {
     const existingMenuIdx = dayMenus.findIndex(m => m.date === date);
     const newMenu: DayMenu = {
       date,
@@ -170,10 +381,22 @@ export default function App() {
     } else {
       setDayMenus([...dayMenus, newMenu]);
     }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('day_menus').upsert({
+          date,
+          menu_list: menuList,
+          created_at: newMenu.createdAt,
+          created_by: newMenu.createdBy
+        });
+      } catch (e) {
+        console.error('Failed to save menu to Supabase:', e);
+      }
+    }
   };
 
-  const handleGenerateSOPs = (date: string, menuList: string[]) => {
-    // Check if SOPs already exist for this date
+  const handleGenerateSOPs = async (date: string, menuList: string[]) => {
     const hasExisting = sops.some(s => s.date === date);
     if (hasExisting) {
       if (!confirm('SOP untuk tanggal ini sudah ada. Apakah Anda ingin mengatur ulang kembalikan tugas ke setelan bawaan? Seluruh coretan tanda tangan akan terhapus.')) {
@@ -181,21 +404,102 @@ export default function App() {
       }
     }
 
-    // Generate initial blank ones
     const generated = generateInitialSOPsForDate(date, menuList) as SOPDocument[];
-    
-    // Filter out historical ones of other dates, append these ones
     const filteredSops = sops.filter(s => s.date !== date);
     setSops([...filteredSops, ...generated]);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Cascade delete old sops for this date (cascade deletes tasks as well)
+        await supabase.from('sops').delete().eq('date', date);
+
+        const sopsPayload = generated.map(s => ({
+          id: s.id,
+          date: s.date,
+          division: s.division,
+          creator_role: s.creatorRole,
+          creator_name: s.creatorName,
+          is_checked_all: s.isCheckedAll,
+          signer_supervisor: s.signerSupervisor || '',
+          signature_supervisor_url: s.signatureSupervisorUrl || '',
+          signed_supervisor_at: s.signedSupervisorAt,
+          signer_coordinator: s.signerCoordinator || '',
+          signature_coordinator_url: s.signatureCoordinatorUrl || '',
+          signed_coordinator_at: s.signedCoordinatorAt,
+          status: s.status,
+          updated_at: s.updatedAt
+        }));
+
+        const tasksPayload: any[] = [];
+        generated.forEach(s => {
+          s.tasks.forEach((t, idx) => {
+            tasksPayload.push({
+              id: t.id,
+              sop_id: s.id,
+              text: t.text,
+              completed: t.completed,
+              category: t.category,
+              sort_order: idx
+            });
+          });
+        });
+
+        await supabase.from('sops').insert(sopsPayload);
+        if (tasksPayload.length > 0) {
+          await supabase.from('sop_tasks').insert(tasksPayload);
+        }
+      } catch (e) {
+        console.error('Failed to generate template SOPs on Supabase:', e);
+      }
+    }
   };
 
-  const handleUpdateSOP = (updatedSOP: SOPDocument) => {
+  const handleUpdateSOP = async (updatedSOP: SOPDocument) => {
     const updatedList = sops.map(s => s.id === updatedSOP.id ? updatedSOP : s);
     setSops(updatedList);
     
-    // Also update detail if observing it
     if (activeSopDetail && activeSopDetail.id === updatedSOP.id) {
       setActiveSopDetail(updatedSOP);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        // Upsert SOP header
+        await supabase.from('sops').upsert({
+          id: updatedSOP.id,
+          date: updatedSOP.date,
+          division: updatedSOP.division,
+          creator_role: updatedSOP.creatorRole,
+          creator_name: updatedSOP.creatorName,
+          is_checked_all: updatedSOP.isCheckedAll,
+          signer_supervisor: updatedSOP.signerSupervisor,
+          signature_supervisor_url: updatedSOP.signatureSupervisorUrl,
+          signed_supervisor_at: updatedSOP.signedSupervisorAt,
+          signer_coordinator: updatedSOP.signerCoordinator,
+          signature_coordinator_url: updatedSOP.signatureCoordinatorUrl,
+          signed_coordinator_at: updatedSOP.signedCoordinatorAt,
+          status: updatedSOP.status,
+          updated_at: updatedSOP.updatedAt
+        });
+
+        // Delete all old tasks for this specific SOP and insert the new list
+        await supabase.from('sop_tasks').delete().eq('sop_id', updatedSOP.id);
+
+        const tasksPayload = updatedSOP.tasks.map((t, idx) => ({
+          id: t.id,
+          sop_id: updatedSOP.id,
+          text: t.text,
+          completed: t.completed,
+          category: t.category,
+          sort_order: idx
+        }));
+
+        if (tasksPayload.length > 0) {
+          await supabase.from('sop_tasks').insert(tasksPayload);
+        }
+      } catch (e) {
+        console.error('Failed to synchronize status with Supabase:', e);
+      }
     }
   };
 
@@ -250,26 +554,44 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-neutral-800">
       
+      {/* Mobile Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-neutral-950/60 z-[98] md:hidden backdrop-blur-xs transition-opacity duration-300"
+        />
+      )}
+      
       {/* 1. LEFT SIDEBAR NAVIGATION (Hides on standard print) */}
       <aside 
         id="nav-sidebar" 
-        className={`w-72 bg-neutral-900 text-white shrink-0 shadow-lg flex flex-col border-r border-[#151c2c] lg:relative z-[99] ${
-          mobileMenuOpen ? 'fixed inset-y-0 left-0 transition-transform duration-305 translate-x-0' : 'hidden md:flex'
-        }`}
+        className={`w-72 bg-neutral-900 text-white shrink-0 shadow-lg flex flex-col border-r border-[#151c2c] fixed md:relative inset-y-0 left-0 z-[99] transform ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        } transition-transform duration-300 ease-in-out md:flex`}
       >
         {/* Boarding school branding */}
-        <div className="p-5 border-b border-[#252f44] bg-[#0c1421] flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-emerald-800 flex items-center justify-center font-bold text-emerald-300 font-display shadow-xs text-sm select-none border border-emerald-700/40">
-            SPPG
+        <div className="p-5 border-b border-[#252f44] bg-[#0c1421] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-emerald-800 flex items-center justify-center font-bold text-emerald-300 font-display shadow-xs text-sm select-none border border-emerald-700/40">
+              SPPG
+            </div>
+            <div>
+              <h1 className="font-bold text-xs md:text-sm tracking-wide text-white uppercase font-display">
+                Dapur SPPG Qomaruddin
+              </h1>
+              <span className="text-[10px] text-emerald-400 block tracking-widest font-mono uppercase">
+                Bungah - Gresik
+              </span>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold text-xs md:text-sm tracking-wide text-white uppercase font-display">
-              Dapur SPPG Qomaruddin
-            </h1>
-            <span className="text-[10px] text-emerald-400 block tracking-widest font-mono uppercase">
-              Bungah - Gresik
-            </span>
-          </div>
+          
+          <button 
+            onClick={() => setMobileMenuOpen(false)}
+            className="md:hidden p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-850 rounded-lg transition-colors cursor-pointer"
+            aria-label="Tutup navigasi"
+          >
+            <span className="text-xl font-bold">&times;</span>
+          </button>
         </div>
 
         {/* Sidebar Capabilities scrolling List */}
