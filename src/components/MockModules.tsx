@@ -63,6 +63,570 @@ const PRESET_SUGGESTIONS = [
   { name: 'Gulai Bandeng Segar', items: ['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'] }
 ];
 
+// Reusable Component for Shipping and Delivery Documentation (Ompreng, BAST, Surat Jalan, Organoleptik)
+function ShippingDocPanel({
+  type,
+  title,
+  description,
+  icon: IconComponent,
+  loggedInUser,
+  currentUserRole,
+  shippingDocs,
+  setShippingDocs,
+  selectedDate
+}: {
+  type: 'ompreng' | 'serah_terima' | 'surat_jalan' | 'organoleptik';
+  title: string;
+  description: string;
+  icon: React.ComponentType<any>;
+  loggedInUser?: UserProfile | null;
+  currentUserRole: UserRole;
+  shippingDocs: any[];
+  setShippingDocs: React.Dispatch<React.SetStateAction<any[]>>;
+  selectedDate: string;
+}) {
+  const [filterDateMode, setFilterDateMode] = useState<'selected' | 'all'>('selected');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Form states
+  const [vehicleNumber, setVehicleNumber] = useState('W 1234 BGH');
+  const [receiverName, setReceiverName] = useState('');
+  const [comments, setComments] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  
+  // Organoleptik specifics
+  const [organoleptikRasa, setOrganoleptikRasa] = useState('Sangat Layak (Segar & Gurih)');
+  const [organoleptikAroma, setOrganoleptikAroma] = useState('Sangat Harum');
+  const [organoleptikTekstur, setOrganoleptikTekstur] = useState('Matang Sempurna');
+  const [organoleptikSuhu, setOrganoleptikSuhu] = useState('68');
+
+  // Previewing image popup state
+  const [activePreviewImage, setActivePreviewImage] = useState<string | null>(null);
+
+  // Quick preset image simulator for easy testing without real files
+  const cameraPresets = {
+    ompreng: [
+      {
+        name: 'Ompreng di Bagasi Mobil',
+        url: 'https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=500&auto=format&fit=crop&q=80',
+        note: 'Kotak ompreng siap kirim dalam mobil operasional.'
+      },
+      {
+        name: 'Tumpukan Kontainer Bersih',
+        url: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=500&auto=format&fit=crop&q=80',
+        note: 'Kontainer makanan stainless tertumpuk rapi.'
+      }
+    ],
+    serah_terima: [
+      {
+        name: 'Lembar BAST Ditandatangani',
+        url: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=500&auto=format&fit=crop&q=80',
+        note: 'Dokumen serah terima fisik bermeterai/berparaf.'
+      },
+      {
+        name: 'Tanda Terima Berkas',
+        url: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&auto=format&fit=crop&q=80',
+        note: 'Penyerahan form lembar berita acara.'
+      }
+    ],
+    surat_jalan: [
+      {
+        name: 'Surat Jalan dengan Cap Basah',
+        url: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500&auto=format&fit=crop&q=80',
+        note: 'Dokumen surat jalan resmi dancap basah SPPG.'
+      }
+    ],
+    organoleptik: [
+      {
+        name: 'Uji Termometer Gizi Sup',
+        url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80',
+        note: 'Sampel sup sayur hangat diuji sensorik & suhu.'
+      },
+      {
+        name: 'Suhu Nasi Hangat di Box',
+        url: 'https://images.unsplash.com/photo-1612182062633-9ff3b3598e96?w=500&auto=format&fit=crop&q=80',
+        note: 'Pengecekan higienitas nasi hangat di wadah.'
+      }
+    ]
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!imageUrl) {
+      alert('Silakan unggah foto atau gunakan gambar simulasi kamera.');
+      return;
+    }
+
+    const newDoc = {
+      id: 'doc-' + Date.now(),
+      type,
+      date: selectedDate,
+      vehicleNumber: vehicleNumber.toUpperCase().trim(),
+      imageUrl,
+      comments: comments.trim() || 'Melampirkan kelengkapan logistik.',
+      uploadedBy: loggedInUser?.email || 'driver@sppg.com',
+      uploadedAt: new Date().toISOString(),
+      receiverName: receiverName.trim() || 'Staf Asrama',
+      status: type === 'organoleptik' ? 'Lulus Uji' : (type === 'serah_terima' ? 'Terverifikasi' : 'Selesai Kirim'),
+      organoleptikRasa: type === 'organoleptik' ? organoleptikRasa : undefined,
+      organoleptikAroma: type === 'organoleptik' ? organoleptikAroma : undefined,
+      organoleptikTekstur: type === 'organoleptik' ? organoleptikTekstur : undefined,
+      organoleptikSuhu: type === 'organoleptik' ? organoleptikSuhu : undefined
+    };
+
+    setShippingDocs(prev => [newDoc, ...prev]);
+    setSuccessMsg('Dokumentasi pengiriman berhasil diunggah!');
+    setTimeout(() => setSuccessMsg(null), 3000);
+
+    // Reset Form
+    setComments('');
+    setReceiverName('');
+    setImageUrl('');
+    setShowAddForm(false);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus arsip dokumentasi ini?')) {
+      setShippingDocs(prev => prev.filter(doc => doc.id !== id));
+    }
+  };
+
+  // Filter docs
+  const filteredDocs = shippingDocs.filter(doc => {
+    if (doc.type !== type) return false;
+    if (filterDateMode === 'selected' && doc.date !== selectedDate) return false;
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      return (
+        doc.vehicleNumber.toLowerCase().includes(s) ||
+        (doc.receiverName && doc.receiverName.toLowerCase().includes(s)) ||
+        doc.comments.toLowerCase().includes(s) ||
+        doc.uploadedBy.toLowerCase().includes(s)
+      );
+    }
+    return true;
+  });
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-6 animate-fade-in" id={`shipping-panel-${type}`}>
+      
+      {/* Header section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold font-sans text-neutral-800 flex items-center gap-2">
+              <IconComponent className="h-6 w-6 text-emerald-700 shrink-0" />
+              {title}
+            </h2>
+            <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">
+              🚛 Logistik Mitra
+            </span>
+          </div>
+          <p className="text-sm text-neutral-500">{description}</p>
+        </div>
+        
+        <button
+          type="button"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
+        >
+          <Plus className="h-4 w-4" />
+          {showAddForm ? 'Tutup Form' : 'Pencatatan Baru'}
+        </button>
+      </div>
+
+      {successMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center gap-2 animate-fade-in">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          {successMsg}
+        </div>
+      )}
+
+      {/* Form Section */}
+      {showAddForm && (
+        <form onSubmit={handleAddSubmit} className="p-5 border border-emerald-100 bg-emerald-50/15 rounded-2xl space-y-4 animate-fade-in shadow-2xs">
+          <h3 className="font-bold text-xs text-emerald-900 uppercase tracking-widest flex items-center gap-1.5 border-b border-emerald-150 pb-2">
+            <Camera className="h-4 w-4 text-emerald-700" />
+            Isi Lembar Pencatatan {title}
+          </h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                Tanggal Pengiriman
+              </label>
+              <div className="w-full text-xs font-semibold border border-neutral-200 rounded-lg p-2.5 bg-neutral-100 text-neutral-600 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-neutral-500" />
+                {selectedDate} (SOP Tanggal Ini)
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                No Plat Kendaraan
+              </label>
+              <input
+                type="text"
+                required
+                value={vehicleNumber}
+                onChange={e => setVehicleNumber(e.target.value)}
+                placeholder="Contoh: W 1234 BGH"
+                className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden uppercase font-semibold text-neutral-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                {type === 'ompreng' || type === 'serah_terima' ? 'Nama Penerima Asrama' : 'U.P / Penanggung Jawab'}
+              </label>
+              <input
+                type="text"
+                required
+                value={receiverName}
+                onChange={e => setReceiverName(e.target.value)}
+                placeholder="Contoh: Ustadz Jauhari"
+                className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+              />
+            </div>
+
+          </div>
+
+          {/* Organoleptik Specific Controls */}
+          {type === 'organoleptik' && (
+            <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100 grid grid-cols-1 md:grid-cols-4 gap-3 animate-fade-in text-neutral-800">
+              <div>
+                <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 font-sans">Uji Rasa Makanan</label>
+                <select
+                  value={organoleptikRasa}
+                  onChange={e => setOrganoleptikRasa(e.target.value)}
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+                >
+                  <option>Sangat Layak (Segar & Gurih)</option>
+                  <option>Layak (Sesuai SOP Gizi)</option>
+                  <option>Kurang Layak (Sedikit Hambar)</option>
+                  <option>Tidak Layak (Basi / Berlendir)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 font-sans">Uji Aroma / Bau</label>
+                <select
+                  value={organoleptikAroma}
+                  onChange={e => setOrganoleptikAroma(e.target.value)}
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+                >
+                  <option>Sangat Harum</option>
+                  <option>Aroma Normal (SOP)</option>
+                  <option>Pesing / Tengik</option>
+                  <option>Asam / Basi</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 font-sans">Uji Tekstur Makanan</label>
+                <select
+                  value={organoleptikTekstur}
+                  onChange={e => setOrganoleptikTekstur(e.target.value)}
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+                >
+                  <option>Matang Sempurna</option>
+                  <option>Sangat Lembut / Empuk</option>
+                  <option>Sedikit Keras</option>
+                  <option>Mentah / Lembek Parah</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-bold text-emerald-800 uppercase font-sans">Suhu Hidangan (°C)</label>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono ${
+                    parseInt(organoleptikSuhu) >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800 animate-pulse'
+                  }`}>
+                    {organoleptikSuhu} °C ({parseInt(organoleptikSuhu) >= 60 ? 'Aman' : 'Resiko Bakteri'})
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="30"
+                  max="95"
+                  value={organoleptikSuhu}
+                  onChange={e => setOrganoleptikSuhu(e.target.value)}
+                  className="w-full accent-emerald-800 cursor-pointer text-xs"
+                />
+                <div className="flex justify-between text-[8px] text-neutral-400 font-mono">
+                  <span>30°C (Dingin)</span>
+                  <span>60°C (Min)</span>
+                  <span>95°C (Panas)</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+              Catatan Pengiriman / Catatan Uji Lapangan
+            </label>
+            <textarea
+              value={comments}
+              onChange={e => setComments(e.target.value)}
+              placeholder="Berikan keterangan detail, contoh: Jumlah koli ompreng lengkap, segel tertutup rapat, suhu hangat."
+              rows={2}
+              className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+            />
+          </div>
+
+          {/* Upload and Simulation camera options */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            
+            <div className="border border-neutral-200 rounded-xl p-3 bg-white space-y-2">
+              <span className="block text-[10px] font-bold text-neutral-500 uppercase">
+                Unggah File Dokumen Fisik / Foto Asli
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="w-full text-xs text-neutral-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+              />
+              <p className="text-[9px] text-neutral-400 leading-snug">
+                Pilih atau seret foto langsung dari HP / laptop Anda (JPG, PNG, WEBP).
+              </p>
+            </div>
+
+            <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50/15 space-y-2">
+              <span className="block text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1 font-sans">
+                <Camera className="h-3.5 w-3.5 text-emerald-700" />
+                Simulasi Kamera Cepat (Tanpa File)
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {cameraPresets[type as keyof typeof cameraPresets]?.map((p, pIdx) => (
+                  <button
+                    key={pIdx}
+                    type="button"
+                    onClick={() => {
+                      setImageUrl(p.url);
+                      if (!comments) setComments(p.note);
+                      setSuccessMsg(`Simulasi kamera ${p.name} dimuat!`);
+                      setTimeout(() => setSuccessMsg(null), 2500);
+                    }}
+                    className="bg-white hover:bg-emerald-50 text-[10px] text-neutral-700 font-semibold px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-emerald-500/40 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-3xs hover:shadow-2xs active:scale-[0.97]"
+                  >
+                    📸 {p.name}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[9px] text-neutral-400 leading-snug">
+                Gunakan preset gambar simulasi di atas untuk pengetesan instan tanpa unggah manual.
+              </p>
+            </div>
+
+          </div>
+
+          {imageUrl && (
+            <div className="border border-neutral-200 rounded-xl p-3 bg-neutral-50 flex items-center justify-between gap-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <img src={imageUrl} alt="Pratinjau" className="h-14 w-14 object-cover rounded-md border border-neutral-300 shadow-3xs" />
+                <div>
+                  <span className="block text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full w-max text-center">
+                    ✓ Lembar Terpilih
+                  </span>
+                  <span className="text-[9px] text-neutral-400 block font-mono mt-0.5">Kompresi: Base64 Encoders</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImageUrl('')}
+                className="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-1 hover:bg-red-50 rounded"
+              >
+                Hapus
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-150">
+            <button
+              type="button"
+              onClick={() => setShowAddForm(false)}
+              className="text-neutral-500 hover:bg-neutral-100 text-xs px-3 py-2 rounded-lg cursor-pointer transition-colors"
+            >
+              Batalkan
+            </button>
+            <button
+              type="submit"
+              className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer transition-colors shadow-xs hover:shadow-sm"
+            >
+              Simpan Dokumentasi
+            </button>
+          </div>
+
+        </form>
+      )}
+
+      {/* Control Filter Toolbar */}
+      <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-150 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-neutral-200 self-start">
+          <button
+            type="button"
+            onClick={() => setFilterDateMode('selected')}
+            className={`text-[10px] font-bold px-3 py-2 rounded-md transition-all ${
+              filterDateMode === 'selected' ? 'bg-emerald-800 text-white shadow-2xs' : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            Hari Ini ({selectedDate})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterDateMode('all')}
+            className={`text-[10px] font-bold px-3 py-2 rounded-md transition-all ${
+              filterDateMode === 'all' ? 'bg-emerald-800 text-white shadow-2xs' : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            Semua Tanggal
+          </button>
+        </div>
+
+        <div className="relative flex-1 md:max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Cari Plat Mobil, Penerima, Catatan..."
+            className="w-full pl-8 pr-3 py-2 text-xs border border-neutral-200 bg-white rounded-lg focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800 shadow-3xs"
+          />
+        </div>
+      </div>
+
+      {/* Grid List */}
+      {filteredDocs.length === 0 ? (
+        <div className="border border-neutral-100 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
+          <p className="font-semibold text-neutral-600">Belum ada dokumentasi {title} yang terekam.</p>
+          <p className="text-[10px] text-neutral-400 mt-1">Silakan klik "Pencatatan Baru" untuk mengunggah lembar foto.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredDocs.map(doc => (
+            <div key={doc.id} className="border border-neutral-200 rounded-xl bg-white shadow-3xs overflow-hidden hover:border-emerald-700/35 transition-all flex flex-col md:flex-row gap-3 p-3">
+              
+              <div 
+                onClick={() => setActivePreviewImage(doc.imageUrl)}
+                className="w-full md:w-28 h-28 shrink-0 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-100 relative cursor-zoom-in group"
+              >
+                <img src={doc.imageUrl} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded">Zoom</span>
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col justify-between space-y-2">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded font-mono border border-slate-200">
+                      🚗 {doc.vehicleNumber}
+                    </span>
+                    <span className="text-[9px] text-neutral-500 font-mono">
+                      {new Date(doc.uploadedAt).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-neutral-700 font-medium mt-1.5 line-clamp-2 leading-relaxed">
+                    "{doc.comments}"
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-1.5 mt-2 bg-neutral-50 p-1.5 rounded-lg border border-neutral-100 text-[10px]">
+                    <div>
+                      <span className="text-neutral-450 block text-[8px] uppercase font-black tracking-wider">Penerima / U.P</span>
+                      <span className="font-semibold text-neutral-700 truncate block">{doc.receiverName || 'Staf Asrama'}</span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-450 block text-[8px] uppercase font-black tracking-wider">Status Validasi</span>
+                      <span className="font-extrabold text-emerald-800 flex items-center gap-0.5 font-sans">
+                        <Check className="h-3 w-3 text-emerald-700 shrink-0 stroke-[3]" />
+                        {doc.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Organoleptik values display inside cards */}
+                  {doc.type === 'organoleptik' && (
+                    <div className="mt-2 bg-emerald-50/20 border border-emerald-100 rounded-lg p-1.5 space-y-1 text-[9px] text-neutral-700 leading-normal">
+                      <div className="flex justify-between">
+                        <span className="text-emerald-900 font-semibold font-sans">Suhu Hidangan:</span>
+                        <span className={`font-mono font-bold px-1 rounded ${
+                          parseInt(doc.organoleptikSuhu || '0') >= 60 ? 'text-emerald-800 bg-emerald-50' : 'text-red-800 bg-red-50'
+                        }`}>{doc.organoleptikSuhu || '-'} °C</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-emerald-900 font-semibold font-sans">Evaluasi Rasa:</span>
+                        <span className="text-neutral-600 font-mono truncate max-w-[130px]">{doc.organoleptikRasa || '-'}</span>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                <div className="flex items-center justify-between border-t border-neutral-100 pt-2 text-[9px] text-neutral-450">
+                  <span className="truncate block max-w-[140px] font-mono" title={`Diunggah: ${doc.uploadedBy}`}>
+                    👤 {doc.uploadedBy.split('@')[0]}
+                  </span>
+                  
+                  {(loggedInUser?.email === doc.uploadedBy || currentUserRole === UserRole.ASLAP || currentUserRole === UserRole.ADMIN) && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(doc.id)}
+                      className="text-red-500 hover:text-red-700 font-bold transition-all p-1 hover:bg-red-50 rounded cursor-pointer"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+
+              </div>
+
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox zoomed picture overlay */}
+      {activePreviewImage && (
+        <div 
+          onClick={() => setActivePreviewImage(null)}
+          className="fixed inset-0 bg-neutral-950/90 flex items-center justify-center p-4 z-50 animate-fade-in cursor-zoom-out"
+        >
+          <div className="bg-neutral-900 rounded-2xl overflow-hidden p-1.5 max-w-2xl w-full border border-neutral-800 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <img src={activePreviewImage} alt="Pratinjau Besar" className="w-full max-h-[80vh] object-contain rounded-xl" />
+            <div className="p-3 text-center text-xs text-neutral-300 font-medium">
+              Klik di luar gambar atau tekan gambar untuk menutup pratinjau.
+            </div>
+            <button
+              onClick={() => setActivePreviewImage(null)}
+              className="absolute top-4 right-4 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 transition-all font-mono font-bold leading-none"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 export default function MockModules({ 
   moduleIndex, 
   onSetMenu,
@@ -102,6 +666,95 @@ export default function MockModules({
   const [adminComplaintAction, setAdminComplaintAction] = useState<Record<string, string>>({});
 
   const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || currentUserRole === UserRole.ADMIN;
+
+  // Shipping Documentation Type Definitions
+  interface ShippingDocItem {
+    id: string;
+    type: 'ompreng' | 'serah_terima' | 'surat_jalan' | 'organoleptik';
+    date: string;
+    vehicleNumber: string;
+    imageUrl: string;
+    comments: string;
+    uploadedBy: string;
+    uploadedAt: string;
+    receiverName?: string;
+    status: string;
+    // Specific fields for Organoleptik
+    organoleptikRasa?: string;  
+    organoleptikAroma?: string; 
+    organoleptikTekstur?: string; 
+    organoleptikSuhu?: string;   
+  }
+
+  // Shipping Docs States with LocalStorage synchronization
+  const [shippingDocs, setShippingDocs] = useState<ShippingDocItem[]>(() => {
+    const saved = localStorage.getItem('sppg_shipping_docs');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing shipping docs:', e);
+      }
+    }
+    return [
+      {
+        id: 'doc-1',
+        type: 'ompreng',
+        date: '2026-06-16',
+        vehicleNumber: 'W 1234 BGH',
+        imageUrl: 'https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=400&auto=format&fit=crop&q=80',
+        comments: 'Pengiriman 12 koli ompreng untuk asrama timur, kondisi bersih dan tertutup rapat.',
+        uploadedBy: 'driver@sppg.com',
+        uploadedAt: '2026-06-16T11:30:00.000Z',
+        receiverName: 'Ustadz Jauhari',
+        status: 'Selesai Kirim'
+      },
+      {
+        id: 'doc-2',
+        type: 'serah_terima',
+        date: '2026-06-16',
+        vehicleNumber: 'W 5678 AA',
+        imageUrl: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=400&auto=format&fit=crop&q=80',
+        comments: 'Lembar BAST ditandatangani oleh Pengurus Asrama Putri C.',
+        uploadedBy: 'driver@sppg.com',
+        uploadedAt: '2026-06-16T12:05:00.000Z',
+        receiverName: 'Ustadzah Fatimah',
+        status: 'Terverifikasi'
+      },
+      {
+        id: 'doc-3',
+        type: 'surat_jalan',
+        date: '2026-06-17',
+        vehicleNumber: 'W 1234 BGH',
+        imageUrl: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=400&auto=format&fit=crop&q=80',
+        comments: 'Surat Jalan No. 104/SJ-SPPG/VI/2026.',
+        uploadedBy: 'driver@sppg.com',
+        uploadedAt: '2026-06-17T07:15:00.000Z',
+        receiverName: 'Ustadz Hakim',
+        status: 'Dalam Perjalanan'
+      },
+      {
+        id: 'doc-4',
+        type: 'organoleptik',
+        date: '2026-06-17',
+        vehicleNumber: 'W 1234 BGH',
+        imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80',
+        comments: 'Uji organoleptik menu Nasi Sup Ayam Karkas Gizi.',
+        uploadedBy: 'driver@sppg.com',
+        uploadedAt: '2026-06-17T07:20:00.000Z',
+        receiverName: 'Ustadzah Aminah',
+        status: 'Lulus Uji',
+        organoleptikRasa: 'Sangat Layak (Segar & Gurih)',
+        organoleptikAroma: 'Sangat Harum',
+        organoleptikTekstur: 'Sangat Empuk',
+        organoleptikSuhu: '72'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sppg_shipping_docs', JSON.stringify(shippingDocs));
+  }, [shippingDocs]);
 
   // Stock Opname & Trash Items Type Definitions
   interface StockItem {
@@ -679,11 +1332,68 @@ export default function MockModules({
   };
 
   // SQL code block template string
-  const postgres_sql_scripts = `-- SKEMA DAN QUERY MIGRASI SUPABASE SPPG GRESIK
--- Salin dan jalankan perintah SQL ini di SQL Editor dashboard Supabase Anda.
+  const postgres_sql_scripts = `-- =========================================================================
+-- MASTER SQL MIGRASI & SEED DATA BARU - SPPG PONPES GIZI GRESIK
+-- =========================================================================
+-- Salin dan jalankan seluruh query ini di SQL Editor dashboard Supabase Anda.
+-- Perintah di bawah ini akan menghapus semua skema lama agar bersih,
+-- membuat tabel baru dengan relasi yang tepat, mengaktifkan RLS yang aman,
+-- serta langsung menyisipkan data mockup siap pakai untuk seluruh modul menu.
+-- =========================================================================
 
--- 1. Membuat tabel sisa_stok (Aset & Logistik)
-CREATE TABLE IF NOT EXISTS sisa_stok (
+-- -------------------------------------------------------------
+-- BAGIAN A: PEMBERSIHAN DATA & SKEMA LAMA (RESET TOTAL)
+-- -------------------------------------------------------------
+DROP TABLE IF EXISTS sop_tasks CASCADE;
+DROP TABLE IF EXISTS sops CASCADE;
+DROP TABLE IF EXISTS day_menus CASCADE;
+DROP TABLE IF EXISTS sisa_stok CASCADE;
+DROP TABLE IF EXISTS order_requests CASCADE;
+DROP TABLE IF EXISTS volunteer_complaints CASCADE;
+
+-- -------------------------------------------------------------
+-- BAGIAN B: PEMBUATAN TABEL BARU
+-- -------------------------------------------------------------
+
+-- 1. Membuat tabel day_menus (Perencanaan Menu Harian Gizi)
+CREATE TABLE day_menus (
+  date TEXT PRIMARY KEY,
+  menu_list TEXT[] NOT NULL,
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Membuat tabel sops (Dokumen SOP Harian Digital Divisi)
+CREATE TABLE sops (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  division TEXT NOT NULL,
+  creator_role TEXT NOT NULL,
+  creator_name TEXT NOT NULL,
+  is_checked_all BOOLEAN DEFAULT false,
+  signer_supervisor TEXT,
+  signature_supervisor_url TEXT,
+  signed_supervisor_at TEXT,
+  signer_coordinator TEXT,
+  signature_coordinator_url TEXT,
+  signed_coordinator_at TEXT,
+  status TEXT DEFAULT 'aktif' CHECK (status IN ('aktif', 'selesai')),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Membuat tabel sop_tasks (Checklist Item untuk setiap Dokumen SOP)
+CREATE TABLE sop_tasks (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL REFERENCES sops(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT false,
+  category TEXT NOT NULL CHECK (category IN ('persiapan', 'aktif', 'penutup')),
+  sort_order INTEGER NOT NULL
+);
+
+-- 4. Membuat tabel sisa_stok (Stock Opname Gudang - Sisa Stok)
+CREATE TABLE sisa_stok (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   item_name TEXT NOT NULL,
   category TEXT NOT NULL,
@@ -695,14 +1405,8 @@ CREATE TABLE IF NOT EXISTS sisa_stok (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Mengaktifkan RLS (Row Level Security) untuk sisa_stok
-ALTER TABLE sisa_stok ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Akses Publik sisa_stok" ON sisa_stok;
-CREATE POLICY "Akses Publik sisa_stok" ON sisa_stok FOR ALL USING (true) WITH CHECK (true);
-
-
--- 2. Membuat tabel order_requests (Pengajuan Order Alat & Operasional)
-CREATE TABLE IF NOT EXISTS order_requests (
+-- 5. Membuat tabel order_requests (Pengajuan Order Alat & Operasional)
+CREATE TABLE order_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   item_name TEXT NOT NULL,
   qty TEXT NOT NULL,
@@ -715,14 +1419,8 @@ CREATE TABLE IF NOT EXISTS order_requests (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Mengaktifkan RLS untuk order_requests
-ALTER TABLE order_requests ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Akses Publik order_requests" ON order_requests;
-CREATE POLICY "Akses Publik order_requests" ON order_requests FOR ALL USING (true) WITH CHECK (true);
-
-
--- 3. Membuat tabel volunteer_complaints (Log Keluhan Relawan / Asrama)
-CREATE TABLE IF NOT EXISTS volunteer_complaints (
+-- 6. Membuat tabel volunteer_complaints (Log Keluhan Relawan / Asrama)
+CREATE TABLE volunteer_complaints (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   source TEXT NOT NULL,
   category TEXT NOT NULL,
@@ -734,33 +1432,168 @@ CREATE TABLE IF NOT EXISTS volunteer_complaints (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Mengaktifkan RLS untuk volunteer_complaints
+-- -------------------------------------------------------------
+-- BAGIAN C: PENGAKTIFAN ROW LEVEL SECURITY (RLS) & AKSES SPESIFIK ROLE
+-- -------------------------------------------------------------
+
+-- Aktifkan RLS pada seluruh tabel operasional
+ALTER TABLE day_menus ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sop_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sisa_stok ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE volunteer_complaints ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Akses Publik volunteer_complaints" ON volunteer_complaints;
-CREATE POLICY "Akses Publik volunteer_complaints" ON volunteer_complaints FOR ALL USING (true) WITH CHECK (true);
 
+-- Fungsi Pembantu 1: Mendapatkan Email Akun Pengguna Supabase Aktif
+CREATE OR REPLACE FUNCTION current_user_email()
+RETURNS TEXT AS $$
+  SELECT COALESCE(
+    nullif(current_setting('request.jwt.claim.email', true), ''),
+    'guest@sppg.com' -- Fallback jika dijalankan di lokal/tanpa JWT
+  );
+$$ LANGUAGE sql STABLE;
 
--- QUERY QUERY ANALISIS DAN REKAPITULASI (Silakan gunakan untuk audit data):
+-- Fungsi Pembantu 2: Mendapatkan Peran (Role) Berdasarkan Alamat Email Pengguna
+CREATE OR REPLACE FUNCTION current_user_role()
+RETURNS TEXT AS $$
+DECLARE
+  v_email TEXT;
+BEGIN
+  v_email := LOWER(TRIM(current_user_email()));
+  
+  -- 1. Aslap, Ketua SPPG (ketua@sppg.com), dan Admin Utama mendapatkan akses penuh (Admin/Aslap)
+  IF v_email IN ('maghfurmunif@gmail.com', 'aslap@sppg.com', 'ketua@sppg.com') THEN
+    RETURN 'admin_aslap';
+  -- 2. Chef / Juru Masak
+  ELSIF v_email IN ('chef@sppg.com') OR v_email LIKE 'chef%' THEN
+    RETURN 'chef';
+  -- 3. Ahli Gizi
+  ELSIF v_email IN ('gizi@sppg.com') OR v_email LIKE 'gizi%' THEN
+    RETURN 'ahli_gizi';
+  -- 4. Akuntan
+  ELSIF v_email IN ('akuntan@sppg.com') OR v_email LIKE 'akuntan%' THEN
+    RETURN 'akuntan';
+  -- 5. Koordinator/Relawan lapangan umum
+  ELSE
+    RETURN 'relawan_koordinator';
+  END IF;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
--- A. Query Rekap Order Alat & Operasional yang Pending
-SELECT category, COUNT(*), STRING_AGG(item_name, ', ') AS item_list
-FROM order_requests
-WHERE status = 'pending'
-GROUP BY category;
+-- Kebijakan RLS Tabel 1: day_menus (Perencanaan Menu Harian Gizi)
+CREATE POLICY "day_menus_select_policy" ON day_menus FOR SELECT USING (true);
+CREATE POLICY "day_menus_modify_policy" ON day_menus FOR ALL 
+  USING (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan'))
+  WITH CHECK (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan'));
 
--- B. Query Keluhan yang Belum Ditangani (Status Pending)
-SELECT source, category, complaint_text, created_at
-FROM volunteer_complaints
-WHERE status = 'pending'
-ORDER BY created_at DESC;
+-- Kebijakan RLS Tabel 2 & 3: sops dan sop_tasks (SOP Harian Digital)
+CREATE POLICY "sops_all_access_policy" ON sops FOR ALL
+  USING (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'))
+  WITH CHECK (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'));
 
--- C. Query Evaluasi Stok Sisa Dapur
-SELECT category, COUNT(*) AS total_items, STRING_AGG(item_name || ' (' || quantity || ')', '; ') AS detail_stok
-FROM sisa_stok
-GROUP BY category;`;
+CREATE POLICY "sop_tasks_all_access_policy" ON sop_tasks FOR ALL
+  USING (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'))
+  WITH CHECK (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'));
+
+-- Kebijakan RLS Tabel 4: sisa_stok (Stock Opname Gudang)
+CREATE POLICY "sisa_stok_all_access_policy" ON sisa_stok FOR ALL
+  USING (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan'))
+  WITH CHECK (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan'));
+
+-- Kebijakan RLS Tabel 5: order_requests (Pengajuan Order Alat & Operasional)
+CREATE POLICY "order_requests_policy" ON order_requests FOR ALL
+  USING (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'))
+  WITH CHECK (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'));
+
+-- Kebijakan RLS Tabel 6: volunteer_complaints (Keluhan Asrama / Relawan)
+CREATE POLICY "volunteer_complaints_policy" ON volunteer_complaints FOR ALL
+  USING (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'))
+  WITH CHECK (current_user_role() IN ('admin_aslap', 'chef', 'ahli_gizi', 'akuntan', 'relawan_koordinator'));
+
+-- -------------------------------------------------------------
+-- BAGIAN D: PENYISIPAN DATA MOCKUP AWAL (SEED DATA)
+-- -------------------------------------------------------------
+
+-- 1. Menyisipkan data untuk day_menus (Perencanaan Menu Gizi Harian)
+INSERT INTO day_menus (date, menu_list, created_by) VALUES
+('2026-06-15', ARRAY['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Kerupuk Udang', 'Pisang Ambon'], 'Ahli Gizi'),
+('2026-06-16', ARRAY['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Semangka Merah'], 'Ahli Gizi'),
+('2026-06-17', ARRAY['Nasi Putih', 'Soto Madura Daging Sapi', 'Perkedel Kentang', 'Sambal Jeruk Nipis', 'Emping Melinjo', 'Melon Segar'], 'Ahli Gizi'),
+('2026-06-18', ARRAY['Nasi Liwet Sunda', 'Tongkol Suwir Cabe Hijau', 'Tahu Bacem Gurih', 'Lalapan Daun Kemangi', 'Kerupuk Putih', 'Pisang Mas'], 'Ahli Gizi'),
+('2026-06-19', ARRAY['Nasi Kuning Aromatik', 'Ayam Goreng Lengkuas', 'Kering Tempe Kacang', 'Telur Dadar Iris', 'Sambal Bajak', 'Jeruk Manis'], 'Ahli Gizi'),
+('2026-06-20', ARRAY['Nasi Kebuli', 'Kari Kambing Spesial', 'Acar Nanas Timun', 'Kerupuk Gendar', 'Apel Malang Segar'], 'Ahli Gizi'),
+('2026-06-21', ARRAY['Nasi Merah Sehat', 'Kakap Bakar Kecap', 'Cah Jambal Roti', 'Lalap Terong Goreng', 'Sambal Terasi Ponpes', 'Pepaya'], 'Ahli Gizi');
+
+-- 2. Menyisipkan data untuk sops (Dokumen SOP Harian)
+INSERT INTO sops (id, date, division, creator_role, creator_name, is_checked_all, signer_supervisor, signature_supervisor_url, signed_supervisor_at, signer_coordinator, signature_coordinator_url, signed_coordinator_at, status) VALUES
+('2026-06-15-Divisi Masak', '2026-06-15', 'Divisi Masak', 'chef', 'Chef Ahmad', true, 'Chef Ahmad', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Masak', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
+('2026-06-15-Divisi Pemorsian', '2026-06-15', 'Divisi Pemorsian', 'ahli_gizi', 'Ustadzah Fatimah, S.Gz', true, 'Ustadzah Fatimah, S.Gz', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Pemorsian', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
+('2026-06-16-Divisi Masak', '2026-06-16', 'Divisi Masak', 'chef', 'Chef Ahmad', false, 'Chef Ahmad', '', null, 'Koordinator Masak', '', null, 'aktif'),
+('2026-06-16-Divisi Pemorsian', '2026-06-16', 'Divisi Pemorsian', 'ahli_gizi', 'Ustadzah Fatimah, S.Gz', false, 'Ustadzah Fatimah, S.Gz', '', null, 'Koordinator Pemorsian', '', null, 'aktif');
+
+-- 3. Menyisipkan data untuk sop_tasks (Butir SOP Checklist)
+INSERT INTO sop_tasks (id, sop_id, text, completed, category, sort_order) VALUES
+-- Senin - Divisi Masak
+('2026-06-15-masak-t-1', '2026-06-15-Divisi Masak', 'Mencuci tangan dengan sanitizer dan memakai celemek serta masker masak bersih.', true, 'persiapan', 0),
+('2026-06-15-masak-t-2', '2026-06-15-Divisi Masak', 'Menyiapkan bahan lauk gizi utama (Ayam Geprek) dan sayuran segar.', true, 'persiapan', 1),
+('2026-06-15-masak-t-3', '2026-06-15-Divisi Masak', 'Menggoreng ayam dengan suhu merata 170°C sampai matang kecoklatan sempurna.', true, 'aktif', 2),
+('2026-06-15-masak-t-4', '2026-06-15-Divisi Masak', 'Mematikan kompor gas elpiji dan merapikan meja kompor setelah selesai digunakan.', true, 'penutup', 3),
+
+-- Senin - Divisi Pemorsian
+('2026-06-15-pemorsian-t-1', '2026-06-15-Divisi Pemorsian', 'Membersihkan rel meja perakitan (assembly line) ompreng makan.', true, 'persiapan', 0),
+('2026-06-15-pemorsian-t-2', '2026-06-15-Divisi Pemorsian', 'Memasukkan porsi nasi putih sesuai takaran gizi kalori (180 gram).', true, 'aktif', 1),
+('2026-06-15-pemorsian-t-3', '2026-06-15-Divisi Pemorsian', 'Menumpuk tutup box ompreng secara rapat agar terhindar dari debu luar.', true, 'penutup', 2),
+
+-- Selasa - Divisi Masak (Sebagian dicentang)
+('2026-06-16-masak-t-1', '2026-06-16-Divisi Masak', 'Mencuci tangan dengan steril dan memasak nasi pulen menggunakan mesin boiler uap.', true, 'persiapan', 0),
+('2026-06-16-masak-t-2', '2026-06-16-Divisi Masak', 'Menyiapkan bumbu krawu khas Gresik dengan parutan kelapa serundeng sangrai.', true, 'persiapan', 1),
+('2026-06-16-masak-t-3', '2026-06-16-Divisi Masak', 'Melakukan sterilisasi pisau pemotong dan talenan kayu dapur.', false, 'aktif', 2),
+('2026-06-16-masak-t-4', '2026-06-16-Divisi Masak', 'Mengepel dan mengelap tumpahan kuah di area masak kompor utama.', false, 'penutup', 3),
+
+-- Selasa - Divisi Pemorsian
+('2026-06-16-pemorsian-t-1', '2026-06-16-Divisi Pemorsian', 'Memilah ompreng santri yang retak untuk dipisahkan dari perakitan.', true, 'persiapan', 0),
+('2026-06-16-pemorsian-t-2', '2026-06-16-Divisi Pemorsian', 'Mengisi lauk Ayam Krawu, Tempe Goreng, dan Semangka Merah sesuai porsi rata.', false, 'aktif', 1),
+('2026-06-16-pemorsian-t-3', '2026-06-16-Divisi Pemorsian', 'Melaporkan rekapitulasi jumlah box ompreng terisi ke papan logistik.', false, 'penutup', 2);
+
+-- 4. Menyisipkan data untuk sisa_stok (Stock Opname Gudang)
+INSERT INTO sisa_stok (item_name, category, quantity, condition, action_plan, created_by) VALUES
+('Ayam Frozen', 'Chiller / Freezer', '45 Kg', 'Sangat Baik', 'Olah untuk lauk geprek hari Rabu', 'Chef Ahmad'),
+('Beras Premium Sentra Ramos', 'Gudang Kering', '150 Kg', 'Sangat Baik', 'Simpan di pallet kayu, amankan dari kelembaban', 'Admin Logistik'),
+('Sawi Hijau Organik', 'Kebun Gizi', '12 Kg', 'Agak Layu', 'Segera masak untuk tumis sayur sore ini', 'Chef Ahmad'),
+('Minyak Goreng Bimoli Jerigen', 'Gudang Kering', '4 Pcs', 'Sangat Baik', 'Gunakan untuk menggoreng tempe beku esok hari', 'Admin Logistik'),
+('Tempe Kedelai Super', 'Gudang Kering', '25 Papan', 'Sangat Baik', 'Olah habis untuk menu tempe penyet esok pagi', 'Ahli Gizi');
+
+-- 5. Menyisipkan data untuk order_requests (Pengajuan Order Alat & Operasional)
+INSERT INTO order_requests (item_name, qty, reason, category, status, notes, created_by) VALUES
+('Mixer Adonan Roti Besar', '1 Unit', 'Mixer lama sering mati mendadak di tengah proses pengadukan roti gizi santri.', 'alat', 'pending', null, 'Chef Ahmad'),
+('Sabun Pencuci Piring Jerigen 5L', '5 Pcs', 'Untuk sterilisasi ompreng dan peralatan masak di area cuci piring sanitasi.', 'operasional', 'disetujui', 'Disetujui. Silakan koordinasi dengan bagian keuangan ponpes.', 'Ahli Gizi'),
+('Pisau Stainless Chef Pro', '3 Pcs', 'Pisau lama sudah tumpul dan berkarat ringan, memperlambat persiapan sayuran harian.', 'alat', 'pending', null, 'Chef Ahmad');
+
+-- 6. Menyisipkan data untuk volunteer_complaints (Log Keluhan Relawan / Asrama)
+INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken, status, created_by) VALUES
+('Asrama Santri Putra', 'Kebersihan', 'Tempat sampah di selasar depan gerbang utama asrama overload, menimbulkan bau kurang sedap.', null, 'pending', 'Relawan Ahmad'),
+('Asrama Santri Putri', 'Kerusakan Alat', 'Saringan pembuangan air di wastafel cuci ompreng kotor tersumbat oleh kerak lemak sisa nasi.', 'Sudah disiram air panas mendidih bercampur soda api oleh relawan piket asrama putri.', 'selesai', 'Fatimah'),
+('Dapur Utama SPPG', 'Keterlambatan', 'Pengiriman gas elpiji 50kg terlambat sekitar 45 menit dari jadwal pagi awal persiapan masak.', 'Menghubungi agen gas terdekat untuk segera memberikan armada cadangan tercepat.', 'selesai', 'Relawan Dian');
+
+-- =========================================================================
+-- INFO QUERY OPERASIONAL & PENGAWASAN (Gunakan untuk debugging di SQL Editor):
+-- =========================================================================
+-- A. Ambil Menu Gizi Berdasarkan Urutan Tanggal:
+--    SELECT * FROM day_menus ORDER BY date ASC;
+--
+-- B. Ambil Dokumen SOP beserta Butir Tugasnya:
+--    SELECT s.date, s.division, t.text, t.completed, t.category 
+--    FROM sops s 
+--    JOIN sop_tasks t ON s.id = t.sop_id 
+--    ORDER BY s.date, s.division, t.sort_order;
+--
+-- C. Ambil Pengajuan Order Yang Masih Pending:
+--    SELECT * FROM order_requests WHERE status = 'pending';
+-- =========================================================================`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(postgres_sql_scripts);
+
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 3000);
   };
@@ -2278,7 +3111,7 @@ GROUP BY category;`;
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold font-sans text-neutral-800 flex items-center gap-2">
                   <AlertCircle className="h-6 w-6 text-red-600 animate-pulse" />
-                  Log Keluhan & Masukan Hidangan Asrama
+                  Log Keluhan Relawan & Masukan Hidangan
                 </h2>
                 <span className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full ${
                   isSupabaseConfigured ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
@@ -2396,7 +3229,7 @@ GROUP BY category;`;
               <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
                 <h3 className="font-bold text-xs text-neutral-700 uppercase tracking-widest flex items-center gap-1.5">
                   <ClipboardCheck className="h-4 w-4 text-rose-800" />
-                  Daftar Investigasi Keluhan Asrama
+                  Daftar Investigasi Keluhan Relawan
                 </h3>
                 <span className="text-[10px] bg-red-100 text-red-800 font-mono px-2 py-0.5 rounded-full font-black">
                   Keluhan Pasif: {keluhanList.length}
@@ -3770,6 +4603,70 @@ GROUP BY category;`;
             </table>
           </div>
         </div>
+      );
+    }
+
+    case 18: {
+      return (
+        <ShippingDocPanel
+          type="ompreng"
+          title="Dokumentasi Pengiriman Ompreng"
+          description="Laporan visual pengiriman kotak boks pemintas makanan (ompreng) ke asrama, menjamin kerapihan, higienitas, dan kuantitas koli boks."
+          icon={Truck}
+          loggedInUser={loggedInUser}
+          currentUserRole={currentUserRole || UserRole.DRIVER}
+          shippingDocs={shippingDocs}
+          setShippingDocs={setShippingDocs}
+          selectedDate={selectedDate || '2026-06-16'}
+        />
+      );
+    }
+
+    case 19: {
+      return (
+        <ShippingDocPanel
+          type="serah_terima"
+          title="Berita Acara Serah Terima (BAST)"
+          description="Arsip digital Lembar Serah Terima Berita Acara (BAST) yang divalidasi oleh pembimbing/pengurus di lokasi asrama sasaran."
+          icon={FileText}
+          loggedInUser={loggedInUser}
+          currentUserRole={currentUserRole || UserRole.DRIVER}
+          shippingDocs={shippingDocs}
+          setShippingDocs={setShippingDocs}
+          selectedDate={selectedDate || '2026-06-16'}
+        />
+      );
+    }
+
+    case 20: {
+      return (
+        <ShippingDocPanel
+          type="surat_jalan"
+          title="Lembar Surat Jalan Logistik"
+          description="Pencatatan legalitas distribusi logistik, muatan tonase hidangan gizi, nomor segel kirim, dan lembar legalisasi perjalanan armada."
+          icon={Clipboard}
+          loggedInUser={loggedInUser}
+          currentUserRole={currentUserRole || UserRole.DRIVER}
+          shippingDocs={shippingDocs}
+          setShippingDocs={setShippingDocs}
+          selectedDate={selectedDate || '2026-06-16'}
+        />
+      );
+    }
+
+    case 21: {
+      return (
+        <ShippingDocPanel
+          type="organoleptik"
+          title="Uji Organoleptik & Sensorik Makanan"
+          description="Lembar kontrol kelayakan rasa, aroma harum, kematangan tekstur makanan, serta pemantauan thermal suhu hidangan (critical control point >60°C)."
+          icon={CheckCircle}
+          loggedInUser={loggedInUser}
+          currentUserRole={currentUserRole || UserRole.DRIVER}
+          shippingDocs={shippingDocs}
+          setShippingDocs={setShippingDocs}
+          selectedDate={selectedDate || '2026-06-16'}
+        />
       );
     }
 

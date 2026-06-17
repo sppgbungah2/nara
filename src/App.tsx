@@ -45,6 +45,10 @@ export default function App() {
     if (norm === 'keluhan') return 14;
     if (norm === 'order-alat' || norm === 'order_alat') return 4;
     if (norm === 'order-operasional' || norm === 'order_operasional') return 5;
+    if (norm === 'pengiriman-ompreng') return 18;
+    if (norm === 'serah-terima') return 19;
+    if (norm === 'surat-jalan') return 20;
+    if (norm === 'organoleptik') return 21;
     return 15; // default to SOP
   };
 
@@ -53,6 +57,10 @@ export default function App() {
     if (tabNum === 14) return 'keluhan';
     if (tabNum === 4) return 'order-alat';
     if (tabNum === 5) return 'order-operasional';
+    if (tabNum === 18) return 'pengiriman-ompreng';
+    if (tabNum === 19) return 'serah-terima';
+    if (tabNum === 20) return 'surat-jalan';
+    if (tabNum === 21) return 'organoleptik';
     return '';
   };
 
@@ -102,6 +110,8 @@ export default function App() {
       else if (role === UserRole.AHLI_GIZI) prefix = 'gizi';
       else if (role === UserRole.ASLAP) prefix = 'aslap';
       else if (role === UserRole.ADMIN) prefix = 'admin';
+      else if (role === UserRole.AKUNTAN) prefix = 'akuntan';
+      else if (role === UserRole.DRIVER) prefix = 'driver';
     }
     
     const page = getPageFromTab(activeTab);
@@ -144,6 +154,12 @@ export default function App() {
         break;
       case UserRole.ADMIN:
         setCurrentUsername('Admin Utama SPPG');
+        break;
+      case UserRole.AKUNTAN:
+        setCurrentUsername('Staff Akuntan SPPG');
+        break;
+      case UserRole.DRIVER:
+        setCurrentUsername('Driver Logistik SPPG');
         break;
     }
   }, [currentUserRole, loggedInUser]);
@@ -688,8 +704,46 @@ export default function App() {
     { num: 6, name: 'Kedatangan Barang', icon: Truck, category: 'Distribusi & Logistik', url: 'https://docs.google.com/spreadsheets/d/12cORkUtENMVDbLBk3h-FzS9JO_DH9ssY5zIwKhfGM7o/edit?gid=2143734055#gid=2143734055' },
     { num: 7, name: 'Galeri Kedatangan Barang', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1TBcj9LvdkzgdNRpkKvxznz5_-1VF--hw' },
     { num: 8, name: 'Dokumentasi Dapur', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1bqTPoSzK1KscBq58gSs_LIcjK_90ExIu?usp=drive_link' },
-    { num: 14, name: 'Keluhan Asrama', icon: ShieldAlert, category: 'Sumber Daya Manusia' }
+    { num: 18, name: 'Dokumentasi Pengiriman Ompreng', icon: Camera, category: 'Dokumentasi Pengiriman' },
+    { num: 19, name: 'Berita Acara Serah Terima', icon: FileText, category: 'Dokumentasi Pengiriman' },
+    { num: 20, name: 'Surat Jalan', icon: Truck, category: 'Dokumentasi Pengiriman' },
+    { num: 21, name: 'Organoleptik', icon: ClipboardList, category: 'Dokumentasi Pengiriman' },
+    { num: 14, name: 'Keluhan Relawan', icon: ShieldAlert, category: 'Sumber Daya Manusia' }
   ];
+
+  const visibleMenus = !loggedInUser
+    ? []
+    : loggedInUser.isCoordinator
+      ? FEATURE_MENUS.filter(menu => [15, 14, 4, 5, 16, 17].includes(menu.num))
+      : (() => {
+          const role = loggedInUser.role;
+          const email = loggedInUser.email?.toLowerCase().trim() || '';
+          if (email === 'ketua@sppg.com' || role === UserRole.ASLAP || role === UserRole.ADMIN) {
+            // Aslap, Ketua SPPG (ketua@sppg.com), dan Admin Utama dapat melihat semua fitur menu
+            return FEATURE_MENUS;
+          } else if (role === UserRole.CHEF || role === UserRole.AHLI_GIZI) {
+            // Chef & Ahli Gizi: SOP Harian Digital, Menu Harian Gizi, Stock Opname Gudang, Rekap Sampah Makanan, Order Alat, Order Operasional, dan keluhan
+            return FEATURE_MENUS.filter(menu => [15, 10, 12, 16, 4, 5, 14].includes(menu.num));
+          } else if (role === UserRole.AKUNTAN) {
+            // Akuntan: SOP Harian Digital, Menu Harian Gizi, Stock Opname Gudang, Stock Operasional, Order Alat, Order Operasional, Kedatangan Barang, Galeri Kedatangan Barang, dan keluhan
+            return FEATURE_MENUS.filter(menu => [15, 10, 12, 17, 4, 5, 6, 7, 14].includes(menu.num));
+          } else if (role === UserRole.DRIVER) {
+            // Driver: SOP Harian Digital, Keluhan Relawan, dan 4 menu Pengiriman
+            return FEATURE_MENUS.filter(menu => [15, 14, 18, 19, 20, 21].includes(menu.num));
+          } else {
+            return FEATURE_MENUS;
+          }
+        })();
+
+  // Security redirect if activeTab is not allowed for current user
+  useEffect(() => {
+    if (loggedInUser) {
+      const allowedNums = visibleMenus.map(m => m.num);
+      if (!allowedNums.includes(activeTab)) {
+        setActiveTab(15); // Fallback to digital SOP (main dashboard included everywhere)
+      }
+    }
+  }, [loggedInUser, activeTab, visibleMenus]);
 
   if (!loggedInUser) {
     return (
@@ -705,10 +759,6 @@ export default function App() {
       />
     );
   }
-
-  const visibleMenus = loggedInUser.isCoordinator
-    ? FEATURE_MENUS.filter(menu => [15, 14, 4, 5, 16, 17].includes(menu.num))
-    : FEATURE_MENUS;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-neutral-800">

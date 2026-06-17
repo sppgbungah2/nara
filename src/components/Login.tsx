@@ -71,6 +71,18 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             const profile = mapUserToProfile('aslap-mock-uid', 'aslap@sppg.com');
             setSuccessMsg(`Simulasi berhasil! Masuk sebagai Aslap.`);
             onLoginSuccess(profile);
+          } else if (normEmail.toLowerCase() === 'ketua@sppg.com') {
+            const profile = mapUserToProfile('ketua-mock-uid', 'ketua@sppg.com');
+            setSuccessMsg(`Simulasi berhasil! Masuk sebagai Ketua SPPG.`);
+            onLoginSuccess(profile);
+          } else if (normEmail.toLowerCase() === 'akuntan@sppg.com') {
+            const profile = mapUserToProfile('akuntan-mock-uid', 'akuntan@sppg.com');
+            setSuccessMsg(`Simulasi berhasil! Masuk sebagai Akuntan.`);
+            onLoginSuccess(profile);
+          } else if (normEmail.toLowerCase() === 'driver@sppg.com') {
+            const profile = mapUserToProfile('driver-mock-uid', 'driver@sppg.com');
+            setSuccessMsg(`Simulasi berhasil! Masuk sebagai Driver.`);
+            onLoginSuccess(profile);
           } else {
             // General signup simulation to feel complete
             if (password.length < 6) {
@@ -282,6 +294,33 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               >
                 <span className="text-[10px] font-bold text-purple-400 block">Aslap Lapangan</span>
                 <span className="text-[9px] text-slate-400 font-mono block truncate">aslap@sppg.com</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleUsePreset('ketua@sppg.com')}
+                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
+              >
+                <span className="text-[10px] font-bold text-teal-400 block">Ketua SPPG</span>
+                <span className="text-[9px] text-slate-400 font-mono block truncate">ketua@sppg.com</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleUsePreset('akuntan@sppg.com')}
+                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
+              >
+                <span className="text-[10px] font-bold text-indigo-400 block">Akuntan</span>
+                <span className="text-[9px] text-slate-400 font-mono block truncate">akuntan@sppg.com</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleUsePreset('driver@sppg.com')}
+                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
+              >
+                <span className="text-[10px] font-bold text-amber-500 block">Driver Logistik</span>
+                <span className="text-[9px] text-slate-400 font-mono block truncate">driver@sppg.com</span>
               </button>
             </div>
             

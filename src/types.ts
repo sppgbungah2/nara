@@ -12,7 +12,9 @@ export enum UserRole {
   CHEF = 'Chef / Juru Masak',
   AHLI_GIZI = 'Ahli Gizi',
   ASLAP = 'Aslap (Asisten Lapangan)',
-  ADMIN = 'Administrator'
+  ADMIN = 'Administrator',
+  AKUNTAN = 'Akuntan',
+  DRIVER = 'Driver'
 }
 
 export interface MenuItem {

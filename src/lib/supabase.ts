@@ -118,6 +118,24 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
   }
 
   // Predefined convenience mail accounts for other roles
+  if (normEmail === 'ketua@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ADMIN,
+      fullName: 'Ketua SPPG'
+    };
+  }
+
+  if (normEmail.startsWith('akuntan') || normEmail === 'akuntan@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.AKUNTAN,
+      fullName: 'Staff Akuntan SPPG'
+    };
+  }
+
   if (normEmail.startsWith('chef')) {
     return {
       id: uid,
@@ -142,6 +160,15 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       email,
       role: UserRole.ASLAP,
       fullName: 'Ustadz Hakim, S.Pd (Aslap)'
+    };
+  }
+
+  if (normEmail.startsWith('driver') || normEmail === 'driver@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.DRIVER,
+      fullName: 'Driver Logistik SPPG'
     };
   }
 
