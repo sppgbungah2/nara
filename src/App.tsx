@@ -3,7 +3,7 @@ import {
   ClipboardList, Package, Wrench, ShieldCheck, ShoppingCart, Truck, 
   Camera, Users, Calendar, FileText, CheckCircle2, Flame, RefreshCcw, 
   HelpCircle, ChevronRight, UserCircle, Bell, ArrowRight, ShieldAlert,
-  Menu, Info, Eye
+  Menu, Info, Eye, Trash2
 } from 'lucide-react';
 import { Division, UserRole, DayMenu, SOPDocument } from './types';
 import { PRESET_MENUS, DIVISION_CREATOR_MAP, generateInitialSOPsForDate } from './presetData';
@@ -676,23 +676,19 @@ export default function App() {
     setCurrentSubTab('dashboard');
   };
 
-  // List of all 15 capabilities
+  // List of all capabilities
   const FEATURE_MENUS = [
-    { num: 1, name: 'Stok Bahan Sisa', icon: Package, category: 'Aset & Logistik' },
-    { num: 2, name: 'Inventaris Alat', icon: Wrench, category: 'Aset & Logistik' },
-    { num: 3, name: 'Inventaris Operasional', icon: ShieldCheck, category: 'Aset & Logistik' },
+    { num: 15, name: 'SOP Harian Digital', icon: CheckCircle2, category: 'Kontrol Kualitas', badge: 'UTAMA' },
+    { num: 10, name: 'Menu Harian Gizi', icon: Calendar, category: 'Perencanaan' },
+    { num: 12, name: 'Stock Opname Gudang', icon: ClipboardList, category: 'Aset & Logistik' },
+    { num: 17, name: 'Stok Operasional', icon: Package, category: 'Aset & Logistik' },
+    { num: 16, name: 'Rekap Sampah Makanan (Waste)', icon: Trash2, category: 'Kontrol Kualitas' },
     { num: 4, name: 'Order Alat Baru', icon: ShoppingCart, category: 'Perekaman & Order' },
     { num: 5, name: 'Order Operasional', icon: ShoppingCart, category: 'Perekaman & Order' },
-    { num: 6, name: 'Kedatangan Barang', icon: Truck, category: 'Distribusi & Logistik' },
-    { num: 7, name: 'Galeri Timbangan', icon: Camera, category: 'Dokumentasi' },
-    { num: 8, name: 'Dokumentasi Dapur', icon: Camera, category: 'Dokumentasi' },
-    { num: 9, name: 'Absensi Staf', icon: Users, category: 'Sumber Daya Manusia' },
-    { num: 10, name: 'Menu Harian Gizi', icon: Calendar, category: 'Perencanaan' },
-    { num: 11, name: 'Formulir Pemesanan', icon: FileText, category: 'Perencanaan' },
-    { num: 12, name: 'Stock Opname Gudang', icon: ClipboardList, category: 'Aset & Logistik' },
-    { num: 13, name: 'Request Bahan/Alat', icon: Package, category: 'Sumber Daya Manusia' },
-    { num: 14, name: 'Keluhan Asrama', icon: ShieldAlert, category: 'Sumber Daya Manusia' },
-    { num: 15, name: 'SOP Harian Digital', icon: CheckCircle2, category: 'Kontrol Kualitas', badge: 'UTAMA' }
+    { num: 6, name: 'Kedatangan Barang', icon: Truck, category: 'Distribusi & Logistik', url: 'https://docs.google.com/spreadsheets/d/12cORkUtENMVDbLBk3h-FzS9JO_DH9ssY5zIwKhfGM7o/edit?gid=2143734055#gid=2143734055' },
+    { num: 7, name: 'Galeri Kedatangan Barang', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1TBcj9LvdkzgdNRpkKvxznz5_-1VF--hw' },
+    { num: 8, name: 'Dokumentasi Dapur', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1bqTPoSzK1KscBq58gSs_LIcjK_90ExIu?usp=drive_link' },
+    { num: 14, name: 'Keluhan Asrama', icon: ShieldAlert, category: 'Sumber Daya Manusia' }
   ];
 
   if (!loggedInUser) {
@@ -711,7 +707,7 @@ export default function App() {
   }
 
   const visibleMenus = loggedInUser.isCoordinator
-    ? FEATURE_MENUS.filter(menu => [15, 14, 4, 5].includes(menu.num))
+    ? FEATURE_MENUS.filter(menu => [15, 14, 4, 5, 16, 17].includes(menu.num))
     : FEATURE_MENUS;
 
   return (
@@ -735,12 +731,15 @@ export default function App() {
         {/* Boarding school branding */}
         <div className="p-5 border-b border-[#252f44] bg-[#0c1421] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-emerald-800 flex items-center justify-center font-bold text-emerald-300 font-display shadow-xs text-sm select-none border border-emerald-700/40">
-              SPPG
-            </div>
+            <img 
+              src="https://www.bgn.go.id/logo-bgn.png" 
+              alt="Logo BGN" 
+              className="h-10 w-10 object-contain select-none" 
+              referrerPolicy="no-referrer"
+            />
             <div>
               <h1 className="font-bold text-xs md:text-sm tracking-wide text-white uppercase font-display">
-                Dapur SPPG Qomaruddin
+                Dapur Nara
               </h1>
               <span className="text-[10px] text-emerald-400 block tracking-widest font-mono uppercase">
                 Bungah - Gresik
@@ -767,6 +766,34 @@ export default function App() {
               const IconComp = menu.icon;
               const isSelected = activeTab === menu.num;
               
+              const innerContent = (
+                <>
+                  <div className="flex items-center gap-3">
+                    <IconComp className={`h-4 w-4 shrink-0 ${isSelected ? 'text-emerald-300' : 'text-neutral-400'}`} />
+                    <span className="text-xs truncate font-medium">{menu.name}</span>
+                  </div>
+                  {menu.badge && (
+                    <span className="bg-amber-500 text-neutral-900 font-black text-[9px] px-1.5 py-0.5 rounded-sm shrink-0 uppercase tracking-widest scale-90 animate-pulse">
+                      {menu.badge}
+                    </span>
+                  )}
+                </>
+              );
+
+              if (menu.url) {
+                return (
+                  <a
+                    key={menu.num}
+                    href={menu.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-3 rounded-lg flex items-center justify-between text-left transition-all text-neutral-400 hover:text-white hover:bg-neutral-800/60"
+                  >
+                    {innerContent}
+                  </a>
+                );
+              }
+
               return (
                 <button
                   key={menu.num}
@@ -781,15 +808,7 @@ export default function App() {
                       : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <IconComp className={`h-4 w-4 shrink-0 ${isSelected ? 'text-emerald-300' : 'text-neutral-400'}`} />
-                    <span className="text-xs truncate font-medium">{menu.name}</span>
-                  </div>
-                  {menu.badge && (
-                    <span className="bg-amber-500 text-neutral-900 font-black text-[9px] px-1.5 py-0.5 rounded-sm shrink-0 uppercase tracking-widest scale-90 animate-pulse">
-                      {menu.badge}
-                    </span>
-                  )}
+                  {innerContent}
                 </button>
               );
             })}
@@ -884,6 +903,7 @@ export default function App() {
               onDeleteMenu={handleDeleteMenu}
               currentUserRole={currentUserRole}
               loggedInUser={loggedInUser}
+              selectedDate={selectedDate}
             />
           ) : activeSopDetail ? (
             /* Render Full-depth checklist printed form sheet */
@@ -895,6 +915,7 @@ export default function App() {
               onUpdateSOP={handleUpdateSOP}
               onBack={() => setActiveSopDetail(null)}
               isCoordinator={loggedInUser?.isCoordinator}
+              loggedInUser={loggedInUser}
             />
           ) : loggedInUser.isCoordinator ? (
             /* Coordinator Empty State: No SOP generated for this date yet */

@@ -114,13 +114,16 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         
         {/* Top Boarder Header */}
         <div className="p-6 md:p-8 bg-slate-850 border-b border-slate-700 text-center space-y-3">
-          <div className="inline-flex h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-400 items-center justify-center font-bold font-display border border-emerald-500/20 select-none">
-            SPPG
-          </div>
+          <img 
+            src="https://www.bgn.go.id/logo-bgn.png" 
+            alt="Logo BGN" 
+            className="h-14 w-14 object-contain select-none mx-auto mb-1 animate-pulse" 
+            referrerPolicy="no-referrer"
+          />
           
           <div className="space-y-1">
             <h1 className="text-white font-bold text-lg md:text-xl font-display tracking-tight leading-snug">
-              Dapur SPPG Qomaruddin
+              Dapur Nara
             </h1>
             <p className="text-emerald-400 font-mono text-[10px] tracking-widest uppercase">
               SISTEM INFORMASI KONTROL OPERASIONAL

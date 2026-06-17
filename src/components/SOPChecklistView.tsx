@@ -13,6 +13,7 @@ interface SOPChecklistViewProps {
   onUpdateSOP: (updatedSOP: SOPDocument) => void;
   onBack: () => void;
   isCoordinator?: boolean;
+  loggedInUser?: any;
 }
 
 export default function SOPChecklistView({ 
@@ -22,8 +23,10 @@ export default function SOPChecklistView({
   currentUsername, 
   onUpdateSOP, 
   onBack,
-  isCoordinator = false
+  isCoordinator = false,
+  loggedInUser = null
 }: SOPChecklistViewProps) {
+  const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || currentUserRole === UserRole.ADMIN;
   const [activeSignType, setActiveSignType] = useState<'supervisor' | 'coordinator' | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskCategory, setNewTaskCategory] = useState<'persiapan' | 'aktif' | 'penutup'>('aktif');
@@ -272,29 +275,14 @@ export default function SOPChecklistView({
 
         {/* Paper Header */}
         <div className="flex items-center gap-4 border-b-2 border-black pb-5 mb-6">
-          {/* Authentic National Nutrition Board Logo (Badan Gizi Nasional) in CSS SVG */}
+          {/* Authentic National Nutrition Board Logo (Badan Gizi Nasional) */}
           <div className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 bg-transparent flex items-center justify-center">
-            <svg viewBox="0 0 100 100" className="w-full h-full">
-              {/* Outer Golden Circle Ring */}
-              <circle cx="50" cy="50" r="45" fill="#ffffff" stroke="#c5a84b" strokeWidth="3" />
-              {/* Inner blue ring casing */}
-              <circle cx="50" cy="50" r="40" fill="#1e40af" stroke="#ffffff" strokeWidth="1.5" />
-              {/* Garuda Eagle Core Shape (Abstract elegant stylized vector) */}
-              <path d="M50,15 L52,25 L65,18 L60,30 L75,28 L65,40 L80,48 L65,52 L75,65 L58,60 L62,75 L50,65 L38,75 L42,60 L25,65 L35,52 L20,48 L35,40 L25,28 L40,30 L35,18 L48,25 Z" fill="#eab308" />
-              {/* Red-White Shield on the breast */}
-              <rect x="44" y="40" width="12" height="12" fill="#ef4444" stroke="#ffffff" strokeWidth="1" />
-              <path d="M44,46 L56,46 L56,52 L50,55 L44,52 Z" fill="#ffffff" stroke="#ffffff" strokeWidth="0.5" />
-              <circle cx="50" cy="46" r="2.5" fill="#000000" />
-              {/* Outer Text Circle arch */}
-              <defs>
-                <path id="textPath" d="M 50,5 A 45,45 0 0,1 50,95" fill="none" />
-              </defs>
-              <text fill="#ffffff" fontSize="5.5" fontWeight="bold" letterSpacing="0.8">
-                <textPath href="#textPath" startOffset="50%" textAnchor="middle">
-                  BADAN GIZI NASIONAL
-                </textPath>
-              </text>
-            </svg>
+            <img 
+              src="https://www.bgn.go.id/logo-bgn.png" 
+              alt="Logo BGN" 
+              className="h-full w-full object-contain select-none" 
+              referrerPolicy="no-referrer"
+            />
           </div>
 
           <div className="flex-1 text-center md:text-left space-y-1">
@@ -376,7 +364,7 @@ export default function SOPChecklistView({
                             <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
-                            {sop.status !== 'selesai' && task.id.includes('custom') && (
+                            {sop.status !== 'selesai' && (task.id.includes('custom') || isAdmin) && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
@@ -410,7 +398,7 @@ export default function SOPChecklistView({
                             <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
-                            {sop.status !== 'selesai' && task.id.includes('custom') && (
+                            {sop.status !== 'selesai' && (task.id.includes('custom') || isAdmin) && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
@@ -444,7 +432,7 @@ export default function SOPChecklistView({
                             <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
-                            {sop.status !== 'selesai' && task.id.includes('custom') && (
+                            {sop.status !== 'selesai' && (task.id.includes('custom') || isAdmin) && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
