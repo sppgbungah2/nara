@@ -39,8 +39,118 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  // Predefined convenience coordinator accounts
-  if (normEmail === 'stocking@sppg.com') {
+  // --- ADMIN UTAMA ---
+  if (normEmail === 'maghfur@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ADMIN,
+      fullName: 'Ustadz Maghfur Munif (Admin Utama)'
+    };
+  }
+  if (normEmail === 'rifkah@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ADMIN,
+      fullName: 'Ibu Rifkah (Admin Utama)'
+    };
+  }
+  if (normEmail === 'fajar@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ADMIN,
+      fullName: 'Bpk. Fajar (Admin Utama)'
+    };
+  }
+  if (normEmail === 'sam@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.ADMIN,
+      fullName: 'Bpk. Sam (Admin Utama)'
+    };
+  }
+
+  // --- PENERIMA SASARAN ---
+  if (normEmail === 'ma@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.PENERIMA,
+      fullName: "MA Assa'adah (Penerima)"
+    };
+  }
+  if (normEmail === 'smk@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.PENERIMA,
+      fullName: "SMK Assa'adah (Penerima)"
+    };
+  }
+  if (normEmail === 'sma@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.PENERIMA,
+      fullName: "SMA Assa'adah (Penerima)"
+    };
+  }
+  if (normEmail === 'mts@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.PENERIMA,
+      fullName: "MTS Assa'adah II (Penerima)"
+    };
+  }
+  if (normEmail === 'sukowati@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.PENERIMA,
+      fullName: "Desa Sukowati (Penerima)"
+    };
+  }
+  if (normEmail === 'sidokumpul@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.PENERIMA,
+      fullName: "Desa Sidokumpul (Penerima)"
+    };
+  }
+
+  // --- TIM UTAMA ---
+  if (normEmail === 'chef@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.CHEF,
+      fullName: 'Chef Ahmad (Tim Utama)'
+    };
+  }
+  if (normEmail === 'gizi@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.AHLI_GIZI,
+      fullName: 'Ustadzah Fatimah, S.Gz (Ahli Gizi)'
+    };
+  }
+  if (normEmail === 'akuntan@qomaruddin.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.AKUNTAN,
+      fullName: 'Staff Akuntan (Tim Utama)'
+    };
+  }
+
+  // --- DIVISI ---
+  if (normEmail === 'stocking@qomaruddin.com' || normEmail === 'stocking@sppg.com') {
     return {
       id: uid,
       email,
@@ -62,7 +172,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  if (normEmail === 'masak@sppg.com') {
+  if (normEmail === 'masak@qomaruddin.com' || normEmail === 'masak@sppg.com') {
     return {
       id: uid,
       email,
@@ -73,18 +183,29 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  if (normEmail === 'driver@sppg.com') {
+  if (normEmail === 'pemorsian@qomaruddin.com') {
     return {
       id: uid,
       email,
-      role: UserRole.ASLAP,
-      fullName: 'Koordinator Driver (Distribusi)',
+      role: UserRole.CHEF,
+      fullName: 'Koordinator Pemorsian',
+      isCoordinator: true,
+      coordinatorDivision: Division.PEMORSIAN
+    };
+  }
+
+  if (normEmail === 'driver@qomaruddin.com' || normEmail === 'driver@sppg.com') {
+    return {
+      id: uid,
+      email,
+      role: UserRole.DRIVER,
+      fullName: 'Bpk. Sholeh (Driver Distribusi)',
       isCoordinator: true,
       coordinatorDivision: Division.DRIVER
     };
   }
 
-  if (normEmail === 'cuci@sppg.com') {
+  if (normEmail === 'cuci@qomaruddin.com' || normEmail === 'cuci@sppg.com') {
     return {
       id: uid,
       email,
@@ -95,7 +216,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  if (normEmail === 'kebersihan@sppg.com') {
+  if (normEmail === 'kebersihan@qomaruddin.com' || normEmail === 'kebersihan@sppg.com') {
     return {
       id: uid,
       email,
@@ -106,7 +227,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  if (normEmail === 'kemanan@sppg.com' || normEmail === 'keamanan@sppg.com') {
+  if (normEmail === 'keamanan@qomaruddin.com' || normEmail === 'kemanan@sppg.com' || normEmail === 'keamanan@sppg.com') {
     return {
       id: uid,
       email,
@@ -117,7 +238,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  // Predefined convenience mail accounts for other roles
+  // Predefined convenience mail accounts for other legacy roles
   if (normEmail === 'ketua@sppg.com') {
     return {
       id: uid,
@@ -127,7 +248,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
     };
   }
 
-  if (normEmail.startsWith('akuntan') || normEmail === 'akuntan@sppg.com') {
+  if (normEmail.startsWith('akuntan')) {
     return {
       id: uid,
       email,
@@ -160,15 +281,6 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       email,
       role: UserRole.ASLAP,
       fullName: 'Ustadz Hakim, S.Pd (Aslap)'
-    };
-  }
-
-  if (normEmail.startsWith('driver') || normEmail === 'driver@sppg.com') {
-    return {
-      id: uid,
-      email,
-      role: UserRole.DRIVER,
-      fullName: 'Driver Logistik SPPG'
     };
   }
 

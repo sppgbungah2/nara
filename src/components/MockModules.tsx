@@ -7,6 +7,10 @@ import {
 } from 'lucide-react';
 import { DayMenu, UserRole } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+import SignaturePad from './SignaturePad';
+import BASTView from './BASTView';
+import SuratJalanView from './SuratJalanView';
+import OrganoleptikView from './OrganoleptikView';
 
 // Real schemas for SQL integration
 export interface SisaStokItem {
@@ -55,6 +59,15 @@ interface MockModulesProps {
   selectedDate?: string;
 }
 
+const DISTRIBUTION_LOCATIONS = [
+  "MA Assa'adah",
+  "MTS Assa'adah II",
+  "SMA Assa'adah",
+  "SMK Assa'adah",
+  "Desa Sidokumpul",
+  "Desa Sukowati"
+];
+
 const PRESET_SUGGESTIONS = [
   { name: 'Nasi Krawu Bungah', items: ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng', 'Pisang'] },
   { name: 'Soto Lamongan Mantap', items: ['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'] },
@@ -73,7 +86,8 @@ function ShippingDocPanel({
   currentUserRole,
   shippingDocs,
   setShippingDocs,
-  selectedDate
+  selectedDate,
+  allDayMenus
 }: {
   type: 'ompreng' | 'serah_terima' | 'surat_jalan' | 'organoleptik';
   title: string;
@@ -84,6 +98,7 @@ function ShippingDocPanel({
   shippingDocs: any[];
   setShippingDocs: React.Dispatch<React.SetStateAction<any[]>>;
   selectedDate: string;
+  allDayMenus?: DayMenu[];
 }) {
   const [filterDateMode, setFilterDateMode] = useState<'selected' | 'all'>('selected');
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,7 +111,7 @@ function ShippingDocPanel({
   const [comments, setComments] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   
-  // Organoleptik specifics
+  // Organoleptik legacy specifics (retained for compatibility)
   const [organoleptikRasa, setOrganoleptikRasa] = useState('Sangat Layak (Segar & Gurih)');
   const [organoleptikAroma, setOrganoleptikAroma] = useState('Sangat Harum');
   const [organoleptikTekstur, setOrganoleptikTekstur] = useState('Matang Sempurna');
@@ -104,6 +119,205 @@ function ShippingDocPanel({
 
   // Previewing image popup state
   const [activePreviewImage, setActivePreviewImage] = useState<string | null>(null);
+
+  // --- NEW HIGH-FIDELITY DIGITAL FORM STATES ---
+  
+  // Surat Jalan form states:
+  const [sjNo, setSjNo] = useState('');
+  const [sjKepada, setSjKepada] = useState('');
+  const [sjWaktu, setSjWaktu] = useState('11:00 WIB');
+  const [sjDriver, setSjDriver] = useState('');
+  const [sjRows, setSjRows] = useState<{ id: string; jenis: string; porsi: number; alatSebelum: number; alatSesudah: number; keterangan: string }[]>([]);
+
+  // BAST form states:
+  const [bastNo, setBastNo] = useState('');
+  const [bastDriver, setBastDriver] = useState('');
+  const [bastSekolah, setBastSekolah] = useState('');
+  const [bastPenerima, setBastPenerima] = useState('');
+  const [bastBarang, setBastBarang] = useState('PAKET PROGRAM MAKAN BERGIZI GRATIS');
+  const [bastJumlah, setBastJumlah] = useState(265);
+  const [bastWaktu, setBastWaktu] = useState('11:15 WIB');
+
+  // Form Signature States
+  const [tempSjSignatureAslap, setTempSjSignatureAslap] = useState<string>('');
+  const [tempSjSignatureReceiver, setTempSjSignatureReceiver] = useState<string>('');
+  const [tempBastSignatureDriver, setTempBastSignatureDriver] = useState<string>('');
+  const [tempBastSignatureReceiver, setTempBastSignatureReceiver] = useState<string>('');
+
+  // Signature pad modal trigger state
+  const [activeSigRequest, setActiveSigRequest] = useState<{
+    docId?: string;
+    targetField: 'sjSignatureAslap' | 'sjSignatureReceiver' | 'bastSignatureDriver' | 'bastSignatureReceiver';
+    title: string;
+    suggestedName: string;
+  } | null>(null);
+
+  // Organoleptik detailed form states:
+  const [orlepJam, setOrlepJam] = useState('11:30 WIB');
+  const [orlepPanelis, setOrlepPanelis] = useState('');
+  const [orlepDesa, setOrlepDesa] = useState('Bungah');
+  const [orlepMenu, setOrlepMenu] = useState('');
+  const [orlepKritik, setOrlepKritik] = useState('');
+  const [orlepGrid, setOrlepGrid] = useState<Record<string, number>>({
+    MP_rasa: 4, MP_warna: 4, MP_aroma: 4, MP_tekstur: 4,
+    LH_rasa: 4, LH_warna: 4, LH_aroma: 4, LH_tekstur: 4,
+    LN_rasa: 4, LN_warna: 4, LN_aroma: 4, LN_tekstur: 4,
+    SY_rasa: 4, SY_warna: 4, SY_aroma: 4, SY_tekstur: 4,
+    B_rasa: 4, B_warna: 4, B_aroma: 4, B_tekstur: 4,
+  });
+
+  const [activeDocView, setActiveDocView] = useState<any | null>(null);
+
+  const generateAbbrev = (schoolName: string) => {
+    let abbrev = 'MA'; // default fallback
+    const upper = (schoolName || '').toUpperCase();
+    if (upper.includes('SMA')) {
+      abbrev = 'SMA';
+    } else if (upper.includes('SMK')) {
+      abbrev = 'SMK';
+    } else if (upper.includes('MTS') || upper.includes('TSANAWIYAH')) {
+      abbrev = 'MTS';
+    } else if (upper.includes('MA') || upper.includes('ALIYAH')) {
+      abbrev = 'MA';
+    } else {
+      const match = upper.match(/\b(MA|SMA|SMK|MTS)\b/);
+      if (match) {
+        abbrev = match[1];
+      }
+    }
+    return abbrev;
+  };
+
+  const getBastAutoNumber = (dateStr: string, schoolName: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return '';
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2];
+    const abbrev = generateAbbrev(schoolName);
+    return `${day}/${abbrev}/BAST/MBGQOM/${month}/${year}`;
+  };
+
+  const getSjAutoNumber = (dateStr: string, schoolName: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return '';
+    const year = parts[0];
+    const month = parts[1];
+    const day = parts[2];
+    const abbrev = generateAbbrev(schoolName);
+    return `${day}/${abbrev}/SJ/MBGQOM/${month}/${year}`;
+  };
+
+  // Auto Generate BAST Number in real-time as user types school name or changes date
+  useEffect(() => {
+    if (selectedDate) {
+      const num = getBastAutoNumber(selectedDate, bastSekolah);
+      setBastNo(num);
+    }
+  }, [selectedDate, bastSekolah]);
+
+  // Auto Generate Surat Jalan Number in real-time as user types school name or changes date
+  useEffect(() => {
+    if (selectedDate) {
+      const num = getSjAutoNumber(selectedDate, sjKepada);
+      setSjNo(num);
+    }
+  }, [selectedDate, sjKepada]);
+
+  const handleUpdateDocumentSignature = (docId: string, field: string, signatureDataUrl: string) => {
+    setShippingDocs(prev => prev.map(doc => {
+      if (doc.id === docId) {
+        return {
+          ...doc,
+          [field]: signatureDataUrl
+        };
+      }
+      return doc;
+    }));
+    // Update activeDocView if it is currently open
+    if (activeDocView && activeDocView.id === docId) {
+      setActiveDocView(prev => ({
+        ...prev,
+        [field]: signatureDataUrl
+      }));
+    }
+  };
+
+  // Helper to split date into Indonesian written words
+  const getIndonesianDateText = (dateStr: string) => {
+    if (!dateStr) return { dayName: 'Selasa', dateNum: '16', monthName: 'Juni', yearNum: '2026' };
+    const dateObj = new Date(dateStr);
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const monthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const y = parts[0];
+      const m = parseInt(parts[1]) - 1;
+      const d = parseInt(parts[2]);
+      const localDate = new Date(parseInt(y), m, d);
+      return {
+        dayName: dayNames[localDate.getDay()],
+        dateNum: d.toString(),
+        monthName: monthNames[m],
+        yearNum: y
+      };
+    }
+    return {
+      dayName: dayNames[dateObj.getDay()] || 'Selasa',
+      dateNum: dateObj.getDate().toString() || '16',
+      monthName: monthNames[dateObj.getMonth()] || 'Juni',
+      yearNum: dateObj.getFullYear().toString() || '2026'
+    };
+  };
+
+  // Pre-populate form variables based on selectedDate & environment context
+  useEffect(() => {
+    if (selectedDate) {
+      const dateInfo = getIndonesianDateText(selectedDate);
+      const parts = selectedDate.split('-');
+      
+      // Portions defaults - if active day menu has portions, use it, otherwise 265
+      const currentDayMenu = allDayMenus?.find(m => m.date === selectedDate);
+      const calculatedPorsi = (currentDayMenu as any)?.portionsCount || 265;
+
+      // 1. Surat Jalan defaults
+      setSjKepada(receiverName || 'Madrasah Aliyah Qomaruddin Bungah');
+      setSjDriver(loggedInUser?.fullName || 'Bpk. Sholeh (Driver)');
+      setSjRows([
+        { id: '1', jenis: 'Paket Program Makan Bergizi Gratis', porsi: calculatedPorsi, alatSebelum: calculatedPorsi, alatSesudah: calculatedPorsi, keterangan: 'Hangat & Lengkap' },
+        { id: '2', jenis: 'Buah Melon Potong Segar', porsi: calculatedPorsi, alatSebelum: 0, alatSesudah: 0, keterangan: 'Kondisi Baik' },
+        { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: calculatedPorsi, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+      ]);
+
+      // 2. BAST defaults
+      if (parts.length === 3) {
+        setBastNo(`087/BAST-MBG/SPPGBB2/${parts[1]}/${parts[0]}`);
+      } else {
+        setBastNo('087/BAST-MBG/SPPGBB2/06/2026');
+      }
+      setBastDriver(loggedInUser?.fullName || 'Bpk. Sholeh (Driver)');
+      setBastSekolah(receiverName || 'Madrasah Aliyah Qomaruddin Bungah');
+      setBastPenerima(receiverName || 'Ibu Aminah, S.Pd');
+      setBastJumlah(calculatedPorsi);
+
+      // 3. Organoleptik defaults
+      const menuStr = currentDayMenu ? currentDayMenu.menuList.join(', ') : 'Nasi Krawu Bungah, Tempe Goreng, Timun, Melon';
+      setOrlepMenu(menuStr);
+      setOrlepPanelis(loggedInUser?.fullName || 'Ustadzah Fatimah, S.Gz');
+      setOrlepGrid({
+        MP_rasa: 4, MP_warna: 4, MP_aroma: 4, MP_tekstur: 4,
+        LH_rasa: 4, LH_warna: 4, LH_aroma: 4, LH_tekstur: 4,
+        LN_rasa: 4, LN_warna: 4, LN_aroma: 4, LN_tekstur: 4,
+        SY_rasa: 4, SY_warna: 4, SY_aroma: 4, SY_tekstur: 4,
+        B_rasa: 5, B_warna: 5, B_aroma: 5, B_tekstur: 4,
+      });
+    }
+  }, [selectedDate, allDayMenus, loggedInUser, showAddForm]);
 
   // Quick preset image simulator for easy testing without real files
   const cameraPresets = {
@@ -124,11 +338,6 @@ function ShippingDocPanel({
         name: 'Lembar BAST Ditandatangani',
         url: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=500&auto=format&fit=crop&q=80',
         note: 'Dokumen serah terima fisik bermeterai/berparaf.'
-      },
-      {
-        name: 'Tanda Terima Berkas',
-        url: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&auto=format&fit=crop&q=80',
-        note: 'Penyerahan form lembar berita acara.'
       }
     ],
     surat_jalan: [
@@ -143,11 +352,6 @@ function ShippingDocPanel({
         name: 'Uji Termometer Gizi Sup',
         url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80',
         note: 'Sampel sup sayur hangat diuji sensorik & suhu.'
-      },
-      {
-        name: 'Suhu Nasi Hangat di Box',
-        url: 'https://images.unsplash.com/photo-1612182062633-9ff3b3598e96?w=500&auto=format&fit=crop&q=80',
-        note: 'Pengecekan higienitas nasi hangat di wadah.'
       }
     ]
   };
@@ -165,41 +369,86 @@ function ShippingDocPanel({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageUrl) {
-      alert('Silakan unggah foto atau gunakan gambar simulasi kamera.');
-      return;
+    
+    let finalImageUrl = imageUrl;
+    if (!finalImageUrl) {
+      if (type === 'serah_terima') {
+        finalImageUrl = 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&auto=format&fit=crop&q=80'; // clean document mockup
+      } else if (type === 'surat_jalan') {
+        finalImageUrl = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500&auto=format&fit=crop&q=80'; // delivery document mockup
+      } else {
+        alert('Silakan unggah foto fisik lembar dokumen atau gunakan gambar simulasi kamera.');
+        return;
+      }
     }
+
+    // Compose rich metadata based on type
+    const dateInfo = getIndonesianDateText(selectedDate);
+    const dayFormatted = `${dateInfo.dayName}, ${dateInfo.dateNum} ${dateInfo.monthName} ${dateInfo.yearNum}`;
 
     const newDoc = {
       id: 'doc-' + Date.now(),
       type,
       date: selectedDate,
       vehicleNumber: vehicleNumber.toUpperCase().trim(),
-      imageUrl,
-      comments: comments.trim() || 'Melampirkan kelengkapan logistik.',
+      imageUrl: finalImageUrl,
+      comments: comments.trim() || `Lembar ${title} digital berhasil digenerate otomatis.`,
       uploadedBy: loggedInUser?.email || 'driver@sppg.com',
       uploadedAt: new Date().toISOString(),
-      receiverName: receiverName.trim() || 'Staf Asrama',
-      status: type === 'organoleptik' ? 'Lulus Uji' : (type === 'serah_terima' ? 'Terverifikasi' : 'Selesai Kirim'),
+      receiverName: type === 'serah_terima' ? bastPenerima : (type === 'surat_jalan' ? sjKepada : receiverName.trim() || 'Staf Penerima'),
+      status: type === 'organoleptik' ? 'Lulus Uji Orlep' : (type === 'serah_terima' ? 'BAST Sah' : 'Kirim Sukses'),
+      
+      // Organoleptik specifics
       organoleptikRasa: type === 'organoleptik' ? organoleptikRasa : undefined,
       organoleptikAroma: type === 'organoleptik' ? organoleptikAroma : undefined,
       organoleptikTekstur: type === 'organoleptik' ? organoleptikTekstur : undefined,
-      organoleptikSuhu: type === 'organoleptik' ? organoleptikSuhu : undefined
+      organoleptikSuhu: type === 'organoleptik' ? organoleptikSuhu : undefined,
+      
+      // Rich Digital Form Fields
+      sjNo: type === 'surat_jalan' ? sjNo : undefined,
+      sjKepada: type === 'surat_jalan' ? sjKepada : undefined,
+      sjWaktu: type === 'surat_jalan' ? sjWaktu : undefined,
+      sjDriver: type === 'surat_jalan' ? sjDriver : undefined,
+      sjRows: type === 'surat_jalan' ? sjRows : undefined,
+      sjSignatureAslap: type === 'surat_jalan' ? tempSjSignatureAslap : undefined,
+      sjSignatureReceiver: type === 'surat_jalan' ? tempSjSignatureReceiver : undefined,
+
+      bastNo: type === 'serah_terima' ? bastNo : undefined,
+      bastDriver: type === 'serah_terima' ? bastDriver : undefined,
+      bastSekolah: type === 'serah_terima' ? bastSekolah : undefined,
+      bastPenerima: type === 'serah_terima' ? bastPenerima : undefined,
+      bastBarang: type === 'serah_terima' ? bastBarang : undefined,
+      bastJumlah: type === 'serah_terima' ? bastJumlah : undefined,
+      bastWaktu: type === 'serah_terima' ? bastWaktu : undefined,
+      bastSignatureDriver: type === 'serah_terima' ? tempBastSignatureDriver : undefined,
+      bastSignatureReceiver: type === 'serah_terima' ? tempBastSignatureReceiver : undefined,
+
+      orlepJam: type === 'organoleptik' ? orlepJam : undefined,
+      orlepPanelis: type === 'organoleptik' ? orlepPanelis : undefined,
+      orlepDesa: type === 'organoleptik' ? orlepDesa : undefined,
+      orlepMenu: type === 'organoleptik' ? orlepMenu : undefined,
+      orlepKritik: type === 'organoleptik' ? orlepKritik : undefined,
+      orlepGrid: type === 'organoleptik' ? orlepGrid : undefined,
     };
 
     setShippingDocs(prev => [newDoc, ...prev]);
-    setSuccessMsg('Dokumentasi pengiriman berhasil diunggah!');
+    setActiveDocView(newDoc); // AUTO-OPEN GENERATED SHEET PREVIEW MODAL AS REQUESTED!
+    setSuccessMsg(`Lembar dokumen ${title} hari ini berhasil direkam!`);
     setTimeout(() => setSuccessMsg(null), 3000);
 
     // Reset Form
     setComments('');
     setReceiverName('');
     setImageUrl('');
+    setTempSjSignatureAslap('');
+    setTempSjSignatureReceiver('');
+    setTempBastSignatureDriver('');
+    setTempBastSignatureReceiver('');
     setShowAddForm(false);
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus arsip dokumentasi ini?')) {
+    if (confirm('Apakah Anda yakin ingin menghapus arsip lembar harian ini?')) {
       setShippingDocs(prev => prev.filter(doc => doc.id !== id));
     }
   };
@@ -232,7 +481,7 @@ function ShippingDocPanel({
               {title}
             </h2>
             <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">
-              🚛 Logistik Mitra
+              📝 Harian / Updateable
             </span>
           </div>
           <p className="text-sm text-neutral-500">{description}</p>
@@ -244,7 +493,7 @@ function ShippingDocPanel({
           className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
-          {showAddForm ? 'Tutup Form' : 'Pencatatan Baru'}
+          {showAddForm ? 'Tutup Form Isian' : 'Isi & Update Hari Ini'}
         </button>
       </div>
 
@@ -257,137 +506,584 @@ function ShippingDocPanel({
 
       {/* Form Section */}
       {showAddForm && (
-        <form onSubmit={handleAddSubmit} className="p-5 border border-emerald-100 bg-emerald-50/15 rounded-2xl space-y-4 animate-fade-in shadow-2xs">
+        <form onSubmit={handleAddSubmit} className="p-5 border border-emerald-100 bg-emerald-50/15 rounded-2xl space-y-5 animate-fade-in shadow-2xs">
           <h3 className="font-bold text-xs text-emerald-900 uppercase tracking-widest flex items-center gap-1.5 border-b border-emerald-150 pb-2">
             <Camera className="h-4 w-4 text-emerald-700" />
-            Isi Lembar Pencatatan {title}
+            Lengkapi Berkas Digital & Unggah Foto
           </h3>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             
             <div>
               <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
-                Tanggal Pengiriman
+                Tanggal Operasional
               </label>
               <div className="w-full text-xs font-semibold border border-neutral-200 rounded-lg p-2.5 bg-neutral-100 text-neutral-600 flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-neutral-500" />
-                {selectedDate} (SOP Tanggal Ini)
+                {selectedDate} (SOP Hari Ini)
               </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
-                No Plat Kendaraan
-              </label>
-              <input
-                type="text"
-                required
-                value={vehicleNumber}
-                onChange={e => setVehicleNumber(e.target.value)}
-                placeholder="Contoh: W 1234 BGH"
-                className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden uppercase font-semibold text-neutral-800"
-              />
-            </div>
+            {type !== 'ompreng' && (
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                  No Plat Kendaraan
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={vehicleNumber}
+                  onChange={e => setVehicleNumber(e.target.value)}
+                  placeholder="Contoh: W 1234 BGH"
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden uppercase font-semibold text-neutral-800"
+                />
+              </div>
+            )}
 
-            <div>
-              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
-                {type === 'ompreng' || type === 'serah_terima' ? 'Nama Penerima Asrama' : 'U.P / Penanggung Jawab'}
-              </label>
-              <input
-                type="text"
-                required
-                value={receiverName}
-                onChange={e => setReceiverName(e.target.value)}
-                placeholder="Contoh: Ustadz Jauhari"
-                className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
-              />
-            </div>
+            {type === 'ompreng' ? (
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                  Lokasi Distribusi Sasaran
+                </label>
+                <select
+                  required
+                  value={receiverName}
+                  onChange={e => setReceiverName(e.target.value)}
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800 font-extrabold"
+                >
+                  <option value="">-- Pilih Lokasi Distribusi --</option>
+                  <option value="MA Assa'adah">MA Assa'adah</option>
+                  <option value="MTS Assa'adah II">MTS Assa'adah II</option>
+                  <option value="SMA Assa'adah">SMA Assa'adah</option>
+                  <option value="SMK Assa'adah">SMK Assa'adah</option>
+                  <option value="Desa Sidokumpul">Desa Sidokumpul</option>
+                  <option value="Desa Sukowati">Desa Sukowati</option>
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                  {type === 'serah_terima' ? 'Nama Penerima Sekolah' : 'U.P / Penanggung Jawab'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={receiverName}
+                  onChange={e => setReceiverName(e.target.value)}
+                  placeholder="Contoh: Ibu Aminah, S.Pd"
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+                />
+              </div>
+            )}
 
           </div>
 
-          {/* Organoleptik Specific Controls */}
-          {type === 'organoleptik' && (
-            <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100 grid grid-cols-1 md:grid-cols-4 gap-3 animate-fade-in text-neutral-800">
-              <div>
-                <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 font-sans">Uji Rasa Makanan</label>
-                <select
-                  value={organoleptikRasa}
-                  onChange={e => setOrganoleptikRasa(e.target.value)}
-                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
-                >
-                  <option>Sangat Layak (Segar & Gurih)</option>
-                  <option>Layak (Sesuai SOP Gizi)</option>
-                  <option>Kurang Layak (Sedikit Hambar)</option>
-                  <option>Tidak Layak (Basi / Berlendir)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 font-sans">Uji Aroma / Bau</label>
-                <select
-                  value={organoleptikAroma}
-                  onChange={e => setOrganoleptikAroma(e.target.value)}
-                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
-                >
-                  <option>Sangat Harum</option>
-                  <option>Aroma Normal (SOP)</option>
-                  <option>Pesing / Tengik</option>
-                  <option>Asam / Basi</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-emerald-800 uppercase mb-1 font-sans">Uji Tekstur Makanan</label>
-                <select
-                  value={organoleptikTekstur}
-                  onChange={e => setOrganoleptikTekstur(e.target.value)}
-                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
-                >
-                  <option>Matang Sempurna</option>
-                  <option>Sangat Lembut / Empuk</option>
-                  <option>Sedikit Keras</option>
-                  <option>Mentah / Lembek Parah</option>
-                </select>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[10px] font-bold text-emerald-800 uppercase font-sans">Suhu Hidangan (°C)</label>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono ${
-                    parseInt(organoleptikSuhu) >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800 animate-pulse'
-                  }`}>
-                    {organoleptikSuhu} °C ({parseInt(organoleptikSuhu) >= 60 ? 'Aman' : 'Resiko Bakteri'})
-                  </span>
+          {/* SURAT JALAN SPECIFIC FORM FIELDS */}
+          {type === 'surat_jalan' && (
+            <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100 space-y-4 animate-fade-in text-neutral-800">
+              <h4 className="text-xs font-extrabold text-emerald-900 border-b border-emerald-100 pb-1 flex items-center gap-1.5">
+                📋 Rincian Pengiriman Surat Jalan
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nomor Surat Jalan (Otomatis)</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={sjNo}
+                    placeholder="Otomatis..."
+                    className="w-full text-xs border border-neutral-200 bg-neutral-100 rounded-lg p-2 font-mono font-bold text-emerald-900"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="30"
-                  max="95"
-                  value={organoleptikSuhu}
-                  onChange={e => setOrganoleptikSuhu(e.target.value)}
-                  className="w-full accent-emerald-800 cursor-pointer text-xs"
-                />
-                <div className="flex justify-between text-[8px] text-neutral-400 font-mono">
-                  <span>30°C (Dingin)</span>
-                  <span>60°C (Min)</span>
-                  <span>95°C (Panas)</span>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Kepada Pihak (Lembaga Sasaran)</label>
+                  <select
+                    required
+                    value={sjKepada}
+                    onChange={e => setSjKepada(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850 font-bold"
+                  >
+                    <option value="">-- Pilih Lembaga --</option>
+                    <option value="MA Assa'adah">MA Assa'adah</option>
+                    <option value="MTS Assa'adah II">MTS Assa'adah II</option>
+                    <option value="SMA Assa'adah">SMA Assa'adah</option>
+                    <option value="SMK Assa'adah">SMK Assa'adah</option>
+                    <option value="Desa Sidokumpul">Desa Sidokumpul</option>
+                    <option value="Desa Sukowati">Desa Sukowati</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Waktu Pengiriman</label>
+                  <input
+                    type="text"
+                    value={sjWaktu}
+                    onChange={e => setSjWaktu(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Driver</label>
+                  <input
+                    type="text"
+                    value={sjDriver}
+                    onChange={e => setSjDriver(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+              </div>
+
+              {/* SJ Table Rows */}
+              <div className="space-y-2">
+                <span className="block text-[10px] font-bold text-neutral-500 uppercase">Tabel Barang Kiriman:</span>
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] text-neutral-500 font-extrabold">
+                        <th className="p-2 text-center w-10">No</th>
+                        <th className="p-2">Jenis Barang</th>
+                        <th className="p-2 text-center w-24">Porsi / Box</th>
+                        <th className="p-2 text-center w-24">Alat (Bfr)</th>
+                        <th className="p-2 text-center w-24">Alat (Aft)</th>
+                        <th className="p-2">Keterangan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-150">
+                      {sjRows.map((row, rIdx) => (
+                        <tr key={row.id}>
+                          <td className="p-2 text-center text-neutral-400 font-mono">{rIdx + 1}</td>
+                          <td className="p-1">
+                            <input
+                              type="text"
+                              value={row.jenis}
+                              onChange={e => {
+                                const newRows = [...sjRows];
+                                newRows[rIdx].jenis = e.target.value;
+                                setSjRows(newRows);
+                              }}
+                              className="w-full border-0 bg-transparent focus:ring-1 focus:ring-emerald-700 p-1 text-xs text-neutral-800 font-medium"
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="number"
+                              value={row.porsi}
+                              onChange={e => {
+                                const newRows = [...sjRows];
+                                newRows[rIdx].porsi = parseInt(e.target.value) || 0;
+                                setSjRows(newRows);
+                              }}
+                              className="w-full border-0 bg-transparent text-center focus:ring-1 focus:ring-emerald-700 p-1 text-xs font-semibold text-neutral-800"
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="number"
+                              value={row.alatSebelum}
+                              onChange={e => {
+                                const newRows = [...sjRows];
+                                newRows[rIdx].alatSebelum = parseInt(e.target.value) || 0;
+                                setSjRows(newRows);
+                              }}
+                              className="w-full border-0 bg-transparent text-center focus:ring-1 focus:ring-emerald-700 p-1 text-xs text-neutral-800"
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="number"
+                              value={row.alatSesudah}
+                              onChange={e => {
+                                const newRows = [...sjRows];
+                                newRows[rIdx].alatSesudah = parseInt(e.target.value) || 0;
+                                setSjRows(newRows);
+                              }}
+                              className="w-full border-0 bg-transparent text-center focus:ring-1 focus:ring-emerald-700 p-1 text-xs text-neutral-800"
+                            />
+                          </td>
+                          <td className="p-1">
+                            <input
+                              type="text"
+                              value={row.keterangan}
+                              onChange={e => {
+                                const newRows = [...sjRows];
+                                newRows[rIdx].keterangan = e.target.value;
+                                setSjRows(newRows);
+                              }}
+                              className="w-full border-0 bg-transparent focus:ring-1 focus:ring-emerald-700 p-1 text-xs text-neutral-600"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSjRows([...sjRows, { id: `sj-${Date.now()}`, jenis: 'Tambahan Menu', porsi: 265, alatSebelum: 0, alatSesudah: 0, keterangan: 'Baik' }])}
+                  className="text-[10px] text-emerald-800 font-extrabold hover:underline"
+                >
+                  + Tambah Baris Baru
+                </button>
+              </div>
+
+              {/* ONLINE SIGNATURE AREA IN FORM */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-emerald-100">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Tanda Tangan Aslap (Pihak Pertama)</label>
+                  <div className="border border-neutral-200 rounded-xl bg-white p-3 flex flex-col items-center justify-center min-h-[110px] relative shadow-3xs">
+                    {tempSjSignatureAslap ? (
+                      <div className="text-center">
+                        <img src={tempSjSignatureAslap} alt="Ttd Aslap" className="h-14 object-contain max-w-full mix-blend-multiply" />
+                        <button
+                          type="button"
+                          onClick={() => setTempSjSignatureAslap('')}
+                          className="text-[9px] text-red-500 hover:underline mt-1 font-semibold block mx-auto"
+                        >
+                          Hapus Ttd
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveSigRequest({
+                          targetField: 'sjSignatureAslap',
+                          title: 'Tanda Tangan Asisten Lapangan (Aslap)',
+                          suggestedName: 'SAYYID KHOLIL'
+                        })}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-100 text-[10px] font-extrabold px-3 py-2 rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
+                      >
+                        ✍️ Bubuhkan Ttd Aslap
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Tanda Tangan Penerima Sekolah</label>
+                  <div className="border border-neutral-200 rounded-xl bg-white p-3 flex flex-col items-center justify-center min-h-[110px] relative shadow-3xs">
+                    {tempSjSignatureReceiver ? (
+                      <div className="text-center">
+                        <img src={tempSjSignatureReceiver} alt="Ttd Penerima" className="h-14 object-contain max-w-full mix-blend-multiply" />
+                        <button
+                          type="button"
+                          onClick={() => setTempSjSignatureReceiver('')}
+                          className="text-[9px] text-red-500 hover:underline mt-1 font-semibold block mx-auto"
+                        >
+                          Hapus Ttd
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveSigRequest({
+                          targetField: 'sjSignatureReceiver',
+                          title: 'Tanda Tangan Pihak Penerima Sekolah',
+                          suggestedName: sjKepada || 'Ibu Aminah'
+                        })}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-100 text-[10px] font-extrabold px-3 py-2 rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
+                      >
+                        ✍️ Bubuhkan Ttd Penerima
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          <div>
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
-              Catatan Pengiriman / Catatan Uji Lapangan
-            </label>
-            <textarea
-              value={comments}
-              onChange={e => setComments(e.target.value)}
-              placeholder="Berikan keterangan detail, contoh: Jumlah koli ompreng lengkap, segel tertutup rapat, suhu hangat."
-              rows={2}
-              className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
-            />
-          </div>
+          {/* BAST SPECIFIC FORM FIELDS */}
+          {type === 'serah_terima' && (
+            <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100 space-y-4 animate-fade-in text-neutral-800">
+              <h4 className="text-xs font-extrabold text-emerald-900 border-b border-emerald-100 pb-1 flex items-center gap-1.5">
+                📝 Rincian Surat Berita Acara (BAST)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nomor BAST (Otomatis)</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={bastNo}
+                    placeholder="Otomatis..."
+                    className="w-full text-xs border border-neutral-200 bg-neutral-100 rounded-lg p-2 font-mono font-bold text-emerald-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Driver (Pihak Pertama)</label>
+                  <input
+                    type="text"
+                    value={bastDriver}
+                    onChange={e => setBastDriver(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Lembaga (Pihak Kedua)</label>
+                  <select
+                    required
+                    value={bastSekolah}
+                    onChange={e => setBastSekolah(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850 font-bold"
+                  >
+                    <option value="">-- Pilih Lembaga --</option>
+                    <option value="MA Assa'adah">MA Assa'adah</option>
+                    <option value="MTS Assa'adah II">MTS Assa'adah II</option>
+                    <option value="SMA Assa'adah">SMA Assa'adah</option>
+                    <option value="SMK Assa'adah">SMK Assa'adah</option>
+                    <option value="Desa Sidokumpul">Desa Sidokumpul</option>
+                    <option value="Desa Sukowati">Desa Sukowati</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Penerima Sekolah</label>
+                  <input
+                    type="text"
+                    value={bastPenerima}
+                    onChange={e => setBastPenerima(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Barang Paket</label>
+                  <input
+                    type="text"
+                    value={bastBarang}
+                    onChange={e => setBastBarang(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Jumlah Porsi Diserahkan</label>
+                  <input
+                    type="number"
+                    value={bastJumlah}
+                    onChange={e => setBastJumlah(parseInt(e.target.value) || 0)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Waktu Serah Terima</label>
+                  <input
+                    type="text"
+                    value={bastWaktu}
+                    onChange={e => setBastWaktu(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+              </div>
+
+              {/* ONLINE SIGNATURE AREA IN FORM */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-emerald-100">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Tanda Tangan Driver (Pihak Pertama)</label>
+                  <div className="border border-neutral-200 rounded-xl bg-white p-3 flex flex-col items-center justify-center min-h-[110px] relative shadow-3xs">
+                    {tempBastSignatureDriver ? (
+                      <div className="text-center">
+                        <img src={tempBastSignatureDriver} alt="Ttd Driver" className="h-14 object-contain max-w-full mix-blend-multiply" />
+                        <button
+                          type="button"
+                          onClick={() => setTempBastSignatureDriver('')}
+                          className="text-[9px] text-red-500 hover:underline mt-1 font-semibold block mx-auto"
+                        >
+                          Hapus Ttd
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveSigRequest({
+                          targetField: 'bastSignatureDriver',
+                          title: 'Tanda Tangan Driver (Pihak Pertama)',
+                          suggestedName: bastDriver || 'Bpk. Sholeh'
+                        })}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-100 text-[10px] font-extrabold px-3 py-2 rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
+                      >
+                        ✍️ Bubuhkan Ttd Driver
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Tanda Tangan Penerima (Pihak Kedua)</label>
+                  <div className="border border-neutral-200 rounded-xl bg-white p-3 flex flex-col items-center justify-center min-h-[110px] relative shadow-3xs">
+                    {tempBastSignatureReceiver ? (
+                      <div className="text-center">
+                        <img src={tempBastSignatureReceiver} alt="Ttd Penerima" className="h-14 object-contain max-w-full mix-blend-multiply" />
+                        <button
+                          type="button"
+                          onClick={() => setTempBastSignatureReceiver('')}
+                          className="text-[9px] text-red-500 hover:underline mt-1 font-semibold block mx-auto"
+                        >
+                          Hapus Ttd
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveSigRequest({
+                          targetField: 'bastSignatureReceiver',
+                          title: 'Tanda Tangan Penerima Sekolah',
+                          suggestedName: bastPenerima || 'Ibu Aminah'
+                        })}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-100 text-[10px] font-extrabold px-3 py-2 rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-[0.97]"
+                      >
+                        ✍️ Bubuhkan Ttd Penerima
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ORGANOLEPTIK SPECIFIC DETAILED GRID */}
+          {type === 'organoleptik' && (
+            <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-100 space-y-4 animate-fade-in text-neutral-800">
+              <h4 className="text-xs font-extrabold text-emerald-900 border-b border-emerald-100 pb-1 flex items-center gap-1.5">
+                🔬 Lembar Pengujian Uji Organoleptik & Sensorik Makanan
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Jam Uji</label>
+                  <input
+                    type="text"
+                    value={orlepJam}
+                    onChange={e => setOrlepJam(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Panelis</label>
+                  <input
+                    type="text"
+                    value={orlepPanelis}
+                    onChange={e => setOrlepPanelis(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Desa Pengujian</label>
+                  <input
+                    type="text"
+                    value={orlepDesa}
+                    onChange={e => setOrlepDesa(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1 font-sans">Suhu Hidangan (°C)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={organoleptikSuhu}
+                      onChange={e => setOrganoleptikSuhu(e.target.value)}
+                      className="w-20 text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850 font-bold font-mono"
+                    />
+                    <span className={`text-[10px] font-bold px-1.5 py-1 rounded font-sans ${
+                      parseInt(organoleptikSuhu) >= 60 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800 animate-pulse'
+                    }`}>
+                      {parseInt(organoleptikSuhu) >= 60 ? '✓ CCP Aman' : '⚠ Resiko Bakteri'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Menu Harian Yang Diuji</label>
+                <input
+                  type="text"
+                  value={orlepMenu}
+                  onChange={e => setOrlepMenu(e.target.value)}
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2 focus:ring-1 focus:ring-emerald-700 text-neutral-850 font-semibold"
+                />
+              </div>
+
+              {/* Matrix of Ratings */}
+              <div className="space-y-2">
+                <span className="block text-[10px] font-bold text-neutral-500 uppercase">
+                  Skor Penilaian Gizi (1: Buruk - 5: Sangat Suka)
+                </span>
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] text-neutral-500 font-extrabold text-center select-none">
+                        <th className="p-2 text-left">Komponen Gizi</th>
+                        <th className="p-2">Rasa</th>
+                        <th className="p-2">Warna</th>
+                        <th className="p-2">Aroma</th>
+                        <th className="p-2">Tekstur</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-150 text-neutral-800 font-medium">
+                      {[
+                        { code: 'MP', name: 'MP (Makanan Pokok / Nasi)' },
+                        { code: 'LH', name: 'LH (Lauk Hewani / Ayam)' },
+                        { code: 'LN', name: 'LN (Lauk Nabati / Tahu)' },
+                        { code: 'SY', name: 'SY (Sayur / Wortel Jagung)' },
+                        { code: 'B', name: 'B (Buah-Buahan / Melon)' }
+                      ].map(comp => (
+                        <tr key={comp.code} className="hover:bg-neutral-50/50">
+                          <td className="p-2 font-bold text-neutral-700 text-[11px]">{comp.name}</td>
+                          {['rasa', 'warna', 'aroma', 'tekstur'].map(attr => {
+                            const key = `${comp.code}_${attr}`;
+                            const val = orlepGrid[key] || 4;
+                            return (
+                              <td key={attr} className="p-1 text-center">
+                                <select
+                                  value={val}
+                                  onChange={e => setOrlepGrid(prev => ({ ...prev, [key]: parseInt(e.target.value) }))}
+                                  className="mx-auto text-[11px] font-black font-mono border border-neutral-200 bg-neutral-50 rounded-md px-1.5 py-1 w-14 text-center cursor-pointer text-emerald-800"
+                                >
+                                  <option value={1}>1</option>
+                                  <option value={2}>2</option>
+                                  <option value={3}>3</option>
+                                  <option value={4}>4</option>
+                                  <option value={5}>5</option>
+                                </select>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-between text-[9px] text-neutral-400 font-mono italic">
+                  <span>Skor: 1 = Sangat Buruk / Amis / Asam</span>
+                  <span>Skor: 4 = Sesuai SOP Gizi SPPG</span>
+                  <span>Skor: 5 = Sangat Harum / Gurih / Sempurna</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                  Kritik, Saran, & Rekomendasi Panelis Gizi
+                </label>
+                <textarea
+                  value={orlepKritik}
+                  onChange={e => setOrlepKritik(e.target.value)}
+                  placeholder="Contoh: Suhu hidangan sup dipertahankan hangat di atas 60C, citarasa asin gurih lauk hewani sangat seimbang, melon manis."
+                  rows={2}
+                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 focus:ring-1 focus:ring-emerald-700 text-neutral-850"
+                />
+              </div>
+            </div>
+          )}
+
+          {type !== 'ompreng' && (
+            <div>
+              <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                Catatan Pengiriman / Catatan Uji Lapangan
+              </label>
+              <textarea
+                value={comments}
+                onChange={e => setComments(e.target.value)}
+                placeholder="Berikan keterangan tambahan jika diperlukan."
+                rows={2}
+                className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800"
+              />
+            </div>
+          )}
 
           {/* Upload and Simulation camera options */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -442,7 +1138,7 @@ function ShippingDocPanel({
                 <img src={imageUrl} alt="Pratinjau" className="h-14 w-14 object-cover rounded-md border border-neutral-300 shadow-3xs" />
                 <div>
                   <span className="block text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full w-max text-center">
-                    ✓ Lembar Terpilih
+                    ✓ Berkas Dilampirkan
                   </span>
                   <span className="text-[9px] text-neutral-400 block font-mono mt-0.5">Kompresi: Base64 Encoders</span>
                 </div>
@@ -515,7 +1211,7 @@ function ShippingDocPanel({
       {filteredDocs.length === 0 ? (
         <div className="border border-neutral-100 border-dashed rounded-xl p-8 text-center text-xs text-neutral-400">
           <p className="font-semibold text-neutral-600">Belum ada dokumentasi {title} yang terekam.</p>
-          <p className="text-[10px] text-neutral-400 mt-1">Silakan klik "Pencatatan Baru" untuk mengunggah lembar foto.</p>
+          <p className="text-[10px] text-neutral-400 mt-1">Silakan klik "Isi & Update Hari Ini" untuk mengisi lembar digital.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -528,7 +1224,7 @@ function ShippingDocPanel({
               >
                 <img src={doc.imageUrl} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded">Zoom</span>
+                  <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-1 rounded">Zoom Foto</span>
                 </div>
               </div>
 
@@ -561,38 +1257,50 @@ function ShippingDocPanel({
                     </div>
                   </div>
 
-                  {/* Organoleptik values display inside cards */}
-                  {doc.type === 'organoleptik' && (
-                    <div className="mt-2 bg-emerald-50/20 border border-emerald-100 rounded-lg p-1.5 space-y-1 text-[9px] text-neutral-700 leading-normal">
-                      <div className="flex justify-between">
-                        <span className="text-emerald-900 font-semibold font-sans">Suhu Hidangan:</span>
-                        <span className={`font-mono font-bold px-1 rounded ${
-                          parseInt(doc.organoleptikSuhu || '0') >= 60 ? 'text-emerald-800 bg-emerald-50' : 'text-red-800 bg-red-50'
-                        }`}>{doc.organoleptikSuhu || '-'} °C</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-emerald-900 font-semibold font-sans">Evaluasi Rasa:</span>
-                        <span className="text-neutral-600 font-mono truncate max-w-[130px]">{doc.organoleptikRasa || '-'}</span>
-                      </div>
-                    </div>
-                  )}
+                  {/* Summary labels for rich docs */}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {doc.type === 'surat_jalan' && (
+                      <span className="text-[9px] bg-sky-50 text-sky-800 border border-sky-100 rounded px-1.5 py-0.5 font-bold font-sans">
+                        📄 Surat Jalan Terlampir ({doc.sjRows?.length || 3} baris)
+                      </span>
+                    )}
+                    {doc.type === 'serah_terima' && (
+                      <span className="text-[9px] bg-indigo-50 text-indigo-800 border border-indigo-100 rounded px-1.5 py-0.5 font-bold font-sans">
+                        📝 BAST Terbit ({doc.bastJumlah || 265} porsi)
+                      </span>
+                    )}
+                    {doc.type === 'organoleptik' && (
+                      <span className="text-[9px] bg-emerald-50 text-emerald-800 border border-emerald-100 rounded px-1.5 py-0.5 font-bold font-sans">
+                        🔬 Orlep Suhu: {doc.organoleptikSuhu || doc.orlepGrid ? 'Lengkap' : 'SOP'} ({doc.organoleptikSuhu || 68}°C)
+                      </span>
+                    )}
+                  </div>
 
                 </div>
 
                 <div className="flex items-center justify-between border-t border-neutral-100 pt-2 text-[9px] text-neutral-450">
-                  <span className="truncate block max-w-[140px] font-mono" title={`Diunggah: ${doc.uploadedBy}`}>
+                  <span className="truncate block max-w-[100px] font-mono" title={`Diunggah: ${doc.uploadedBy}`}>
                     👤 {doc.uploadedBy.split('@')[0]}
                   </span>
                   
-                  {(loggedInUser?.email === doc.uploadedBy || currentUserRole === UserRole.ASLAP || currentUserRole === UserRole.ADMIN) && (
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => handleDelete(doc.id)}
-                      className="text-red-500 hover:text-red-700 font-bold transition-all p-1 hover:bg-red-50 rounded cursor-pointer"
+                      onClick={() => setActiveDocView(doc)}
+                      className="text-emerald-800 hover:text-emerald-950 font-extrabold hover:underline transition-all py-0.5 px-1 bg-emerald-50 rounded cursor-pointer"
                     >
-                      Hapus
+                      Lihat Berkas Resmi 📄
                     </button>
-                  )}
+                    {(loggedInUser?.email === doc.uploadedBy || currentUserRole === UserRole.ASLAP || currentUserRole === UserRole.ADMIN) && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(doc.id)}
+                        className="text-red-500 hover:text-red-700 font-bold transition-all p-1 hover:bg-red-50 rounded cursor-pointer"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
                 </div>
 
               </div>
@@ -623,6 +1331,552 @@ function ShippingDocPanel({
         </div>
       )}
 
+      {/* HIGH-FIDELITY DIGITAL PAPER SIMULATOR MODAL */}
+      {activeDocView && (
+        <div
+          className="fixed inset-0 bg-neutral-900/80 flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto"
+          onClick={() => setActiveDocView(null)}
+        >
+          <div
+            className="bg-stone-100 rounded-2xl max-w-3xl w-full border border-stone-300 shadow-2xl relative my-8 overflow-hidden select-text"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Action Bar */}
+            <div className="bg-stone-200 px-6 py-3 border-b border-stone-300 flex items-center justify-between select-none">
+              <span className="text-stone-700 text-xs font-bold font-mono">
+                📟 Digital Facsimile - {activeDocView.type === 'surat_jalan' ? 'SURAT JALAN' : (activeDocView.type === 'serah_terima' ? 'BAST' : 'ORGANOLEPTIK')}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="bg-emerald-800 hover:bg-emerald-950 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-3xs cursor-pointer transition-all"
+                >
+                  🖨️ Cetak / Simpan PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDocView(null)}
+                  className="bg-stone-300 hover:bg-stone-400 text-stone-700 font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer transition-all"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+
+            {/* Document Body (Simulating Real Print Paper A4) */}
+            <div className="p-8 md:p-12 bg-white m-4 md:m-6 rounded-lg border border-stone-300 shadow-xs text-neutral-900 font-serif leading-relaxed max-h-[75vh] overflow-y-auto">
+              
+              {/* Official Header */}
+              <div className="border-b-2 border-double border-neutral-900 pb-4 text-center space-y-1 select-none">
+                <h2 className="text-base font-extrabold tracking-widest font-sans uppercase">
+                  SPPG YAYASAN PONDOK PESANTREN QOMARUDDIN
+                </h2>
+                <p className="text-[11px] font-sans font-semibold text-neutral-600">
+                  Unit Dapur Bungah 2 - Program Makan Bergizi Gratis (MBG) Gresik
+                </p>
+                <p className="text-[9px] font-sans font-medium text-neutral-400 italic">
+                  Jl. Raya Bungah No. 1, Bungah, Kabupaten Gresik, Jawa Timur
+                </p>
+              </div>
+
+              {/* OMPRENG FACSIMILE */}
+              {activeDocView.type === 'ompreng' && (
+                <div className="space-y-6 mt-6 font-sans">
+                  <div className="text-center">
+                    <h3 className="text-lg font-black tracking-wide font-sans underline">DOKUMENTASI PENGIRIMAN OMPRENG</h3>
+                    <p className="text-[10px] font-mono text-neutral-500 uppercase mt-0.5 font-bold">KODE LAPORAN: {activeDocView.id.toUpperCase()}</p>
+                  </div>
+
+                  {/* Metadata block */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans bg-neutral-50 p-4 rounded-xl border border-neutral-250">
+                    <div className="space-y-1.5">
+                      <span className="text-neutral-450 font-bold uppercase text-[9px] block">Lembaga / Desa Sasaran:</span>
+                      <p className="font-extrabold text-neutral-900 text-sm">{activeDocView.receiverName || 'MA Assa\'adah'}</p>
+                      <p className="text-neutral-500 font-semibold">Dapur Terpadu SPPG Bungah - Kab. Gresik</p>
+                    </div>
+                    <div className="space-y-1.5 text-right sm:text-right text-left">
+                      <p><strong className="font-bold text-neutral-700">Hari, Tanggal:</strong> {getIndonesianDateText(activeDocView.date).dayName}, {getIndonesianDateText(activeDocView.date).dateNum} {getIndonesianDateText(activeDocView.date).monthName} {getIndonesianDateText(activeDocView.date).yearNum}</p>
+                      <p><strong className="font-bold text-neutral-700">Waktu Lapor:</strong> {new Date(activeDocView.uploadedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</p>
+                      <p><strong className="font-bold text-neutral-700">Driver Pelapor:</strong> {activeDocView.uploadedBy.split('@')[0]}</p>
+                      <p><strong className="font-bold text-neutral-700">No Kendaraan:</strong> {activeDocView.vehicleNumber}</p>
+                    </div>
+                  </div>
+
+                  {/* Photo Exhibit */}
+                  <div className="space-y-2">
+                    <span className="text-neutral-450 font-bold uppercase text-[9px] block">Bukti Foto Penyerahan Makanan (Ompreng):</span>
+                    <div className="border border-neutral-300 rounded-xl overflow-hidden bg-neutral-900 max-h-[350px] flex items-center justify-center shadow-inner">
+                      <img referrerPolicy="no-referrer" src={activeDocView.imageUrl} alt="Bukti Kirim Ompreng" className="max-h-[350px] object-contain w-full" />
+                    </div>
+                    <p className="text-[10px] text-neutral-400 italic text-center">Foto di atas diambil langsung oleh Driver sebagai bukti fisik pertanggungjawaban.</p>
+                  </div>
+
+                  {/* Remarks / Notes */}
+                  <div className="space-y-1 text-xs">
+                    <span className="font-bold text-neutral-500 uppercase text-[9px] block">Catatan Pengiriman Driver:</span>
+                    <p className="bg-neutral-50 p-3 rounded-lg border border-neutral-200 italic font-sans text-neutral-800 leading-relaxed">
+                      "{activeDocView.comments || 'Ompreng telah diterima dalam kondisi aman, steril, dan tersegel utuh.'}"
+                    </p>
+                  </div>
+
+                  {/* Signature Section */}
+                  <div className="grid grid-cols-2 gap-12 pt-6 text-xs font-sans">
+                    <div className="text-center space-y-12">
+                      <p className="font-semibold text-neutral-600">Diserahkan Oleh (Driver),</p>
+                      <div className="h-12 flex items-center justify-center">
+                        <span className="text-neutral-400 font-bold bg-neutral-100 border border-neutral-300 rounded px-3 py-1 italic text-[10px] font-mono">[ DRIVER VERIFIED ]</span>
+                      </div>
+                      <p className="font-black text-neutral-800 underline uppercase">{activeDocView.uploadedBy.split('@')[0]}</p>
+                    </div>
+                    <div className="text-center space-y-12">
+                      <p className="font-semibold text-neutral-600">Diketahui Pihak Penerima,</p>
+                      <div className="h-12 flex items-center justify-center">
+                        <span className="text-neutral-400 font-bold bg-neutral-100 border border-neutral-300 rounded px-3 py-1 italic text-[10px] font-mono">[ PENERIMA SEKOLAH ]</span>
+                      </div>
+                      <p className="font-black text-neutral-800 underline uppercase">Staf Asrama / {activeDocView.receiverName || 'Sekolah'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SURAT JALAN FACSIMILE */}
+              {activeDocView.type === 'surat_jalan' && (
+                <div className="space-y-6 mt-6">
+                  <div className="text-center">
+                    <h3 className="text-lg font-black tracking-wide font-sans underline">SURAT JALAN</h3>
+                    <p className="text-[10px] font-mono text-neutral-500 uppercase mt-0.5">ID: {activeDocView.id}</p>
+                  </div>
+
+                  {/* Metadata block */}
+                  <div className="grid grid-cols-2 gap-4 text-xs font-sans">
+                    <div className="space-y-1">
+                      <p><span className="text-neutral-450 font-bold uppercase text-[9px] block">Kepada Yth. Pihak Sekolah:</span></p>
+                      <p className="font-extrabold text-neutral-900 text-sm">{activeDocView.sjKepada || activeDocView.receiverName || 'Penerima Sekolah'}</p>
+                      <p className="text-neutral-500">Kecamatan Bungah, Kab. Gresik</p>
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <p><strong className="font-bold text-neutral-700">Hari, Tanggal:</strong> {getIndonesianDateText(activeDocView.date).dayName}, {getIndonesianDateText(activeDocView.date).dateNum} {getIndonesianDateText(activeDocView.date).monthName} {getIndonesianDateText(activeDocView.date).yearNum}</p>
+                      <p><strong className="font-bold text-neutral-700">Waktu Kirim:</strong> {activeDocView.sjWaktu || '11:00 WIB'}</p>
+                      <p><strong className="font-bold text-neutral-700">Pengemudi (Driver):</strong> {activeDocView.sjDriver || 'Bpk. Sholeh'}</p>
+                      <p><strong className="font-bold text-neutral-700">No Kendaraan:</strong> {activeDocView.vehicleNumber}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] font-sans">Harap diterima barang pengantaran makan bergizi santri harian di bawah ini dalam keadaan baik, bersegel higienis, dan porsi pas sesuai manifest data:</p>
+
+                  {/* Table */}
+                  <div className="border border-neutral-900 overflow-hidden font-sans">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-900 text-[10px] font-bold text-center">
+                          <th className="p-2 border-r border-neutral-900 w-10 text-center">No</th>
+                          <th className="p-2 border-r border-neutral-900 text-left">Jenis Item Makanan / Logistik</th>
+                          <th className="p-2 border-r border-neutral-900 w-24">Jumlah Porsi</th>
+                          <th className="p-2 border-r border-neutral-900 w-24">Alat Makan (Kirim)</th>
+                          <th className="p-2 border-r border-neutral-900 w-24">Alat Makan (Balik)</th>
+                          <th className="p-2">Keterangan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-900">
+                        {(activeDocView.sjRows || [
+                          { id: '1', jenis: 'Paket Program Makan Bergizi Gratis', porsi: 265, alatSebelum: 265, alatSesudah: 265, keterangan: 'Selesai dikirim hangat' },
+                          { id: '2', jenis: 'Buah Melon Potong Segar', porsi: 265, alatSebelum: 0, alatSesudah: 0, keterangan: 'Lengkap' },
+                          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: 265, alatSebelum: 0, alatSesudah: 0, keterangan: 'Utuh' }
+                        ]).map((row: any, rIdx: number) => (
+                          <tr key={row.id} className="text-center">
+                            <td className="p-2 border-r border-neutral-900 font-mono text-[10px]">{rIdx + 1}</td>
+                            <td className="p-2 border-r border-neutral-900 text-left font-semibold">{row.jenis}</td>
+                            <td className="p-2 border-r border-neutral-900 font-bold">{row.porsi} Box</td>
+                            <td className="p-2 border-r border-neutral-900 font-mono">{row.alatSebelum} pcs</td>
+                            <td className="p-2 border-r border-neutral-900 font-mono">{row.alatSesudah} pcs</td>
+                            <td className="p-2 text-left italic text-neutral-500 text-[11px]">{row.keterangan || '-'}</td>
+                          </tr>
+                        ))}
+                        {/* Totals Row */}
+                        <tr className="bg-neutral-50/50 text-center font-extrabold border-t border-neutral-900">
+                          <td className="p-2 border-r border-neutral-900" colSpan={2}>TOTAL AKUMULASI KIRIMAN</td>
+                          <td className="p-2 border-r border-neutral-900 text-emerald-800 font-black">
+                            {(activeDocView.sjRows || []).reduce((acc: number, cur: any) => acc + (cur.porsi || 0), 0) || 795} Box
+                          </td>
+                          <td className="p-2 border-r border-neutral-900 font-mono">
+                            {(activeDocView.sjRows || []).reduce((acc: number, cur: any) => acc + (cur.alatSebelum || 0), 0) || 265}
+                          </td>
+                          <td className="p-2 border-r border-neutral-900 font-mono">
+                            {(activeDocView.sjRows || []).reduce((acc: number, cur: any) => acc + (cur.alatSesudah || 0), 0) || 265}
+                          </td>
+                          <td className="p-2 text-left text-[10px] text-emerald-800">Status Manifest Lulus</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Signatures */}
+                  <div className="grid grid-cols-2 gap-12 pt-6 text-xs font-sans">
+                    <div className="text-center space-y-2 flex flex-col items-center">
+                      <p className="font-semibold text-neutral-600">Diserahkan Oleh,<br /><span className="text-neutral-450 block text-[9px] uppercase font-bold tracking-wider">Asisten Lapangan SPPG</span></p>
+                      
+                      <div className="h-16 flex items-center justify-center border border-dashed border-stone-200 rounded-lg w-44 bg-stone-50/50 p-1 relative group">
+                        {activeDocView.sjSignatureAslap ? (
+                          <div className="relative">
+                            <img src={activeDocView.sjSignatureAslap} alt="Ttd Aslap" className="h-14 object-contain mix-blend-multiply" />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDocumentSignature(activeDocView.id, 'sjSignatureAslap', '')}
+                              className="absolute -top-2 -right-2 bg-red-100 text-red-650 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 flex items-center justify-center h-5 w-5 text-[8px]"
+                              title="Hapus Tanda Tangan"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveSigRequest({
+                              docId: activeDocView.id,
+                              targetField: 'sjSignatureAslap',
+                              title: 'Tanda Tangan Asisten Lapangan (Aslap)',
+                              suggestedName: 'SAYYID KHOLIL'
+                            })}
+                            className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            ✍️ Bubuhkan Ttd Aslap
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="w-44 text-center">
+                        <div className="border-b border-neutral-900 mx-auto font-bold uppercase text-neutral-800">SAYYID KHOLIL</div>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Aslap Logistik Bungah 2</p>
+                      </div>
+                    </div>
+
+                    <div className="text-center space-y-2 flex flex-col items-center">
+                      <p className="font-semibold text-neutral-600">Diterima Oleh,<br /><span className="text-neutral-450 block text-[9px] uppercase font-bold tracking-wider">Pihak Sekolah Sasaran</span></p>
+
+                      <div className="h-16 flex items-center justify-center border border-dashed border-stone-200 rounded-lg w-44 bg-stone-50/50 p-1 relative group">
+                        {activeDocView.sjSignatureReceiver ? (
+                          <div className="relative">
+                            <img src={activeDocView.sjSignatureReceiver} alt="Ttd Penerima" className="h-14 object-contain mix-blend-multiply" />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDocumentSignature(activeDocView.id, 'sjSignatureReceiver', '')}
+                              className="absolute -top-2 -right-2 bg-red-100 text-red-650 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 flex items-center justify-center h-5 w-5 text-[8px]"
+                              title="Hapus Tanda Tangan"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveSigRequest({
+                              docId: activeDocView.id,
+                              targetField: 'sjSignatureReceiver',
+                              title: 'Tanda Tangan Penerima Sekolah',
+                              suggestedName: activeDocView.receiverName || 'Ibu Aminah'
+                            })}
+                            className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            ✍️ Bubuhkan Ttd Penerima
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="w-44 text-center">
+                        <div className="border-b border-neutral-900 mx-auto font-bold uppercase text-neutral-800">{activeDocView.receiverName || 'STAF PENERIMA'}</div>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Seksi Kesejahteraan Santri / Siswa</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* BAST FACSIMILE */}
+              {activeDocView.type === 'serah_terima' && (
+                <div className="space-y-6 mt-6">
+                  <div className="text-center space-y-1">
+                    <h3 className="text-base font-extrabold tracking-wide font-sans underline">BERITA ACARA SERAH TERIMA (BAST)</h3>
+                    <p className="text-[10px] font-mono text-neutral-700 uppercase">NO: {activeDocView.bastNo || '087/BAST-MBG/SPPGBB2/06/2026'}</p>
+                  </div>
+
+                  <p className="text-xs">Yang bertanda tangan di bawah ini pada hari ini:</p>
+
+                  <div className="grid grid-cols-2 gap-4 text-xs bg-stone-50 p-3 rounded-lg border border-stone-200 font-sans leading-normal">
+                    <div className="space-y-1 border-r border-stone-200 pr-3">
+                      <span className="font-bold text-emerald-800 text-[10px] uppercase block tracking-wider">Pihak Pertama (Diserahkan):</span>
+                      <p><strong className="text-neutral-600">Nama Driver:</strong> {activeDocView.bastDriver || 'Bpk. Sholeh'}</p>
+                      <p><strong className="text-neutral-600">Unit Dapur:</strong> SPPG GRESIK BUNGAH 2</p>
+                      <p><strong className="text-neutral-600">No Plat:</strong> {activeDocView.vehicleNumber}</p>
+                    </div>
+                    <div className="space-y-1 pl-1">
+                      <span className="font-bold text-emerald-800 text-[10px] uppercase block tracking-wider">Pihak Kedua (Diterima):</span>
+                      <p><strong className="text-neutral-600">Nama Sekolah:</strong> {activeDocView.bastSekolah || 'Madrasah Aliyah Qomaruddin'}</p>
+                      <p><strong className="text-neutral-600">Nama Penerima:</strong> {activeDocView.bastPenerima || 'Ibu Aminah'}</p>
+                      <p><strong className="text-neutral-600">SOP Tanggal:</strong> {activeDocView.date}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs leading-relaxed text-justify">
+                    Menyatakan bahwa <strong>PIHAK PERTAMA</strong> telah menyerahkan paket program gizi gratis dari dapur asrama kepada <strong>PIHAK KEDUA</strong>, dan PIHAK KEDUA menyatakan telah menerima dalam kondisi segar, hangat, tertutup rapat sesuai segel higienitas dengan rincian berikut:
+                  </p>
+
+                  {/* BAST Table */}
+                  <div className="border border-neutral-900 overflow-hidden font-sans">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-900 text-[10px] font-bold text-center">
+                          <th className="p-2 border-r border-neutral-900 w-10 text-center">No</th>
+                          <th className="p-2 border-r border-neutral-900 text-left">Nama Komoditas / Paket Makanan</th>
+                          <th className="p-2 border-r border-neutral-900 w-32">Kuantitas Diserahkan</th>
+                          <th className="p-2">Waktu Penyerahan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-900">
+                        <tr className="text-center font-semibold">
+                          <td className="p-3 border-r border-neutral-900 font-mono">1</td>
+                          <td className="p-3 border-r border-neutral-900 text-left font-black text-neutral-850">
+                            {activeDocView.bastBarang || 'PAKET PROGRAM MAKAN BERGIZI GRATIS'}
+                            <span className="block text-[10px] font-normal text-neutral-500 italic mt-0.5">Sesuai standar nutrisi gizi asrama</span>
+                          </td>
+                          <td className="p-3 border-r border-neutral-900 text-emerald-800 font-black text-sm">
+                            {activeDocView.bastJumlah || 265} Porsi
+                          </td>
+                          <td className="p-3 font-semibold font-mono text-neutral-700">
+                            {activeDocView.bastWaktu || '11:15 WIB'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p className="text-[11px] italic leading-snug">
+                    * Catatan verifikasi fisik: "{activeDocView.comments || 'Semua box ompreng dalam keadaan bersih dan porsi pas.'}"
+                  </p>
+
+                  <p className="text-xs leading-relaxed">
+                    Demikian Berita Acara Serah Terima ini kami buat secara sukarela dan penuh tanggung jawab untuk digunakan sebagai lampiran laporan harian SPPG Kabupaten Gresik.
+                  </p>
+
+                  {/* Signatures */}
+                  <div className="grid grid-cols-2 gap-12 pt-6 text-xs font-sans">
+                    <div className="text-center space-y-2 flex flex-col items-center">
+                      <p className="font-semibold text-neutral-600">PIHAK PERTAMA<br /><span className="text-neutral-450 block text-[9px] uppercase font-bold tracking-wider">(DRIVER SPPG)</span></p>
+                      
+                      <div className="h-16 flex items-center justify-center border border-dashed border-stone-200 rounded-lg w-44 bg-stone-50/50 p-1 relative group">
+                        {activeDocView.bastSignatureDriver ? (
+                          <div className="relative">
+                            <img src={activeDocView.bastSignatureDriver} alt="Ttd Driver" className="h-14 object-contain mix-blend-multiply" />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDocumentSignature(activeDocView.id, 'bastSignatureDriver', '')}
+                              className="absolute -top-2 -right-2 bg-red-100 text-red-650 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 flex items-center justify-center h-5 w-5 text-[8px]"
+                              title="Hapus Tanda Tangan"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveSigRequest({
+                              docId: activeDocView.id,
+                              targetField: 'bastSignatureDriver',
+                              title: 'Tanda Tangan Driver (Pihak Pertama)',
+                              suggestedName: activeDocView.bastDriver || 'Bpk. Sholeh'
+                            })}
+                            className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            ✍️ Bubuhkan Ttd Driver
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="w-44 text-center">
+                        <div className="border-b border-neutral-900 mx-auto font-bold uppercase text-neutral-800">{activeDocView.bastDriver || 'Bpk. Sholeh'}</div>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Logistik Bungah 2</p>
+                      </div>
+                    </div>
+
+                    <div className="text-center space-y-2 flex flex-col items-center">
+                      <p className="font-semibold text-neutral-600">PIHAK KEDUA<br /><span className="text-neutral-450 block text-[9px] uppercase font-bold tracking-wider">(PENERIMA SEKOLAH)</span></p>
+
+                      <div className="h-16 flex items-center justify-center border border-dashed border-stone-200 rounded-lg w-44 bg-stone-50/50 p-1 relative group">
+                        {activeDocView.bastSignatureReceiver ? (
+                          <div className="relative">
+                            <img src={activeDocView.bastSignatureReceiver} alt="Ttd Penerima" className="h-14 object-contain mix-blend-multiply" />
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDocumentSignature(activeDocView.id, 'bastSignatureReceiver', '')}
+                              className="absolute -top-2 -right-2 bg-red-100 text-red-650 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 flex items-center justify-center h-5 w-5 text-[8px]"
+                              title="Hapus Tanda Tangan"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setActiveSigRequest({
+                              docId: activeDocView.id,
+                              targetField: 'bastSignatureReceiver',
+                              title: 'Tanda Tangan Penerima (Pihak Kedua)',
+                              suggestedName: activeDocView.bastPenerima || 'Ibu Aminah'
+                            })}
+                            className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            ✍️ Bubuhkan Ttd Penerima
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="w-44 text-center">
+                        <div className="border-b border-neutral-900 mx-auto font-bold uppercase text-neutral-800">{activeDocView.bastPenerima || 'Ibu Aminah'}</div>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Pihak Sekolah Penerima</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ORGANOLEPTIK FACSIMILE */}
+              {activeDocView.type === 'organoleptik' && (
+                <div className="space-y-6 mt-6">
+                  <div className="text-center">
+                    <h3 className="text-lg font-black tracking-wide font-sans underline">FORM ORGANOLEPTIK</h3>
+                    <p className="text-[10px] font-sans font-semibold text-neutral-500 uppercase">UJI SENSORIK MUTU MAKANAN HARIAN</p>
+                  </div>
+
+                  {/* Instruction block */}
+                  <div className="border border-neutral-300 p-3 bg-neutral-50 text-[10px] leading-relaxed rounded-lg select-none font-sans space-y-1">
+                    <strong className="block text-emerald-800">Petunjuk Parameter Penilaian:</strong>
+                    <p>Seksi Quality Checker diwajibkan melakukan pencicipan dan penilaian organoleptik menu santri sebelum didistribusikan. Berikan nilai 1 sampai 5:</p>
+                    <div className="flex flex-wrap gap-4 text-neutral-600 font-semibold mt-1">
+                      <span>1: Sangat Buruk / Basi</span>
+                      <span>2: Kurang Suka</span>
+                      <span>3: Sedikit Suka</span>
+                      <span>4: Layak (SOP)</span>
+                      <span>5: Sangat Suka / Gurih</span>
+                    </div>
+                  </div>
+
+                  {/* Metadata block */}
+                  <div className="grid grid-cols-2 gap-4 text-xs font-sans">
+                    <div className="space-y-1">
+                      <p><strong className="text-neutral-600">Hari / Tanggal Pengujian:</strong> {getIndonesianDateText(activeDocView.date).dayName}, {getIndonesianDateText(activeDocView.date).dateNum} {getIndonesianDateText(activeDocView.date).monthName} {getIndonesianDateText(activeDocView.date).yearNum}</p>
+                      <p><strong className="text-neutral-600">Jam Pengujian:</strong> {activeDocView.orlepJam || '11:30 WIB'}</p>
+                      <p><strong className="text-neutral-600">Nama Panelis:</strong> {activeDocView.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}</p>
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <p><strong className="text-neutral-600">Kecamatan / Desa:</strong> {activeDocView.orlepDesa || 'Bungah'}</p>
+                      <p><strong className="text-neutral-600">Suhu CCP Hidangan:</strong> <span className="font-mono font-bold text-emerald-800 text-sm">{activeDocView.organoleptikSuhu || activeDocView.orlepSuhu || '68'} °C</span></p>
+                      <p className="text-[10px] text-emerald-700 italic font-semibold">(Batas Kritis CCP &gt;60°C Terpenuhi)</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs font-sans">
+                    <span className="text-neutral-450 font-bold uppercase text-[9px] block">Menu Masakan Harian Yang Diuji:</span>
+                    <p className="font-extrabold text-neutral-800 bg-neutral-50 px-2 py-1 rounded border border-neutral-200 inline-block">{activeDocView.orlepMenu || 'Nasi Krawu Bungah, Ayam Goreng Lengkuas, Tempe Bacem, Melon'}</p>
+                  </div>
+
+                  {/* Evaluation Grid Table */}
+                  <div className="border border-neutral-950 overflow-hidden font-sans">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-neutral-100 border-b border-neutral-950 text-[10px] font-bold text-center">
+                          <th className="p-2 border-r border-neutral-950 text-left">Komponen Gizi Hidangan</th>
+                          <th className="p-2 border-r border-neutral-950 w-24">Citarasa</th>
+                          <th className="p-2 border-r border-neutral-950 w-24">Warna Alami</th>
+                          <th className="p-2 border-r border-neutral-950 w-24">Aroma Harum</th>
+                          <th className="p-2 border-r border-neutral-950 w-24">Tekstur Matang</th>
+                          <th className="p-2">Rata-Rata</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-950 text-center font-bold text-neutral-850">
+                        {[
+                          { code: 'MP', name: 'MP (Makanan Pokok / Nasi)' },
+                          { code: 'LH', name: 'LH (Lauk Hewani / Ayam)' },
+                          { code: 'LN', name: 'LN (Lauk Nabati / Tahu)' },
+                          { code: 'SY', name: 'SY (Sayur Wortel Jagung)' },
+                          { code: 'B', name: 'B (Buah Segar / Melon)' }
+                        ].map(comp => {
+                          const r = activeDocView.orlepGrid?.[`${comp.code}_rasa`] || 4;
+                          const w = activeDocView.orlepGrid?.[`${comp.code}_warna`] || 4;
+                          const a = activeDocView.orlepGrid?.[`${comp.code}_aroma`] || 4;
+                          const t = activeDocView.orlepGrid?.[`${comp.code}_tekstur`] || 4;
+                          const avg = ((r + w + a + t) / 4).toFixed(1);
+                          return (
+                            <tr key={comp.code}>
+                              <td className="p-2 border-r border-neutral-950 text-left font-extrabold text-neutral-700">{comp.name}</td>
+                              <td className="p-2 border-r border-neutral-950 font-mono text-neutral-600">{r} / 5</td>
+                              <td className="p-2 border-r border-neutral-950 font-mono text-neutral-600">{w} / 5</td>
+                              <td className="p-2 border-r border-neutral-950 font-mono text-neutral-600">{a} / 5</td>
+                              <td className="p-2 border-r border-neutral-950 font-mono text-neutral-600">{t} / 5</td>
+                              <td className="p-2 font-black text-emerald-800 bg-emerald-50/40">{avg}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Kritik, Saran */}
+                  <div className="space-y-1 text-xs">
+                    <span className="font-bold text-neutral-500 uppercase text-[9px] block">Kritik, Saran & Rekomendasi Panelis Checker:</span>
+                    <p className="bg-neutral-50 p-3 rounded border border-neutral-200 italic font-sans text-neutral-800 leading-relaxed">
+                      "{activeDocView.orlepKritik || activeDocView.comments || 'Suhu hangat makanan terjaga prima, rasa gurih seimbang, melon segar layak konsumsi.'}"
+                    </p>
+                  </div>
+
+                  <p className="text-[10px] text-neutral-500 font-sans leading-snug">
+                    Pernyataan: Dengan menandatangani form ini, panelis menyatakan bahwa makanan tersebut di atas dinilai LAYAK KONSUMSI dan sesuai dengan standar gizi santri SPPG Bungah.
+                  </p>
+
+                  {/* Signatures */}
+                  <div className="grid grid-cols-1 pt-4 text-xs font-sans">
+                    <div className="text-right space-y-12 pr-12">
+                      <p className="font-semibold text-neutral-600">Penguji / Panelis,<br /><span className="text-neutral-450 block text-[8px] uppercase tracking-wider font-extrabold">Checker Gizi SPPG</span></p>
+                      <div>
+                        <div className="border-b border-neutral-900 w-44 ml-auto font-bold text-neutral-800 uppercase">{activeDocView.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}</div>
+                        <p className="text-[9px] text-neutral-400 mt-0.5">Seksi Kontrol Kualitas Dapur 2</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SIGNATURE DRAWER MODAL OVERLAY */}
+      {activeSigRequest && (
+        <SignaturePad
+          title={activeSigRequest.title}
+          suggestedName={activeSigRequest.suggestedName}
+          onSave={(signatureDataUrl) => {
+            if (activeSigRequest.docId) {
+              // Update existing saved document in shippingDocs & activeDocView!
+              handleUpdateDocumentSignature(activeSigRequest.docId, activeSigRequest.targetField, signatureDataUrl);
+            } else {
+              // Just update the temporary state for the form being filled!
+              if (activeSigRequest.targetField === 'sjSignatureAslap') {
+                setTempSjSignatureAslap(signatureDataUrl);
+              } else if (activeSigRequest.targetField === 'sjSignatureReceiver') {
+                setTempSjSignatureReceiver(signatureDataUrl);
+              } else if (activeSigRequest.targetField === 'bastSignatureDriver') {
+                setTempBastSignatureDriver(signatureDataUrl);
+              } else if (activeSigRequest.targetField === 'bastSignatureReceiver') {
+                setTempBastSignatureReceiver(signatureDataUrl);
+              }
+            }
+            setActiveSigRequest(null);
+          }}
+          onCancel={() => setActiveSigRequest(null)}
+        />
+      )}
+
     </div>
   );
 }
@@ -651,6 +1905,160 @@ export default function MockModules({
   const [orderRequests, setOrderRequests] = useState<OrderRequestItem[]>([]);
   const [keluhanList, setKeluhanList] = useState<VolunteerComplaintItem[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // === KEDATANGAN BARANG STATE ===
+  interface KedatanganBarangItem {
+    id: string;
+    name: string;
+    qty: number;
+    uom: string;
+    supplier: string;
+    checker: 'LENGKAP' | 'KURANG' | 'BATAL';
+    input: 'SUDAH' | 'BELUM';
+    specification: string;
+  }
+
+  const getSopTemplateForDate = (dateStr: string): Omit<KedatanganBarangItem, 'id'>[] => {
+    const d = new Date(dateStr);
+    const day = d.getDay(); // 0: Sunday, 1: Monday, etc.
+    
+    // Base items present every day
+    const baseItems = [
+      { name: 'beras giling premium', qty: 180, uom: 'kg', supplier: 'BULOG', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: '1 sak @20kg. Butiran beras putih cerah bersih, utuh minimal 85%, tidak berbau apek, bebas kutu & batu kerikil.' },
+      { name: 'bawang merah super', qty: 5, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Siung utuh padat, kering kulitnya, bebas pembusukan/jamur hitam, ukuran seragam.' },
+      { name: 'bawang putih kupas', qty: 3, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Sudah dikupas bersih, siung padat tebal, tidak bertunas, bebas bercak cokelat busuk.' }
+    ];
+
+    if (day === 1 || day === 4) { // Senin & Kamis: Menu Ayam Potong & Sup
+      return [
+        { name: 'ayam karkas potong', qty: 265, uom: 'kg', supplier: 'SULE', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: '1 kg isi 10 potong bersih. Kulit putih kekuningan alami segar, daging kenyal elastis, suhu dingin <4°C, tidak berlendir.' },
+        ...baseItems,
+        { name: 'merica bubuk instan', qty: 4, uom: 'rtg', supplier: 'QOFFMART', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Merk Ladaku. Kemasan sachet rapat utuh, bubuk kering halus, aroma pedas khas lada kuat.' },
+        { name: 'kunyit bubuk sachet', qty: 2, uom: 'rtg', supplier: 'QOFFMART', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Merk Desaku. Kering halus, warna kuning jingga alami pekat, kemasan sachet tidak robek.' },
+        { name: 'Galon AQUA Asli', qty: 10, uom: 'Galon', supplier: 'QOFFMART', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Segel resmi Aqua utuh biru, galon bersih tidak buram, air jernih segar tidak berbau.' }
+      ];
+    } else if (day === 2 || day === 5) { // Selasa & Jumat: Menu Tahu & Sayur Sop Wortel
+      return [
+        { name: 'tahu putih sidayu', qty: 340, uom: 'pcs', supplier: 'SIDAYU', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Tahu putih segar padat berpori halus, tidak asam, tidak berlendir, dibungkus plastik higienis.' },
+        ...baseItems,
+        { name: 'sayur wortel segar', qty: 57, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Warna jingga terang segar, lurus, tekstur renyah padat, sudah dicuci bebas tanah.' },
+        { name: 'cabe merah besar', qty: 4, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Kulit merah mengkilap mulus kencang, tidak keriput layu, tidak busuk berair pada tangkai.' },
+        { name: 'minyak goreng sawit 2L', qty: 18, uom: 'pcs', supplier: 'QOFFMART', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Merk Sania kemasan pouch 2L. Berwarna kuning jernih keemasan, tidak berbusa, segel pouch rapat.' },
+        { name: 'kecap manis bango 1L', qty: 5, uom: 'pcs', supplier: 'QOFFMART', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Kemasan refill 1L utuh, tidak bocor, exp date lama, kekentalan hitam manis normal.' }
+      ];
+    } else { // Rabu, Sabtu & Minggu: Menu Jagung Pipil & Melon
+      return [
+        ...baseItems,
+        { name: 'buah melon madu', qty: 218, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Matang pohon harum, kulit berjaring rapat kekuningan, berat mantap >1.5kg/buah, tidak memar.' },
+        { name: 'jagung pipil manis', qty: 26, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Butiran jagung manis pipilan bersih, warna kuning emas cerah, tidak masam, segar tidak kering.' },
+        { name: 'kacang polong hijau', qty: 20, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Butiran utuh hijau segar seragam, tidak keriput layu, bebas sisa kulit polong.' },
+        { name: 'jeruk nipis peras', qty: 2, uom: 'kg', supplier: 'PAK MAFTUH', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Kulit halus tipis hijau kekuningan, kandungan air melimpah, tidak busuk berjamur.' },
+        { name: 'Galon Air Isi Ulang', qty: 15, uom: 'Galon', supplier: 'PONDOK', checker: 'LENGKAP' as const, input: 'SUDAH' as const, specification: 'Menggunakan galon bersih bebas lumut, hasil filtrasi jernih higienis, segel wrap rapi.' }
+      ];
+    }
+  };
+
+  const [kedatanganMap, setRawKedatanganMap] = useState<Record<string, KedatanganBarangItem[]>>(() => {
+    const saved = localStorage.getItem('sppg_kedatangan_barang_map');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing kedatangan barang map:', e);
+      }
+    }
+    return {};
+  });
+
+  const syncKedatanganMapToSupabase = async (
+    prev: Record<string, KedatanganBarangItem[]>,
+    next: Record<string, KedatanganBarangItem[]>
+  ) => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      const prevItems: { date: string; item: KedatanganBarangItem }[] = [];
+      const nextItems: { date: string; item: KedatanganBarangItem }[] = [];
+
+      Object.entries(prev).forEach(([date, items]) => {
+        if (items) items.forEach(item => prevItems.push({ date, item }));
+      });
+      Object.entries(next).forEach(([date, items]) => {
+        if (items) items.forEach(item => nextItems.push({ date, item }));
+      });
+
+      const prevIds = new Set(prevItems.map(x => x.item.id));
+      const nextIds = new Set(nextItems.map(x => x.item.id));
+
+      const deletedItems = prevItems.filter(x => !nextIds.has(x.item.id));
+      for (const x of deletedItems) {
+        await supabase.from('kedatangan_barang').delete().eq('id', x.item.id);
+      }
+
+      for (const x of nextItems) {
+        const isNew = !prevIds.has(x.item.id);
+        const prevX = prevItems.find(p => p.item.id === x.item.id);
+        const isChanged = isNew || JSON.stringify(prevX?.item) !== JSON.stringify(x.item);
+
+        if (isChanged) {
+          const dbPayload = {
+            id: x.item.id,
+            date: x.date,
+            name: x.item.name,
+            qty: x.item.qty,
+            uom: x.item.uom,
+            supplier: x.item.supplier,
+            checker: x.item.checker,
+            input: x.item.input,
+            specification: x.item.specification
+          };
+          await supabase.from('kedatangan_barang').upsert(dbPayload);
+        }
+      }
+    } catch (err) {
+      console.warn("Error syncing kedatangan_barang to Supabase:", err);
+    }
+  };
+
+  const setKedatanganMap = (update: React.SetStateAction<Record<string, KedatanganBarangItem[]>>) => {
+    setRawKedatanganMap(prev => {
+      const next = typeof update === 'function' ? (update as any)(prev) : update;
+      localStorage.setItem('sppg_kedatangan_barang_map', JSON.stringify(next));
+      setTimeout(() => {
+        syncKedatanganMapToSupabase(prev, next);
+      }, 0);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const activeDate = selectedDate || '2026-06-16';
+    if (!kedatanganMap[activeDate]) {
+      const initial = getSopTemplateForDate(activeDate).map((item, idx) => ({
+        ...item,
+        id: `kd-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`
+      }));
+      setKedatanganMap(prev => {
+        if (prev[activeDate]) return prev;
+        return {
+          ...prev,
+          [activeDate]: initial
+        };
+      });
+    }
+  }, [selectedDate]);
+
+  // Form states for adding new incoming goods (Kedatangan Barang)
+  const [isAddingKedatangan, setIsAddingKedatangan] = useState(false);
+  const [newKdName, setNewKdName] = useState('');
+  const [newKdQty, setNewKdQty] = useState('');
+  const [newKdUom, setNewKdUom] = useState('kg');
+  const [newKdSupplier, setNewKdSupplier] = useState('');
+  const [newKdChecker, setNewKdChecker] = useState<'LENGKAP' | 'KURANG' | 'BATAL'>('LENGKAP');
+  const [newKdInput, setNewKdInput] = useState<'SUDAH' | 'BELUM'>('SUDAH');
+  const [newKdSpec, setNewKdSpec] = useState('');
+  const [kdSearchTerm, setKdSearchTerm] = useState('');
+  const [activeKdSpecItem, setActiveKdSpecItem] = useState<KedatanganBarangItem | null>(null);
+  const [showSopPrintView, setShowSopPrintView] = useState(false);
 
   // SQL Script console toggle
   const [showSqlPanel, setShowSqlPanel] = useState(false);
@@ -687,7 +2095,7 @@ export default function MockModules({
   }
 
   // Shipping Docs States with LocalStorage synchronization
-  const [shippingDocs, setShippingDocs] = useState<ShippingDocItem[]>(() => {
+  const [shippingDocs, setRawShippingDocs] = useState<ShippingDocItem[]>(() => {
     const saved = localStorage.getItem('sppg_shipping_docs');
     if (saved) {
       try {
@@ -752,9 +2160,86 @@ export default function MockModules({
     ];
   });
 
-  useEffect(() => {
-    localStorage.setItem('sppg_shipping_docs', JSON.stringify(shippingDocs));
-  }, [shippingDocs]);
+  const syncShippingDocsToSupabase = async (prev: ShippingDocItem[], next: ShippingDocItem[]) => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      const prevIds = new Set(prev.map(d => d.id));
+      const nextIds = new Set(next.map(d => d.id));
+
+      const deletedIds = prev.filter(d => !nextIds.has(d.id)).map(d => d.id);
+      for (const id of deletedIds) {
+        await supabase.from('shipping_docs').delete().eq('id', id);
+      }
+
+      for (const item of next) {
+        const isNew = !prevIds.has(item.id);
+        const prevItem = prev.find(d => d.id === item.id);
+        const isChanged = isNew || JSON.stringify(prevItem) !== JSON.stringify(item);
+
+        if (isChanged) {
+          const dbPayload = {
+            id: item.id,
+            type: item.type,
+            date: item.date,
+            vehicle_number: item.vehicleNumber || '',
+            image_url: item.imageUrl || '',
+            comments: item.comments || '',
+            uploaded_by: item.uploadedBy || '',
+            uploaded_at: item.uploadedAt || new Date().toISOString(),
+            receiver_name: item.receiverName || '',
+            status: item.status || '',
+            
+            // BAST specific
+            bast_no: (item as any).bastNo || null,
+            bast_driver: (item as any).bastDriver || null,
+            bast_sekolah: (item as any).bastSekolah || null,
+            bast_penerima: (item as any).bastPenerima || null,
+            bast_barang: (item as any).bastBarang || null,
+            bast_jumlah: (item as any).bastJumlah || null,
+            bast_waktu: (item as any).bastWaktu || null,
+            bast_signature_driver: (item as any).bastSignatureDriver || null,
+            bast_signature_receiver: (item as any).bastSignatureReceiver || null,
+
+            // Surat Jalan specific
+            sj_no: (item as any).sjNo || null,
+            sj_kepada: (item as any).sjKepada || null,
+            sj_waktu: (item as any).sjWaktu || null,
+            sj_driver: (item as any).sjDriver || null,
+            sj_rows: (item as any).sjRows ? (item as any).sjRows : null,
+            sj_signature_aslap: (item as any).sjSignatureAslap || null,
+            sj_signature_receiver: (item as any).sjSignatureReceiver || null,
+
+            // Organoleptik specific
+            organoleptik_rasa: item.organoleptikRasa || null,
+            organoleptik_aroma: item.organoleptikAroma || null,
+            organoleptik_tekstur: item.organoleptikTekstur || null,
+            organoleptik_suhu: item.organoleptikSuhu || null,
+            orlep_jam: (item as any).orlepJam || null,
+            orlep_panelis: (item as any).orlepPanelis || null,
+            orlep_desa: (item as any).orlepDesa || null,
+            orlep_menu: (item as any).orlepMenu || null,
+            orlep_kritik: (item as any).orlepKritik || null,
+            orlep_grid: (item as any).orlepGrid ? (item as any).orlepGrid : null,
+            orlep_signature: (item as any).orlepSignature || null
+          };
+          await supabase.from('shipping_docs').upsert(dbPayload);
+        }
+      }
+    } catch (err) {
+      console.warn("Error syncing shipping_docs to Supabase:", err);
+    }
+  };
+
+  const setShippingDocs = (update: React.SetStateAction<ShippingDocItem[]>) => {
+    setRawShippingDocs(prev => {
+      const next = typeof update === 'function' ? (update as any)(prev) : update;
+      localStorage.setItem('sppg_shipping_docs', JSON.stringify(next));
+      setTimeout(() => {
+        syncShippingDocsToSupabase(prev, next);
+      }, 0);
+      return next;
+    });
+  };
 
   // Stock Opname & Trash Items Type Definitions
   interface StockItem {
@@ -1104,6 +2589,98 @@ export default function MockModules({
           if (keluhanErr) console.warn("volunteer_complaints table query error: ", keluhanErr.message);
           loadKeluhanFromLocal();
         }
+
+        // Fetch Shipping Docs (BAST, Surat Jalan, Organoleptik)
+        try {
+          const { data: shippingData, error: shippingErr } = await supabase
+            .from('shipping_docs')
+            .select('*')
+            .order('uploaded_at', { ascending: false });
+
+          if (!shippingErr && shippingData) {
+            const mappedDocs = shippingData.map(d => ({
+              id: d.id,
+              type: d.type,
+              date: d.date,
+              vehicleNumber: d.vehicle_number,
+              imageUrl: d.image_url,
+              comments: d.comments,
+              uploadedBy: d.uploaded_by,
+              uploadedAt: d.uploaded_at,
+              receiverName: d.receiver_name,
+              status: d.status,
+              
+              // BAST specific
+              bastNo: d.bast_no,
+              bastDriver: d.bast_driver,
+              bastSekolah: d.bast_sekolah,
+              bastPenerima: d.bast_penerima,
+              bastBarang: d.bast_barang,
+              bastJumlah: d.bast_jumlah,
+              bastWaktu: d.bast_waktu,
+              bastSignatureDriver: d.bast_signature_driver,
+              bastSignatureReceiver: d.bast_signature_receiver,
+
+              // Surat Jalan specific
+              sjNo: d.sj_no,
+              sjKepada: d.sj_kepada,
+              sjWaktu: d.sj_waktu,
+              sjDriver: d.sj_driver,
+              sjRows: typeof d.sj_rows === 'string' ? JSON.parse(d.sj_rows) : d.sj_rows,
+              sjSignatureAslap: d.sj_signature_aslap,
+              sjSignatureReceiver: d.sj_signature_receiver,
+
+              // Organoleptik specific
+              organoleptikRasa: d.organoleptik_rasa,
+              organoleptikAroma: d.organoleptik_aroma,
+              organoleptikTekstur: d.organoleptik_tekstur,
+              organoleptikSuhu: d.organoleptik_suhu,
+              orlepJam: d.orlep_jam,
+              orlepPanelis: d.orlep_panelis,
+              orlepDesa: d.orlep_desa,
+              orlepMenu: d.orlep_menu,
+              orlepKritik: d.orlep_kritik,
+              orlepGrid: typeof d.orlep_grid === 'string' ? JSON.parse(d.orlep_grid) : d.orlep_grid,
+              orlepSignature: d.orlep_signature
+            }));
+            setRawShippingDocs(mappedDocs);
+          } else if (shippingErr) {
+            console.warn("shipping_docs table query error:", shippingErr.message);
+          }
+        } catch (err) {
+          console.warn("Failed fetching shipping_docs:", err);
+        }
+
+        // Fetch Kedatangan Barang
+        try {
+          const { data: kdData, error: kdErr } = await supabase
+            .from('kedatangan_barang')
+            .select('*');
+
+          if (!kdErr && kdData) {
+            const map: Record<string, KedatanganBarangItem[]> = {};
+            kdData.forEach(item => {
+              const d = item.date;
+              if (!map[d]) map[d] = [];
+              map[d].push({
+                id: item.id,
+                name: item.name,
+                qty: Number(item.qty),
+                uom: item.uom,
+                supplier: item.supplier,
+                checker: item.checker as any,
+                input: item.input as any,
+                specification: item.specification
+              });
+            });
+            setRawKedatanganMap(map);
+          } else if (kdErr) {
+            console.warn("kedatangan_barang table query error:", kdErr.message);
+          }
+        } catch (err) {
+          console.warn("Failed fetching kedatangan_barang:", err);
+        }
+
       } else {
         loadSisaStokFromLocal();
         loadOrdersFromLocal();
@@ -1326,8 +2903,8 @@ export default function MockModules({
     localStorage.setItem('sppg_volunteer_complaints', JSON.stringify(updated));
     setAdminComplaintAction(prev => ({ ...prev, [id]: '' }));
     triggerSuccessMsg(isUpdatedRemote
-      ? "Keluhan asrama berhasil diselesaikan di Cloud Database!"
-      : "Keluhan asrama berhasil diselesaikan secara lokal!"
+      ? "Keluhan relawan berhasil diselesaikan di Cloud Database!"
+      : "Keluhan relawan berhasil diselesaikan secara lokal!"
     );
   };
 
@@ -2110,61 +3687,619 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
         </div>
       );
 
-    case 6: // Kedatangan Barang
+    case 6: { // Kedatangan Barang
+      const activeDate = selectedDate || '2026-06-16';
+      const itemsList = kedatanganMap[activeDate] || [];
+      const filteredList = itemsList.filter(item => 
+        item.name.toLowerCase().includes(kdSearchTerm.toLowerCase()) ||
+        item.supplier.toLowerCase().includes(kdSearchTerm.toLowerCase())
+      );
+
+      // Statistics
+      const totalItems = itemsList.length;
+      const lengkapCount = itemsList.filter(i => i.checker === 'LENGKAP').length;
+      const kurangCount = itemsList.filter(i => i.checker === 'KURANG').length;
+      const batalCount = itemsList.filter(i => i.checker === 'BATAL').length;
+      const inputCount = itemsList.filter(i => i.input === 'SUDAH').length;
+
+      // Inline Handlers
+      const handleAddIncoming = () => {
+        if (!newKdName.trim()) {
+          alert('Nama barang wajib diisi!');
+          return;
+        }
+        const qtyNum = parseFloat(newKdQty) || 0;
+        const newItem: KedatanganBarangItem = {
+          id: `kd-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: newKdName.trim(),
+          qty: qtyNum,
+          uom: newKdUom,
+          supplier: newKdSupplier.trim() || 'Supplier Umum',
+          checker: newKdChecker,
+          input: newKdInput,
+          specification: newKdSpec.trim() || 'Tidak ada spesifikasi khusus.'
+        };
+
+        setKedatanganMap(prev => {
+          const current = prev[activeDate] || [];
+          return {
+            ...prev,
+            [activeDate]: [newItem, ...current]
+          };
+        });
+
+        // Reset
+        setNewKdName('');
+        setNewKdQty('');
+        setNewKdSupplier('');
+        setNewKdSpec('');
+        setIsAddingKedatangan(false);
+        triggerSuccessMsg(`Sukses mencatat kedatangan barang: ${newKdName}`);
+      };
+
+      const handleUpdateChecker = (id: string, value: 'LENGKAP' | 'KURANG' | 'BATAL') => {
+        setKedatanganMap(prev => {
+          const current = prev[activeDate] || [];
+          const updated = current.map(item => 
+            item.id === id ? { ...item, checker: value } : item
+          );
+          return {
+            ...prev,
+            [activeDate]: updated
+          };
+        });
+        triggerSuccessMsg(`Status pemeriksaan barang diperbarui.`);
+      };
+
+      const handleToggleInput = (id: string) => {
+        setKedatanganMap(prev => {
+          const current = prev[activeDate] || [];
+          const updated = current.map(item => 
+            item.id === id ? { ...item, input: item.input === 'SUDAH' ? 'BELUM' as const : 'SUDAH' as const } : item
+          );
+          return {
+            ...prev,
+            [activeDate]: updated
+          };
+        });
+        triggerSuccessMsg(`Status input inventori diperbarui.`);
+      };
+
+      const handleDeleteItem = (id: string) => {
+        if (confirm('Apakah Anda yakin ingin menghapus catatan kedatangan barang ini?')) {
+          setKedatanganMap(prev => {
+            const current = prev[activeDate] || [];
+            return {
+              ...prev,
+              [activeDate]: current.filter(item => item.id !== id)
+            };
+          });
+          triggerSuccessMsg(`Catatan kedatangan berhasil dihapus.`);
+        }
+      };
+
       return (
         <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-6">
-          <div className="flex items-center justify-between">
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-neutral-100 pb-4">
             <div>
               <h2 className="text-xl font-bold font-sans text-neutral-800 flex items-center gap-2">
                 <Truck className="h-6 w-6 text-emerald-700" />
-                Catatan Kedatangan Logistik Barang Masuk
+                Penerimaan & Kedatangan Barang Logistik
               </h2>
-              <p className="text-xs text-neutral-500">Pengecekan kesesuaian bumbu, sayur, daging, dan gas yang dikirim supplier SPPG.</p>
+              <p className="text-xs text-neutral-500 mt-1">
+                Pengecekan kesesuaian bumbu, sayur, daging, dan gas yang dikirim supplier SPPG untuk tanggal <span className="font-semibold text-emerald-800">{activeDate}</span>
+              </p>
             </div>
-            <button
-              onClick={() => triggerSuccessMsg("Fungsi pencatatan kedatangan logistik diaktifkan!")}
-              className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1"
-            >
-              <Plus className="h-4 w-4" /> Masukkan Surat Jalan
-            </button>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  triggerSuccessMsg(`Berhasil merekam data pemeriksaan fisik tanggal ${activeDate} ke sistem database logistik SPPG!`);
+                }}
+                className="bg-emerald-700 hover:bg-emerald-850 text-white text-xs font-bold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs hover:shadow-xs active:scale-[0.98]"
+              >
+                <Save className="h-4 w-4" /> Simpan Pemeriksaan
+              </button>
+              
+              <button
+                onClick={() => setShowSopPrintView(true)}
+                className="bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 text-xs font-bold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs active:scale-[0.98]"
+              >
+                <Clipboard className="h-4 w-4 text-stone-600" /> Cetak / Print SOP
+              </button>
+
+              <button
+                onClick={() => setIsAddingKedatangan(!isAddingKedatangan)}
+                className="bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors"
+              >
+                {isAddingKedatangan ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} 
+                {isAddingKedatangan ? 'Batal' : 'Tambah Barang'}
+              </button>
+            </div>
           </div>
 
           {successMsg && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" /> {successMsg}
+              <CheckCircle className="h-4 w-4 animate-bounce" /> {successMsg}
             </div>
           )}
 
-          <div className="space-y-4">
-            {[
-              { id: 'RC-1029', supplier: 'CV. Agro Tani Makmur', items: 'Sayuran Sayur Bobor, Cabai Merah & Lengkuas', weight: '45.5 Kg', time: 'Hari ini, 05:45', status: 'Diterima Sesuai' },
-              { id: 'RC-1028', supplier: 'Haji Dul Ayam Gresik', items: 'Ayam Karkas Segar Potong 10', weight: '70.0 Kg', time: 'Hari ini, 06:10', status: 'Diterima Sesuai' },
-              { id: 'RC-1027', supplier: 'Toko Kelontong Sumber Barokah', items: 'Minyak Goreng Sunco, Beras Cianjur 5 Zak', weight: '125.0 Kg', time: 'Kemarin, 14:20', status: 'Kurang 1 Zak (Dikirim Susulan)' }
-            ].map((arr, id) => (
-              <div key={id} className="p-4 border border-neutral-100 rounded-xl bg-neutral-50/50 flex justify-between items-start text-xs">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-neutral-800 text-sm">{arr.id}</span>
-                    <span className="text-neutral-400">|</span>
-                    <span className="text-emerald-900 font-semibold">{arr.supplier}</span>
-                  </div>
-                  <p className="text-neutral-600 font-medium">Bahan: <span className="text-neutral-900">{arr.items}</span></p>
-                  <p className="text-neutral-500 text-[10px]">Waktu Tiba: {arr.time} ({arr.weight})</p>
-                </div>
+          {/* Stats Summary Panel */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="bg-neutral-50/50 p-3 rounded-xl border border-neutral-100 text-center">
+              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Total Item</p>
+              <p className="text-xl font-black text-neutral-800 mt-0.5">{totalItems}</p>
+            </div>
+            <div className="bg-emerald-50/40 p-3 rounded-xl border border-emerald-100 text-center">
+              <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Lengkap</p>
+              <p className="text-xl font-black text-emerald-800 mt-0.5">{lengkapCount}</p>
+            </div>
+            <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-100 text-center">
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Kurang</p>
+              <p className="text-xl font-black text-neutral-800 mt-0.5">{kurangCount}</p>
+            </div>
+            <div className="bg-red-50/40 p-3 rounded-xl border border-red-100 text-center">
+              <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider">Batal / Ditolak</p>
+              <p className="text-xl font-black text-red-600 mt-0.5">{batalCount}</p>
+            </div>
+            <div className="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100 text-center col-span-2 md:col-span-1">
+              <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Sudah Input Stok</p>
+              <p className="text-xl font-black text-neutral-800 mt-0.5">{inputCount} <span className="text-xs font-normal text-neutral-400">/ {totalItems}</span></p>
+            </div>
+          </div>
+
+          {/* Add Form Component */}
+          {isAddingKedatangan && (
+            <div className="p-5 border border-emerald-100 rounded-xl bg-emerald-50/10 space-y-4">
+              <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-1.5 border-b border-neutral-100 pb-2">
+                <Plus className="h-4 w-4 text-emerald-700" /> Form Pencatatan Barang Kedatangan Baru
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 <div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
-                    arr.status.includes('Sesuai') 
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}>
-                    {arr.status}
-                  </span>
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Nama Barang / Bahan *</label>
+                  <input
+                    type="text"
+                    value={newKdName}
+                    onChange={(e) => setNewKdName(e.target.value)}
+                    placeholder="Contoh: ayam potong, beras, dll"
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 bg-white text-neutral-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Jumlah *</label>
+                    <input
+                      type="number"
+                      value={newKdQty}
+                      onChange={(e) => setNewKdQty(e.target.value)}
+                      placeholder="Contoh: 265"
+                      className="w-full p-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 bg-white text-neutral-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Satuan</label>
+                    <select
+                      value={newKdUom}
+                      onChange={(e) => setNewKdUom(e.target.value)}
+                      className="w-full p-2.5 border border-neutral-200 bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 text-neutral-800"
+                    >
+                      <option value="kg">kg</option>
+                      <option value="pcs">pcs</option>
+                      <option value="L">Liter</option>
+                      <option value="Galon">Galon</option>
+                      <option value="rtg">Renteng</option>
+                      <option value="karung">Karung</option>
+                      <option value="ikat">Ikat</option>
+                      <option value="pack">Pack</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Nama Supplier</label>
+                  <input
+                    type="text"
+                    value={newKdSupplier}
+                    onChange={(e) => setNewKdSupplier(e.target.value)}
+                    placeholder="Contoh: SULE, SIDAYU, PAK MAFTUH"
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 bg-white text-neutral-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Hasil Pemeriksaan Fisik</label>
+                  <select
+                    value={newKdChecker}
+                    onChange={(e) => setNewKdChecker(e.target.value as any)}
+                    className="w-full p-2.5 border border-neutral-200 bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 font-semibold text-neutral-800"
+                  >
+                    <option value="LENGKAP">✅ LENGKAP & SESUAI</option>
+                    <option value="KURANG">⚠️ JUMLAH KURANG</option>
+                    <option value="BATAL">❌ BATAL TERIMA / DITOLAK</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Status Input Inventori</label>
+                  <select
+                    value={newKdInput}
+                    onChange={(e) => setNewKdInput(e.target.value as any)}
+                    className="w-full p-2.5 border border-neutral-200 bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 font-semibold text-neutral-800"
+                  >
+                    <option value="BELUM">⏳ BELUM DI-INPUT</option>
+                    <option value="SUDAH">🟢 SUDAH DI-INPUT</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-3">
+                  <label className="block text-[10px] font-bold text-neutral-600 uppercase mb-1">Spesifikasi Standard Mutu Gizi & Organoleptik</label>
+                  <textarea
+                    rows={3}
+                    value={newKdSpec}
+                    onChange={(e) => setNewKdSpec(e.target.value)}
+                    placeholder="Deskripsikan kriteria fisik bahan yang lolos standar mutu (contoh: warna, kebersihan, kemasan, tekstur, dll)"
+                    className="w-full p-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-800 font-mono text-[11px] bg-white text-neutral-800"
+                  />
                 </div>
               </div>
-            ))}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingKedatangan(false)}
+                  className="px-4 py-2 border border-neutral-200 rounded-lg hover:bg-neutral-50 font-medium text-neutral-600 text-xs transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddIncoming}
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg font-bold text-xs transition-colors"
+                >
+                  Simpan Catatan
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Search Toolbar */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3.5 h-4 w-4 text-neutral-400" />
+              <input
+                type="text"
+                value={kdSearchTerm}
+                onChange={(e) => setKdSearchTerm(e.target.value)}
+                placeholder="Cari nama bahan, atau supplier..."
+                className="w-full pl-9 pr-4 py-2.5 border border-neutral-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-800 bg-white text-neutral-800"
+              />
+            </div>
           </div>
+
+          {/* Items Table/Grid list */}
+          <div className="border border-neutral-100 rounded-xl overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-neutral-50/75 border-b border-neutral-150 text-neutral-500 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-4">Nama Bahan</th>
+                    <th className="p-4 text-right">Jumlah</th>
+                    <th className="p-4">Supplier</th>
+                    <th className="p-4">Pemeriksaan Fisik</th>
+                    <th className="p-4 text-center">Spesifikasi Mutu</th>
+                    <th className="p-4 text-center">Inventori</th>
+                    <th className="p-4 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {filteredList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-neutral-400 font-medium">
+                        Tidak ada data kedatangan barang ditemukan.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredList.map((item) => (
+                      <tr key={item.id} className="hover:bg-neutral-50/50 transition-colors">
+                        <td className="p-4 font-bold text-neutral-900 capitalize">
+                          {item.name}
+                        </td>
+                        <td className="p-4 text-right font-mono font-semibold text-neutral-850">
+                          {item.qty} <span className="text-[10px] text-neutral-450 font-normal lowercase">{item.uom}</span>
+                        </td>
+                        <td className="p-4 font-semibold text-emerald-950">
+                          {item.supplier}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleUpdateChecker(item.id, 'LENGKAP')}
+                              className={`px-2 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border ${
+                                item.checker === 'LENGKAP'
+                                  ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-neutral-50 text-neutral-500 border-neutral-200'
+                              }`}
+                            >
+                              LENGKAP
+                            </button>
+                            <button
+                              onClick={() => handleUpdateChecker(item.id, 'KURANG')}
+                              className={`px-2 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border ${
+                                item.checker === 'KURANG'
+                                  ? 'bg-amber-500 border-amber-500 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-neutral-50 text-neutral-500 border-neutral-200'
+                              }`}
+                            >
+                              KURANG
+                            </button>
+                            <button
+                              onClick={() => handleUpdateChecker(item.id, 'BATAL')}
+                              className={`px-2 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all border ${
+                                item.checker === 'BATAL'
+                                  ? 'bg-red-600 border-red-600 text-white shadow-2xs'
+                                  : 'bg-white hover:bg-neutral-50 text-neutral-500 border-neutral-200'
+                              }`}
+                            >
+                              BATAL
+                            </button>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <button
+                            onClick={() => setActiveKdSpecItem(item)}
+                            className="text-emerald-850 hover:text-emerald-950 font-bold flex items-center gap-1 mx-auto hover:underline"
+                          >
+                            <Info className="h-3.5 w-3.5" /> Detail Mutu
+                          </button>
+                        </td>
+                        <td className="p-4 text-center">
+                          <button
+                            onClick={() => handleToggleInput(item.id)}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border transition-all ${
+                              item.input === 'SUDAH'
+                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                : 'bg-neutral-100 text-neutral-500 border-neutral-250'
+                            }`}
+                          >
+                            {item.input}
+                          </button>
+                        </td>
+                        <td className="p-4 text-center">
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-1.5 text-neutral-400 hover:text-red-650 rounded-lg hover:bg-neutral-50 transition-colors"
+                            title="Hapus"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Specification Modal */}
+          {activeKdSpecItem && (
+            <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+              <div className="bg-white rounded-2xl border border-neutral-150 max-w-lg w-full overflow-hidden shadow-xl">
+                <div className="bg-neutral-900 text-white p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-emerald-450" />
+                    <h4 className="font-bold text-sm">Spesifikasi Standard Mutu Gizi & Organoleptik</h4>
+                  </div>
+                  <button 
+                    onClick={() => setActiveKdSpecItem(null)}
+                    className="p-1 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                
+                <div className="p-6 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-neutral-400 uppercase">Nama Bahan / Komoditas</p>
+                    <h5 className="text-lg font-black text-neutral-800 capitalize flex items-center gap-1.5">
+                      {activeKdSpecItem.name} 
+                      <span className="text-xs font-normal text-neutral-500 font-mono">({activeKdSpecItem.qty} {activeKdSpecItem.uom})</span>
+                    </h5>
+                  </div>
+                  
+                  <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-100 space-y-2">
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase">Kriteria Lolos Standard Uji Organoleptik (Fisik)</p>
+                    <p className="text-xs text-neutral-700 leading-relaxed font-mono bg-white p-3 rounded-lg border border-neutral-100 whitespace-pre-wrap">
+                      {activeKdSpecItem.specification}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-2">
+                    <div className="bg-emerald-50/30 p-2.5 rounded-lg border border-emerald-100/50">
+                      <p className="text-[9px] font-bold text-emerald-700 uppercase">Status Fisik</p>
+                      <p className="font-black text-emerald-900 mt-0.5">{activeKdSpecItem.checker}</p>
+                    </div>
+                    <div className="bg-indigo-50/30 p-2.5 rounded-lg border border-indigo-100/50">
+                      <p className="text-[9px] font-bold text-indigo-700 uppercase">Sistem Inventori</p>
+                      <p className="font-black text-indigo-900 mt-0.5">{activeKdSpecItem.input === 'SUDAH' ? 'SUDAH DIINPUT' : 'BELUM DIINPUT'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-50 p-4 border-t border-neutral-100 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveKdSpecItem(null)}
+                    className="px-4 py-2 bg-emerald-850 hover:bg-emerald-950 text-white rounded-lg font-bold text-xs transition-colors"
+                  >
+                    Selesai & Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SOP Print Facsimile Modal */}
+          {showSopPrintView && (
+            <div className="fixed inset-0 bg-neutral-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+              <div className="bg-white rounded-2xl max-w-4xl w-full border border-neutral-200 shadow-2xl overflow-hidden my-8">
+                {/* Modal Toolbar */}
+                <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between no-print">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="h-5 w-5 text-emerald-450" />
+                    <div>
+                      <h3 className="font-bold text-sm">Lembar SOP Cetak Pemeriksaan Fisik</h3>
+                      <p className="text-[10px] text-neutral-450">Klik tombol print untuk mengunduh pdf / cetak fisik</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all active:scale-[0.98]"
+                    >
+                      <Plus className="h-3.5 w-3.5 rotate-45" /> Cetak Sekarang (Print)
+                    </button>
+                    <button
+                      onClick={() => setShowSopPrintView(false)}
+                      className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Printable Facsimile Area */}
+                <div className="p-8 md:p-12 bg-white space-y-6 text-black" id="printable-sop-sheet">
+                  {/* Kop Surat */}
+                  <div className="border-b-4 border-double border-neutral-900 pb-4 flex items-center justify-between">
+                    <div className="text-left space-y-1">
+                      <h1 className="text-xl font-extrabold tracking-wider text-neutral-900">YAYASAN PONDOK PESANTREN QOMARUDDIN</h1>
+                      <h2 className="text-sm font-bold text-neutral-800">DAPUR BERSAMA MBG - SPPG BUNGAH 2</h2>
+                      <p className="text-[10px] text-neutral-500 font-mono">Jl. Raya Bungah No.1, Bungah, Gresik, Jawa Timur</p>
+                    </div>
+                    <div className="text-right border border-neutral-300 p-2 rounded-lg bg-neutral-50">
+                      <p className="text-[9px] font-bold text-neutral-400 uppercase">KODE DOKUMEN</p>
+                      <p className="text-xs font-black text-neutral-800 font-mono">SOP/LOG/MBG-{activeDate.replace(/-/g, '')}</p>
+                    </div>
+                  </div>
+
+                  {/* Title */}
+                  <div className="text-center space-y-1">
+                    <h3 className="text-base font-black uppercase tracking-widest text-neutral-950 underline">LEMBAR SOP PEMERIKSAAN KEDATANGAN BARANG</h3>
+                    <p className="text-xs text-neutral-600">Sistem Penjaminan Mutu & Logistik Dapur Terpadu SPPG</p>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="grid grid-cols-2 gap-4 text-xs bg-neutral-50 p-4 rounded-xl border border-neutral-200">
+                    <div className="space-y-1.5">
+                      <p className="flex justify-between border-b border-neutral-200 pb-1"><span className="text-neutral-500 font-semibold">Hari / Tanggal SOP:</span> <span className="font-extrabold text-neutral-850 font-mono">{new Date(activeDate).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
+                      <p className="flex justify-between border-b border-neutral-200 pb-1"><span className="text-neutral-500 font-semibold">Tujuan Distribusi:</span> <span className="font-extrabold text-neutral-850">Assa\'adah & Desa Sekitar</span></p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="flex justify-between border-b border-neutral-200 pb-1"><span className="text-neutral-500 font-semibold">Status SOP:</span> <span className="font-extrabold text-emerald-800 uppercase font-mono">TERVERIFIKASI LOGISTIK</span></p>
+                      <p className="flex justify-between border-b border-neutral-200 pb-1"><span className="text-neutral-500 font-semibold">Unit Pemeriksa:</span> <span className="font-extrabold text-neutral-850">Aslap & Staf Gudang</span></p>
+                    </div>
+                  </div>
+
+                  {/* Checklist Table */}
+                  <div className="border border-neutral-300 rounded-lg overflow-hidden">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-neutral-100 border-b border-neutral-300 text-neutral-800 font-bold uppercase text-[9px] tracking-wider font-mono">
+                          <th className="p-3 border-r border-neutral-300 text-center w-10">No</th>
+                          <th className="p-3 border-r border-neutral-300">Nama Bahan / Komoditas</th>
+                          <th className="p-3 border-r border-neutral-300 text-right w-24">Jumlah</th>
+                          <th className="p-3 border-r border-neutral-300">Supplier</th>
+                          <th className="p-3 border-r border-neutral-300 text-center w-28">Status Fisik</th>
+                          <th className="p-3">Kriteria Standard Mutu Organoleptik</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-300">
+                        {itemsList.map((item, idx) => (
+                          <tr key={item.id} className="hover:bg-neutral-50/50">
+                            <td className="p-3 border-r border-neutral-300 text-center font-mono text-neutral-500">{idx + 1}</td>
+                            <td className="p-3 border-r border-neutral-300 font-bold text-neutral-900 capitalize">{item.name}</td>
+                            <td className="p-3 border-r border-neutral-300 text-right font-mono font-bold">{item.qty} {item.uom}</td>
+                            <td className="p-3 border-r border-neutral-300 font-semibold text-neutral-700">{item.supplier}</td>
+                            <td className="p-3 border-r border-neutral-300 text-center">
+                              <span className={`px-2 py-1 rounded text-[9px] font-black tracking-wide uppercase ${
+                                item.checker === 'LENGKAP'
+                                  ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
+                                  : item.checker === 'KURANG'
+                                  ? 'bg-amber-100 text-amber-950 border border-amber-300'
+                                  : 'bg-red-100 text-red-950 border border-red-300'
+                              }`}>
+                                {item.checker}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono text-[10px] text-neutral-600 leading-relaxed whitespace-pre-wrap">{item.specification}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary of Checklist */}
+                  <div className="grid grid-cols-3 gap-4 text-xs pt-2">
+                    <div className="border border-neutral-200 p-3 rounded-lg bg-emerald-50/20">
+                      <p className="font-bold text-emerald-800">Lengkap & Sesuai: {lengkapCount} Item</p>
+                      <p className="text-[10px] text-neutral-500 mt-1">Diterima utuh & masuk ke penyimpanan/cooler.</p>
+                    </div>
+                    <div className="border border-neutral-200 p-3 rounded-lg bg-amber-50/20">
+                      <p className="font-bold text-amber-800">Jumlah Kurang: {kurangCount} Item</p>
+                      <p className="text-[10px] text-neutral-500 mt-1">Dicatat di formulir komplain / diklaim ke supplier.</p>
+                    </div>
+                    <div className="border border-neutral-200 p-3 rounded-lg bg-red-50/20">
+                      <p className="font-bold text-red-800">Batal / Ditolak: {batalCount} Item</p>
+                      <p className="text-[10px] text-neutral-500 mt-1">Retur langsung ke supplier / pembatalan pengiriman.</p>
+                    </div>
+                  </div>
+
+                  {/* SOP Sign-off signatures */}
+                  <div className="grid grid-cols-2 gap-8 text-xs pt-8">
+                    <div className="text-center space-y-12">
+                      <p className="font-bold text-neutral-600">Pihak Pemeriksa (Staf Logistik Dapur),</p>
+                      <div className="h-16 flex items-center justify-center">
+                        <span className="text-neutral-300 italic text-[11px] font-mono border-b border-dashed border-neutral-300 pb-2 px-8">[ Tanda Tangan Logistik ]</span>
+                      </div>
+                      <p className="font-black text-neutral-800 underline">Staf Gudang Dapur SPPG</p>
+                    </div>
+                    <div className="text-center space-y-12">
+                      <p className="font-bold text-neutral-600">Mengetahui (Asisten Lapangan),</p>
+                      <div className="h-16 flex items-center justify-center">
+                        <span className="text-neutral-300 italic text-[11px] font-mono border-b border-dashed border-neutral-300 pb-2 px-8">[ Tanda Tangan Aslap ]</span>
+                      </div>
+                      <p className="font-black text-neutral-800 underline">Koordinator Aslap SPPG 2</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Toolbar */}
+                <div className="bg-neutral-50 p-4 border-t border-neutral-100 flex justify-end gap-2 no-print">
+                  <button
+                    type="button"
+                    onClick={() => setShowSopPrintView(false)}
+                    className="px-4 py-2 border border-neutral-250 hover:bg-neutral-100 text-neutral-600 rounded-lg font-bold text-xs transition-colors"
+                  >
+                    Tutup Pratinjau
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-5 py-2 bg-neutral-900 hover:bg-black text-white rounded-lg font-bold text-xs transition-colors"
+                  >
+                    Print SOP (A4 / PDF)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
+    }
 
     case 7: // Galeri Kedatangan Barang
     case 8: // Dokumentasi
@@ -4624,48 +6759,39 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
 
     case 19: {
       return (
-        <ShippingDocPanel
-          type="serah_terima"
-          title="Berita Acara Serah Terima (BAST)"
-          description="Arsip digital Lembar Serah Terima Berita Acara (BAST) yang divalidasi oleh pembimbing/pengurus di lokasi asrama sasaran."
-          icon={FileText}
+        <BASTView
           loggedInUser={loggedInUser}
           currentUserRole={currentUserRole || UserRole.DRIVER}
           shippingDocs={shippingDocs}
           setShippingDocs={setShippingDocs}
           selectedDate={selectedDate || '2026-06-16'}
+          allDayMenus={allDayMenus}
         />
       );
     }
 
     case 20: {
       return (
-        <ShippingDocPanel
-          type="surat_jalan"
-          title="Lembar Surat Jalan Logistik"
-          description="Pencatatan legalitas distribusi logistik, muatan tonase hidangan gizi, nomor segel kirim, dan lembar legalisasi perjalanan armada."
-          icon={Clipboard}
+        <SuratJalanView
           loggedInUser={loggedInUser}
           currentUserRole={currentUserRole || UserRole.DRIVER}
           shippingDocs={shippingDocs}
           setShippingDocs={setShippingDocs}
           selectedDate={selectedDate || '2026-06-16'}
+          allDayMenus={allDayMenus}
         />
       );
     }
 
     case 21: {
       return (
-        <ShippingDocPanel
-          type="organoleptik"
-          title="Uji Organoleptik & Sensorik Makanan"
-          description="Lembar kontrol kelayakan rasa, aroma harum, kematangan tekstur makanan, serta pemantauan thermal suhu hidangan (critical control point >60°C)."
-          icon={CheckCircle}
+        <OrganoleptikView
           loggedInUser={loggedInUser}
           currentUserRole={currentUserRole || UserRole.DRIVER}
           shippingDocs={shippingDocs}
           setShippingDocs={setShippingDocs}
           selectedDate={selectedDate || '2026-06-16'}
+          allDayMenus={allDayMenus}
         />
       );
     }

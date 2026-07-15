@@ -135,7 +135,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           
           <div className="space-y-1">
             <h1 className="text-white font-bold text-lg md:text-xl font-display tracking-tight leading-snug">
-              Dapur Nara
+              Dapur Qomaruddin
             </h1>
             <p className="text-emerald-400 font-mono text-[10px] tracking-widest uppercase">
               SISTEM INFORMASI KONTROL OPERASIONAL
@@ -252,79 +252,122 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </form>
 
           {/* Preset Demo Credentials Selection */}
-          <div className="pt-4 border-t border-slate-700/60 space-y-2.5">
+          <div className="pt-4 border-t border-slate-700/60 space-y-3">
             <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center select-none">
               Daftar Akun Preset (Ketuk untuk Isi Cepat)
             </span>
             
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleUsePreset('maghfurmunif@gmail.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <div className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                  <Database className="h-3 w-3" /> Admin Utama
+            <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+              {/* Category: Admin */}
+              <div className="space-y-1">
+                <span className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-wider block">1. Admin Utama (Akses Penuh)</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('maghfur@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-emerald-400 block">Ustadz Maghfur</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">maghfur@qomaruddin.com</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('rifkah@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-emerald-400 block">Ibu Rifkah</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">rifkah@qomaruddin.com</span>
+                  </button>
                 </div>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">maghfurmunif@gmail.com</span>
-              </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleUsePreset('chef@sppg.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <span className="text-[10px] font-bold text-cyan-400 block">Chef Dapur</span>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">chef@sppg.com</span>
-              </button>
+              {/* Category: Tim Utama */}
+              <div className="space-y-1">
+                <span className="text-[9px] font-extrabold text-cyan-400 uppercase tracking-wider block">2. Tim Utama</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('chef@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-cyan-400 block">Chef</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">chef@...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('gizi@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-amber-400 block">Ahli Gizi</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">gizi@...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('akuntan@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-indigo-400 block">Akuntan</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">akuntan@...</span>
+                  </button>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleUsePreset('gizi@sppg.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <span className="text-[10px] font-bold text-amber-400 block">Ahli Gizi</span>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">gizi@sppg.com</span>
-              </button>
+              {/* Category: Divisi */}
+              <div className="space-y-1">
+                <span className="text-[9px] font-extrabold text-purple-400 uppercase tracking-wider block">3. Divisi &amp; Driver</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('driver@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-amber-500 block">Driver</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">driver@...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('stocking@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-purple-400 block">Stocking</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">stocking@...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('masak@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-sky-400 block">Masak</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">masak@...</span>
+                  </button>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleUsePreset('aslap@sppg.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <span className="text-[10px] font-bold text-purple-400 block">Aslap Lapangan</span>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">aslap@sppg.com</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleUsePreset('ketua@sppg.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <span className="text-[10px] font-bold text-teal-400 block">Ketua SPPG</span>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">ketua@sppg.com</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleUsePreset('akuntan@sppg.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <span className="text-[10px] font-bold text-indigo-400 block">Akuntan</span>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">akuntan@sppg.com</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleUsePreset('driver@sppg.com')}
-                className="p-2 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl text-left transition-all space-y-0.5"
-              >
-                <span className="text-[10px] font-bold text-amber-500 block">Driver Logistik</span>
-                <span className="text-[9px] text-slate-400 font-mono block truncate">driver@sppg.com</span>
-              </button>
+              {/* Category: Penerima */}
+              <div className="space-y-1">
+                <span className="text-[9px] font-extrabold text-orange-400 uppercase tracking-wider block">4. Penerima Sasaran (Sekolah / Desa)</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('ma@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-orange-400 block">MA Assa'adah</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">ma@qomaruddin.com</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUsePreset('sukowati@qomaruddin.com')}
+                    className="p-1.5 border border-slate-700 hover:border-emerald-500/40 bg-slate-900/40 hover:bg-slate-900/85 rounded-xl text-left transition-all space-y-0.5"
+                  >
+                    <span className="text-[9.5px] font-bold text-orange-400 block">Desa Sukowati</span>
+                    <span className="text-[8px] text-slate-400 font-mono block truncate">sukowati@qomaruddin.com</span>
+                  </button>
+                </div>
+              </div>
             </div>
             
-            <p className="text-[9.5px] text-slate-500 text-center pt-2">
+            <p className="text-[9.5px] text-slate-500 text-center pt-1.5">
               Kata sandi preset untuk simulasi: <code className="bg-slate-900 text-slate-300 px-1 py-0.5 rounded font-mono">qomaruddin2026</code>
             </p>
           </div>

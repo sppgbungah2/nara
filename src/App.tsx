@@ -22,7 +22,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<number>(15); // Default to SOP
   
   // Dynamic SOP State
-  const [selectedDate, setSelectedDate] = useState<string>('2026-06-16'); // Tuesday has Krawu Ayam
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
   const [currentUsername, setCurrentUsername] = useState<string>('Sistem Administrator');
   
@@ -297,6 +303,69 @@ export default function App() {
   // Load data from Supabase if configured or fall back to mock memory
   useEffect(() => {
     async function loadAllFromSupabase() {
+      const loadOfflineFallback = () => {
+        const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
+        const seededSOPs: SOPDocument[] = [];
+
+        Object.values(Division).forEach((div) => {
+          const creatorInfo = DIVISION_CREATOR_MAP[div];
+          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+          
+          const monSOP: SOPDocument = {
+            id: `2026-06-15-${div}`,
+            date: '2026-06-15',
+            division: div,
+            creatorRole: creatorInfo.role,
+            creatorName: supervisorName,
+            tasks: generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks.map((t: any) => ({ ...t, completed: true })) || [],
+            isCheckedAll: true,
+            signerSupervisor: supervisorName,
+            signatureSupervisorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
+            signedSupervisorAt: '15/06/2026, 08.00 WIB',
+            signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
+            signatureCoordinatorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
+            signedCoordinatorAt: '15/06/2026, 08.30 WIB',
+            status: 'selesai',
+            updatedAt: '2026-06-15T08:30:00Z'
+          };
+          seededSOPs.push(monSOP);
+        });
+
+        const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
+        Object.values(Division).forEach((div) => {
+          const creatorInfo = DIVISION_CREATOR_MAP[div];
+          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+          
+          const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
+          const populatedTasks = defaultTasks.map((t: any, i: number) => 
+            i < 3 ? { ...t, completed: true } : t
+          );
+
+          const tueSOP: SOPDocument = {
+            id: `2026-06-16-${div}`,
+            date: '2026-06-16',
+            division: div,
+            creatorRole: creatorInfo.role,
+            creatorName: supervisorName,
+            tasks: populatedTasks,
+            isCheckedAll: false,
+            signerSupervisor: supervisorName,
+            signatureSupervisorUrl: '',
+            signedSupervisorAt: null,
+            signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
+            signatureCoordinatorUrl: '',
+            signedCoordinatorAt: null,
+            status: 'aktif',
+            updatedAt: '2026-06-16T05:00:00Z'
+          };
+          seededSOPs.push(tueSOP);
+        });
+
+        setSops(seededSOPs);
+      };
+
       if (isSupabaseConfigured && supabase) {
         try {
           const { data: menuData, error: menuErr } = await supabase
@@ -402,69 +471,10 @@ export default function App() {
           }
         } catch (e) {
           console.error('Supabase fetch failed, sliding back to offline fallback state:', e);
+          loadOfflineFallback();
         }
       } else {
-        // Fall back to setup standard seed for local mock memory
-        const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
-        const seededSOPs: SOPDocument[] = [];
-
-        Object.values(Division).forEach((div) => {
-          const creatorInfo = DIVISION_CREATOR_MAP[div];
-          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
-          
-          const monSOP: SOPDocument = {
-            id: `2026-06-15-${div}`,
-            date: '2026-06-15',
-            division: div,
-            creatorRole: creatorInfo.role,
-            creatorName: supervisorName,
-            tasks: generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks.map((t: any) => ({ ...t, completed: true })) || [],
-            isCheckedAll: true,
-            signerSupervisor: supervisorName,
-            signatureSupervisorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
-            signedSupervisorAt: '15/06/2026, 08.00 WIB',
-            signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
-            signatureCoordinatorUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>',
-            signedCoordinatorAt: '15/06/2026, 08.30 WIB',
-            status: 'selesai',
-            updatedAt: '2026-06-15T08:30:00Z'
-          };
-          seededSOPs.push(monSOP);
-        });
-
-        const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
-        Object.values(Division).forEach((div) => {
-          const creatorInfo = DIVISION_CREATOR_MAP[div];
-          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
-          
-          const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
-          const populatedTasks = defaultTasks.map((t: any, i: number) => 
-            i < 3 ? { ...t, completed: true } : t
-          );
-
-          const tueSOP: SOPDocument = {
-            id: `2026-06-16-${div}`,
-            date: '2026-06-16',
-            division: div,
-            creatorRole: creatorInfo.role,
-            creatorName: supervisorName,
-            tasks: populatedTasks,
-            isCheckedAll: false,
-            signerSupervisor: supervisorName,
-            signatureSupervisorUrl: '',
-            signedSupervisorAt: null,
-            signerCoordinator: `Koordinator ${div.split(' ')[0]}`,
-            signatureCoordinatorUrl: '',
-            signedCoordinatorAt: null,
-            status: 'aktif',
-            updatedAt: '2026-06-16T05:00:00Z'
-          };
-          seededSOPs.push(tueSOP);
-        });
-
-        setSops(seededSOPs);
+        loadOfflineFallback();
       }
     }
     loadAllFromSupabase();
@@ -701,7 +711,7 @@ export default function App() {
     { num: 16, name: 'Rekap Sampah Makanan (Waste)', icon: Trash2, category: 'Kontrol Kualitas' },
     { num: 4, name: 'Order Alat Baru', icon: ShoppingCart, category: 'Perekaman & Order' },
     { num: 5, name: 'Order Operasional', icon: ShoppingCart, category: 'Perekaman & Order' },
-    { num: 6, name: 'Kedatangan Barang', icon: Truck, category: 'Distribusi & Logistik', url: 'https://docs.google.com/spreadsheets/d/12cORkUtENMVDbLBk3h-FzS9JO_DH9ssY5zIwKhfGM7o/edit?gid=2143734055#gid=2143734055' },
+    { num: 6, name: 'Kedatangan Barang', icon: Truck, category: 'Distribusi & Logistik' },
     { num: 7, name: 'Galeri Kedatangan Barang', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1TBcj9LvdkzgdNRpkKvxznz5_-1VF--hw' },
     { num: 8, name: 'Dokumentasi Dapur', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1bqTPoSzK1KscBq58gSs_LIcjK_90ExIu?usp=drive_link' },
     { num: 18, name: 'Dokumentasi Pengiriman Ompreng', icon: Camera, category: 'Dokumentasi Pengiriman' },
@@ -713,34 +723,76 @@ export default function App() {
 
   const visibleMenus = !loggedInUser
     ? []
-    : loggedInUser.isCoordinator
-      ? FEATURE_MENUS.filter(menu => [15, 14, 4, 5, 16, 17].includes(menu.num))
-      : (() => {
-          const role = loggedInUser.role;
-          const email = loggedInUser.email?.toLowerCase().trim() || '';
-          if (email === 'ketua@sppg.com' || role === UserRole.ASLAP || role === UserRole.ADMIN) {
-            // Aslap, Ketua SPPG (ketua@sppg.com), dan Admin Utama dapat melihat semua fitur menu
-            return FEATURE_MENUS;
-          } else if (role === UserRole.CHEF || role === UserRole.AHLI_GIZI) {
-            // Chef & Ahli Gizi: SOP Harian Digital, Menu Harian Gizi, Stock Opname Gudang, Rekap Sampah Makanan, Order Alat, Order Operasional, dan keluhan
-            return FEATURE_MENUS.filter(menu => [15, 10, 12, 16, 4, 5, 14].includes(menu.num));
-          } else if (role === UserRole.AKUNTAN) {
-            // Akuntan: SOP Harian Digital, Menu Harian Gizi, Stock Opname Gudang, Stock Operasional, Order Alat, Order Operasional, Kedatangan Barang, Galeri Kedatangan Barang, dan keluhan
-            return FEATURE_MENUS.filter(menu => [15, 10, 12, 17, 4, 5, 6, 7, 14].includes(menu.num));
-          } else if (role === UserRole.DRIVER) {
-            // Driver: SOP Harian Digital, Keluhan Relawan, dan 4 menu Pengiriman
-            return FEATURE_MENUS.filter(menu => [15, 14, 18, 19, 20, 21].includes(menu.num));
-          } else {
-            return FEATURE_MENUS;
-          }
-        })();
+    : (() => {
+        const email = loggedInUser.email?.toLowerCase().trim() || '';
+        const role = loggedInUser.role;
+
+        // 1. ADMIN UTAMA
+        if (
+          ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'].includes(email) ||
+          role === UserRole.ADMIN
+        ) {
+          return FEATURE_MENUS;
+        }
+
+        // 2. PENERIMA SASARAN
+        if (
+          ['ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'].includes(email) ||
+          role === UserRole.PENERIMA
+        ) {
+          // BAST (19), Surat Jalan (20), Organoleptik (21)
+          return FEATURE_MENUS.filter(menu => [19, 20, 21].includes(menu.num));
+        }
+
+        // 3. TIM UTAMA
+        if (email === 'chef@qomaruddin.com') {
+          // SOP Digital, Menu Harian, Order Alat/Operasional, Keluhan
+          return FEATURE_MENUS.filter(menu => [15, 10, 4, 5, 14].includes(menu.num));
+        }
+        if (email === 'gizi@qomaruddin.com') {
+          // SOP Harian, Menu Harian Gizi, Order Alat/Operasional, Dokumentasi Pengiriman Ompreng, Keluhan
+          return FEATURE_MENUS.filter(menu => [15, 10, 4, 5, 18, 14].includes(menu.num));
+        }
+        if (email === 'akuntan@qomaruddin.com') {
+          // Stock Opname, Stock Operasional, Order Operasional, Kedatangan Barang, Galeri Kedatangan Barang
+          return FEATURE_MENUS.filter(menu => [12, 17, 5, 6, 7].includes(menu.num));
+        }
+
+        // 4. DIVISI (SOP Harian, Menu Harian Gizi, Order Alat/Operasional, Keluhan)
+        if (['stocking@qomaruddin.com', 'masak@qomaruddin.com', 'pemorsian@qomaruddin.com', 'cuci@qomaruddin.com', 'kebersihan@qomaruddin.com', 'keamanan@qomaruddin.com'].includes(email)) {
+          return FEATURE_MENUS.filter(menu => [15, 10, 4, 5, 14].includes(menu.num));
+        }
+
+        // 5. DRIVER
+        if (email === 'driver@qomaruddin.com') {
+          // SOP Harian, Menu Harian Gizi, Order Alat/Operasional, BAST, Surat Jalan, Keluhan
+          return FEATURE_MENUS.filter(menu => [15, 10, 4, 5, 19, 20, 14].includes(menu.num));
+        }
+
+        // Legacy/Default Fallbacks based on mapped roles
+        if (role === UserRole.CHEF || role === UserRole.AHLI_GIZI) {
+          return FEATURE_MENUS.filter(menu => [15, 10, 12, 16, 4, 5, 14].includes(menu.num));
+        } else if (role === UserRole.AKUNTAN) {
+          return FEATURE_MENUS.filter(menu => [15, 10, 12, 17, 4, 5, 6, 7, 14].includes(menu.num));
+        } else if (role === UserRole.DRIVER) {
+          return FEATURE_MENUS.filter(menu => [15, 14, 18, 19, 20, 21].includes(menu.num));
+        } else if (loggedInUser.isCoordinator) {
+          return FEATURE_MENUS.filter(menu => [15, 14, 4, 5, 16, 17].includes(menu.num));
+        }
+
+        return FEATURE_MENUS;
+      })();
 
   // Security redirect if activeTab is not allowed for current user
   useEffect(() => {
     if (loggedInUser) {
       const allowedNums = visibleMenus.map(m => m.num);
       if (!allowedNums.includes(activeTab)) {
-        setActiveTab(15); // Fallback to digital SOP (main dashboard included everywhere)
+        if (allowedNums.length > 0) {
+          setActiveTab(allowedNums[0]); // Redirect to first allowed menu tab
+        } else {
+          setActiveTab(15);
+        }
       }
     }
   }, [loggedInUser, activeTab, visibleMenus]);
@@ -789,7 +841,7 @@ export default function App() {
             />
             <div>
               <h1 className="font-bold text-xs md:text-sm tracking-wide text-white uppercase font-display">
-                Dapur Nara
+                Dapur Qomaruddin
               </h1>
               <span className="text-[10px] text-emerald-400 block tracking-widest font-mono uppercase">
                 Bungah - Gresik
