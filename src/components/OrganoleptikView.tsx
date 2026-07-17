@@ -28,6 +28,11 @@ export default function OrganoleptikView({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Filter States for Panel Rekapitulasi & Kontrol
+  const [filterPenerima, setFilterPenerima] = useState<string>('All');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterSuhu, setFilterSuhu] = useState<string>('All');
+
   // Signature state for active sheet
   const [activeSigRequest, setActiveSigRequest] = useState<{
     targetField: 'orlepSignature';
@@ -68,7 +73,12 @@ export default function OrganoleptikView({
       if (allOrlepForDate.length === 0) {
         handleInitializeOrganoleptik();
       } else if (!activeDoc) {
-        setActiveDoc(allOrlepForDate[0]);
+        const matchingDoc = allOrlepForDate.find(d => d.orlepDesa === restrictedLocation);
+        if (matchingDoc) {
+          setActiveDoc(matchingDoc);
+        } else {
+          setActiveDoc(allOrlepForDate[0]);
+        }
       }
     }
   }, [restrictedLocation, shippingDocs, selectedDate, activeDoc]);
@@ -102,25 +112,34 @@ export default function OrganoleptikView({
     };
   };
 
-  // Auto initialize Organoleptik for today
+  // Auto initialize Organoleptik for today - Creates 6 documents for each recipient
   const handleInitializeOrganoleptik = () => {
     const currentDayMenu = allDayMenus.find(m => m.date === selectedDate);
     const menuStr = currentDayMenu ? currentDayMenu.menuList.join(', ') : 'Nasi Krawu Bungah, Ayam Goreng Lengkuas, Tempe Bacem, Melon Segar';
     
-    const newDoc = {
-      id: `orlep-${selectedDate}-${Date.now()}`,
+    const RECIPIENTS_LIST = [
+      "MA Assa'adah",
+      "MTS Assa'adah II",
+      "SMK Assa'adah",
+      "SMA Assa'adah",
+      "Desa Sukowati",
+      "Desa Sidokumpul"
+    ];
+
+    const newDocs = RECIPIENTS_LIST.map((recipient, index) => ({
+      id: `orlep-${selectedDate}-${index}-${Date.now()}`,
       type: 'organoleptik',
       date: selectedDate,
       vehicleNumber: 'W 1234 BGH',
       imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80',
-      comments: 'Hasil uji kelayakan sensorik rasa dan suhu CCP hidangan gizi.',
+      comments: `Hasil uji kelayakan sensorik rasa dan suhu CCP hidangan gizi untuk ${recipient}.`,
       uploadedBy: loggedInUser?.email || 'ahligizi@sppg.com',
       uploadedAt: new Date().toISOString(),
       receiverName: 'Ahli Gizi SPPG',
       status: 'Aktif',
       orlepJam: '11:30 WIB',
       orlepPanelis: loggedInUser?.fullName || 'Ustadzah Fatimah, S.Gz',
-      orlepDesa: 'Bungah',
+      orlepDesa: recipient,
       orlepMenu: menuStr,
       orlepKritik: 'Suhu hangat terjaga prima, rasa gurih seimbang, melon segar layak konsumsi.',
       organoleptikSuhu: '68',
@@ -132,10 +151,15 @@ export default function OrganoleptikView({
         B_rasa: 5, B_warna: 5, B_aroma: 5, B_tekstur: 4,
       },
       orlepSignature: ''
-    };
+    }));
 
-    setShippingDocs(prev => [newDoc, ...prev]);
-    setSuccessMsg('Berhasil menginisialisasi Lembar Uji Organoleptik harian!');
+    // Reinitialize clears old ones for that day
+    setShippingDocs(prev => {
+      const filteredPrev = prev.filter(d => !(d.type === 'organoleptik' && d.date === selectedDate));
+      return [...newDocs, ...filteredPrev];
+    });
+
+    setSuccessMsg('Berhasil menginisialisasi 6 Lembar Uji Organoleptik untuk seluruh penerima harian!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
@@ -661,6 +685,79 @@ export default function OrganoleptikView({
     );
   }
 
+  // Filtered list for display in the grid
+  const filteredDocs = dateDocs.filter(doc => {
+    // 1. Filter Penerima
+    if (filterPenerima !== 'All' && doc.orlepDesa !== filterPenerima) {
+      return false;
+    }
+    // 2. Filter Status
+    if (filterStatus !== 'All') {
+      const isDone = doc.status === 'Selesai';
+      if (filterStatus === 'Selesai' && !isDone) return false;
+      if (filterStatus === 'Aktif' && isDone) return false;
+    }
+    // 3. Filter Suhu
+    if (filterSuhu !== 'All') {
+      const temp = parseFloat(doc.organoleptikSuhu || doc.orlepSuhu || '68') || 68;
+      if (filterSuhu === 'Aman' && temp < 60) return false;
+      if (filterSuhu === 'Kritis' && temp >= 60) return false;
+    }
+    return true;
+  });
+
+  const getRecipientSummary = (recipient: string) => {
+    const doc = dateDocs.find(d => d.orlepDesa === recipient);
+    if (!doc) {
+      return {
+        exists: false,
+        status: 'Belum Diinisialisasi',
+        score: '-',
+        suhu: '-',
+        isCritical: false,
+        doc: null
+      };
+    }
+
+    const isDone = doc.status === 'Selesai';
+    
+    let ratingText = '-';
+    if (doc.orlepGrid) {
+      let sum = 0;
+      let cnt = 0;
+      evaluationComponents.forEach(comp => {
+        const rasa = doc.orlepGrid[`${comp.code}_rasa`] || 4;
+        const warna = doc.orlepGrid[`${comp.code}_warna`] || 4;
+        const aroma = doc.orlepGrid[`${comp.code}_aroma`] || 4;
+        const tekstur = doc.orlepGrid[`${comp.code}_tekstur`] || 4;
+        sum += (rasa + warna + aroma + tekstur) / 4;
+        cnt++;
+      });
+      if (cnt > 0) ratingText = `${(sum / cnt).toFixed(2)}`;
+    }
+
+    const docTemp = parseFloat(doc.organoleptikSuhu || doc.orlepSuhu || '68') || 68;
+    const isCritical = docTemp < 60;
+
+    return {
+      exists: true,
+      status: isDone ? 'Terkunci' : 'Aktif',
+      score: ratingText,
+      suhu: `${docTemp}°C`,
+      isCritical,
+      doc
+    };
+  };
+
+  const RECIPIENTS_LIST = [
+    "MA Assa'adah",
+    "MTS Assa'adah II",
+    "SMK Assa'adah",
+    "SMA Assa'adah",
+    "Desa Sukowati",
+    "Desa Sidokumpul"
+  ];
+
   // Dashboard / List View
   return (
     <div className="space-y-6 animate-fade-in" id="orlep-dashboard">
@@ -711,99 +808,279 @@ export default function OrganoleptikView({
             className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
           >
             <Plus className="h-4 w-4" />
-            + Inisialisasi Uji Organoleptik Hari Ini
+            + Inisialisasi Uji Organoleptik Hari Ini (6 Penerima)
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider">
-            Pengujian Menu Terjadwal ({dateDocs.length} Berkas)
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {dateDocs.map((doc) => {
-              const hasSig = !!doc.orlepSignature;
-              const isDone = doc.status === 'Selesai';
+        <div className="space-y-6">
+          {/* Panel Filter Rekapitulasi & Kontrol Organoleptik */}
+          <div className="bg-neutral-50/60 border border-neutral-200 rounded-3xl p-6 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-200 pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
+                  📋 Rekapitulasi & Kontrol Penerima Harian
+                </h3>
+                <p className="text-xs text-neutral-500 mt-1">Status real-time kepatuhan organoleptik & suhu CCP untuk seluruh 6 titik penerima gizi.</p>
+              </div>
               
-              // Extract calculated rating score for preview
-              let ratingText = 'Belum Dinilai';
-              if (doc.orlepGrid) {
-                let sum = 0;
-                let cnt = 0;
-                evaluationComponents.forEach(comp => {
-                  const rasa = doc.orlepGrid[`${comp.code}_rasa`] || 4;
-                  const warna = doc.orlepGrid[`${comp.code}_warna`] || 4;
-                  const aroma = doc.orlepGrid[`${comp.code}_aroma`] || 4;
-                  const tekstur = doc.orlepGrid[`${comp.code}_tekstur`] || 4;
-                  sum += (rasa + warna + aroma + tekstur) / 4;
-                  cnt++;
-                });
-                if (cnt > 0) ratingText = `${(sum / cnt).toFixed(2)} / 5.00`;
-              }
-
-              const docTemp = parseFloat(doc.organoleptikSuhu || doc.orlepSuhu || '68');
-              const docCritical = docTemp < 60;
-              
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => setActiveDoc(doc)}
-                  className="bg-white hover:border-emerald-600 border border-neutral-200/80 rounded-2xl p-5 shadow-3xs cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group flex flex-col justify-between min-h-[175px]"
+              {/* Macro Control: Bulk lock/finalize if signed */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const activeUnsigned = dateDocs.filter(d => d.status === 'Aktif' && !d.orlepSignature);
+                    const activeSigned = dateDocs.filter(d => d.status === 'Aktif' && d.orlepSignature);
+                    if (activeSigned.length === 0) {
+                      alert('Tidak ada berkas bertandatangan yang dapat dikunci secara bulk. Silakan bubuhkan tanda tangan di masing-masing lembar terlebih dahulu.');
+                      return;
+                    }
+                    if (confirm(`Apakah Anda yakin ingin mengunci ${activeSigned.length} berkas yang sudah bertandatangan secara masal? Berkas tanpa tanda tangan (${activeUnsigned.length}) akan dilewati.`)) {
+                      setShippingDocs(prev => prev.map(d => {
+                        if (d.type === 'organoleptik' && d.date === selectedDate && d.status === 'Aktif' && d.orlepSignature) {
+                          return { ...d, status: 'Selesai' };
+                        }
+                        return d;
+                      }));
+                      setSuccessMsg(`Berhasil mengunci secara bulk ${activeSigned.length} Berkas Uji Organoleptik harian!`);
+                      setTimeout(() => setSuccessMsg(null), 3000);
+                    }
+                  }}
+                  className="bg-emerald-800 hover:bg-emerald-950 text-white font-extrabold text-[10px] px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer shadow-3xs flex items-center gap-1 uppercase tracking-wider"
                 >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Kunci Masal Berkas Ber-Ttd
+                </button>
+              </div>
+            </div>
+
+            {/* Rekap Grid for the 6 recipients */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {RECIPIENTS_LIST.map((recipient) => {
+                const info = getRecipientSummary(recipient);
+                return (
+                  <div 
+                    key={recipient}
+                    className="bg-white border border-neutral-200 hover:border-neutral-300 rounded-2xl p-4 flex flex-col justify-between space-y-3 transition-all hover:shadow-xs"
+                  >
+                    <div className="flex items-start justify-between gap-1">
                       <div>
-                        <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">PANELIS PENGUJI</span>
-                        <h4 className="font-bold text-sm text-neutral-800 group-hover:text-emerald-800 transition-colors">
-                          {doc.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}
-                        </h4>
+                        <span className="text-[10px] text-neutral-400 font-mono font-bold block uppercase tracking-wider">PENERIMA</span>
+                        <h4 className="font-bold text-xs text-neutral-800 line-clamp-1">{recipient}</h4>
                       </div>
-                      
-                      <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold border ${
-                        isDone
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}>
-                        {isDone ? 'TERKUNCI' : 'AKTIF'}
-                      </span>
-                    </div>
-
-                    <p className="text-[10px] text-neutral-400 mt-3">
-                      Suhu CCP: <span className={`font-mono font-bold ${docCritical ? 'text-red-700' : 'text-emerald-800'}`}>{docTemp} °C</span> {docCritical && '(DI BAWAH BATAS KRITIS!)'}
-                    </p>
-                    <p className="text-[10px] text-neutral-400 mt-1">
-                      Skor Penilaian: <strong className="text-neutral-700">{ratingText}</strong>
-                    </p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-[10px] text-neutral-500">
-                      <span>Tanda Tangan Panelis:</span>
-                      <span className={hasSig ? 'text-emerald-700 font-bold' : 'text-neutral-400 font-bold'}>
-                        {hasSig ? '✓ SUDAH PARAF' : '✗ BELUM PARAF'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-1">
-                      {!isDone && (
-                        <button
-                          onClick={(e) => handleDeleteDoc(doc.id, e)}
-                          className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
-                          title="Hapus berkas Organoleptik"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                      {info.exists ? (
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider font-extrabold border ${
+                          info.status === 'Terkunci'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {info.status}
+                        </span>
+                      ) : (
+                        <span className="bg-neutral-100 text-neutral-400 border-neutral-200 border px-2 py-0.5 rounded-full text-[8px] uppercase tracking-wider font-extrabold">
+                          Belum Ada
+                        </span>
                       )}
-                      
-                      <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider flex items-center gap-0.5 ml-auto">
-                        {isDone ? 'Buka Berkas 📄' : 'Kelola & Isi ✍️'} 
-                        <ChevronRight className="h-3 w-3 translate-x-0 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-neutral-100 pt-2 font-sans">
+                      <div>
+                        <span className="text-neutral-400 block font-medium">Suhu CCP:</span>
+                        {info.exists ? (
+                          <span className={`font-mono font-black ${info.isCritical ? 'text-red-600' : 'text-emerald-800'}`}>
+                            {info.suhu} {info.isCritical ? '⚠' : '✓'}
+                          </span>
+                        ) : (
+                          <span className="text-neutral-300">-</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-neutral-400 block font-medium">Skor Mutu:</span>
+                        {info.exists ? (
+                          <strong className="text-neutral-700 font-mono">{info.score} <span className="text-[8px] text-neutral-400">/ 5</span></strong>
+                        ) : (
+                          <span className="text-neutral-300">-</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-50 flex items-center justify-between">
+                      {info.exists ? (
+                        <button
+                          onClick={() => setActiveDoc(info.doc)}
+                          className="text-emerald-800 hover:text-emerald-950 font-bold text-[10px] uppercase tracking-wider flex items-center gap-0.5 cursor-pointer ml-auto hover:underline"
+                        >
+                          Buka Form ✍️
+                        </button>
+                      ) : (
+                        <span className="text-[9px] text-neutral-400 italic">Gunakan tombol Re-Inisialisasi</span>
+                      )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {/* Filter Controls Row */}
+            <div className="bg-neutral-150/80 p-4 rounded-2xl flex flex-wrap items-center gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-neutral-500 uppercase tracking-wider text-[10px]">Filter Penerima:</span>
+                <select
+                  value={filterPenerima}
+                  onChange={(e) => setFilterPenerima(e.target.value)}
+                  className="bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 font-semibold text-neutral-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="All">Semua Penerima ({dateDocs.length})</option>
+                  {RECIPIENTS_LIST.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-neutral-500 uppercase tracking-wider text-[10px]">Status Berkas:</span>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 font-semibold text-neutral-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="All">Semua Status</option>
+                  <option value="Aktif">Aktif (Draft)</option>
+                  <option value="Selesai">Terkunci (Muted)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-neutral-500 uppercase tracking-wider text-[10px]">Keamanan CCP:</span>
+                <select
+                  value={filterSuhu}
+                  onChange={(e) => setFilterSuhu(e.target.value)}
+                  className="bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 font-semibold text-neutral-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-600 focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="All">Semua Suhu</option>
+                  <option value="Aman">✓ Aman (&gt;= 60°C)</option>
+                  <option value="Kritis">⚠ Kritis (&lt; 60°C)</option>
+                </select>
+              </div>
+
+              {(filterPenerima !== 'All' || filterStatus !== 'All' || filterSuhu !== 'All') && (
+                <button
+                  onClick={() => {
+                    setFilterPenerima('All');
+                    setFilterStatus('All');
+                    setFilterSuhu('All');
+                  }}
+                  className="text-red-700 hover:text-red-900 font-bold ml-auto cursor-pointer flex items-center gap-1 transition-transform active:scale-[0.98]"
+                >
+                  <X className="h-3 w-3" />
+                  Reset Filter
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider">
+                Lembar Pengujian Terfilter ({filteredDocs.length} Berkas)
+              </h3>
+              {filteredDocs.length < dateDocs.length && (
+                <span className="text-[10px] text-neutral-400 italic">Menampilkan {filteredDocs.length} dari total {dateDocs.length} berkas hari ini</span>
+              )}
+            </div>
+
+            {filteredDocs.length === 0 ? (
+              <div className="p-12 border border-dashed border-neutral-200 rounded-2xl bg-white text-center text-neutral-400 text-xs">
+                Tidak ada lembar pengujian yang cocok dengan kriteria filter aktif.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredDocs.map((doc) => {
+                  const hasSig = !!doc.orlepSignature;
+                  const isDone = doc.status === 'Selesai';
+                  
+                  // Extract calculated rating score for preview
+                  let ratingText = 'Belum Dinilai';
+                  if (doc.orlepGrid) {
+                    let sum = 0;
+                    let cnt = 0;
+                    evaluationComponents.forEach(comp => {
+                      const rasa = doc.orlepGrid[`${comp.code}_rasa`] || 4;
+                      const warna = doc.orlepGrid[`${comp.code}_warna`] || 4;
+                      const aroma = doc.orlepGrid[`${comp.code}_aroma`] || 4;
+                      const tekstur = doc.orlepGrid[`${comp.code}_tekstur`] || 4;
+                      sum += (rasa + warna + aroma + tekstur) / 4;
+                      cnt++;
+                    });
+                    if (cnt > 0) ratingText = `${(sum / cnt).toFixed(2)} / 5.00`;
+                  }
+
+                  const docTemp = parseFloat(doc.organoleptikSuhu || doc.orlepSuhu || '68');
+                  const docCritical = docTemp < 60;
+                  
+                  return (
+                    <div
+                      key={doc.id}
+                      onClick={() => setActiveDoc(doc)}
+                      className="bg-white hover:border-emerald-600 border border-neutral-200/80 rounded-2xl p-5 shadow-3xs cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group flex flex-col justify-between min-h-[175px]"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] bg-neutral-100 text-neutral-800 border border-neutral-200 font-mono font-bold px-2 py-0.5 rounded-md block uppercase tracking-wider mb-2 w-max">
+                              📍 {doc.orlepDesa || 'Umum'}
+                            </span>
+                            <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">PANELIS PENGUJI</span>
+                            <h4 className="font-bold text-sm text-neutral-800 group-hover:text-emerald-800 transition-colors">
+                              {doc.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}
+                            </h4>
+                          </div>
+                          
+                          <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold border ${
+                            isDone
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
+                            {isDone ? 'TERKUNCI' : 'AKTIF'}
+                          </span>
+                        </div>
+
+                        <p className="text-[10px] text-neutral-400 mt-3">
+                          Suhu CCP: <span className={`font-mono font-bold ${docCritical ? 'text-red-700' : 'text-emerald-800'}`}>{docTemp} °C</span> {docCritical && '(DI BAWAH BATAS KRITIS!)'}
+                        </p>
+                        <p className="text-[10px] text-neutral-400 mt-1">
+                          Skor Penilaian: <strong className="text-neutral-700">{ratingText}</strong>
+                        </p>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                          <span>Tanda Tangan Panelis:</span>
+                          <span className={hasSig ? 'text-emerald-700 font-bold' : 'text-neutral-400 font-bold'}>
+                            {hasSig ? '✓ SUDAH PARAF' : '✗ BELUM PARAF'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-1">
+                          {!isDone && (
+                            <button
+                              onClick={(e) => handleDeleteDoc(doc.id, e)}
+                              className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                              title="Hapus berkas Organoleptik"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          
+                          <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider flex items-center gap-0.5 ml-auto">
+                            {isDone ? 'Buka Berkas 📄' : 'Kelola & Isi ✍️'} 
+                            <ChevronRight className="h-3 w-3 translate-x-0 group-hover:translate-x-0.5 transition-transform" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
