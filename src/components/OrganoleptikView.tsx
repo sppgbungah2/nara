@@ -38,6 +38,41 @@ export default function OrganoleptikView({
   // Filter Organoleptik docs for the selected date
   const dateDocs = shippingDocs.filter(d => d.type === 'organoleptik' && d.date === selectedDate);
 
+  const getPenerimaLocation = (email: string): string => {
+    const e = email.toLowerCase().trim();
+    if (e === 'ma@qomaruddin.com') return "MA Assa'adah";
+    if (e === 'smk@qomaruddin.com') return "SMK Assa'adah";
+    if (e === 'sma@qomaruddin.com') return "SMA Assa'adah";
+    if (e === 'mts@qomaruddin.com') return "MTS Assa'adah II";
+    if (e === 'sukowati@qomaruddin.com') return "Desa Sukowati";
+    if (e === 'sidokumpul@qomaruddin.com') return "Desa Sidokumpul";
+    return "";
+  };
+
+  const restrictedLocation = loggedInUser?.email ? getPenerimaLocation(loggedInUser.email) : "";
+
+  // Keep activeDoc in sync with updated shippingDocs from parent state
+  useEffect(() => {
+    if (activeDoc) {
+      const latest = shippingDocs.find(d => d.id === activeDoc.id);
+      if (latest && JSON.stringify(latest) !== JSON.stringify(activeDoc)) {
+        setActiveDoc(latest);
+      }
+    }
+  }, [shippingDocs]);
+
+  // Auto initialize and select for Penerima
+  useEffect(() => {
+    if (restrictedLocation) {
+      const allOrlepForDate = shippingDocs.filter(d => d.type === 'organoleptik' && d.date === selectedDate);
+      if (allOrlepForDate.length === 0) {
+        handleInitializeOrganoleptik();
+      } else if (!activeDoc) {
+        setActiveDoc(allOrlepForDate[0]);
+      }
+    }
+  }, [restrictedLocation, shippingDocs, selectedDate, activeDoc]);
+
   const getIndonesianDateText = (dateStr: string) => {
     if (!dateStr) return { dayName: 'Rabu', dateNum: '15', monthName: 'Juli', yearNum: '2026' };
     const dateObj = new Date(dateStr);
@@ -191,13 +226,15 @@ export default function OrganoleptikView({
       <div className="space-y-6 animate-fade-in" id="orlep-printed-view">
         {/* Sticky Action Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-4 bg-neutral-50 p-4 rounded-2xl border border-neutral-200 shadow-3xs print:hidden">
-          <button
-            onClick={() => setActiveDoc(null)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900 transition-colors bg-white px-3 py-2 rounded-xl border border-neutral-200 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Kembali ke Board
-          </button>
+          {!restrictedLocation && (
+            <button
+              onClick={() => setActiveDoc(null)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900 transition-colors bg-white px-3 py-2 rounded-xl border border-neutral-200 cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Kembali ke Board
+            </button>
+          )}
 
           <div className="flex items-center gap-2">
             <button

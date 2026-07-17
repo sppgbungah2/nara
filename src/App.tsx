@@ -179,6 +179,10 @@ export default function App() {
           setLoggedInUser(profile);
           setCurrentUserRole(profile.role);
           setCurrentUsername(profile.fullName);
+          const email = profile.email?.toLowerCase().trim() || '';
+          if (['ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'].includes(email)) {
+            setActiveTab(19);
+          }
         }
       });
 
@@ -188,6 +192,10 @@ export default function App() {
           setLoggedInUser(profile);
           setCurrentUserRole(profile.role);
           setCurrentUsername(profile.fullName);
+          const email = profile.email?.toLowerCase().trim() || '';
+          if (['ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'].includes(email)) {
+            setActiveTab(19);
+          }
         } else {
           setLoggedInUser(null);
         }
@@ -804,7 +812,10 @@ export default function App() {
           setLoggedInUser(profile);
           setCurrentUserRole(profile.role);
           setCurrentUsername(profile.fullName);
-          if (profile.isCoordinator) {
+          const email = profile.email?.toLowerCase().trim() || '';
+          if (['ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'].includes(email)) {
+            setActiveTab(19);
+          } else if (profile.isCoordinator) {
             setActiveTab(15);
           }
         }} 
