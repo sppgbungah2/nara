@@ -3,9 +3,9 @@
 -- Target: Supabase PostgreSQL Database (SQL Editor)
 -- 
 -- Perintah:
--- 1. Hapus seluruh database lama (table, rls, policy)
--- 2. Buat ulang table, relasi, RLS, & policy yang sesuai dengan webapp terbaru
--- 3. Isi baseline & dummy data siap pakai
+-- 1. Hapus seluruh database lama (table, rls, policy) secara menyeluruh
+-- 2. Buat ulang table, relasi, RLS, & policy yang kuat dan fleksibel
+-- 3. Isi baseline & sample data 1 hari (17 Juli 2026 / Hari ini)
 -- ====================================================================
 
 -- ====================================================================
@@ -171,92 +171,63 @@ ALTER TABLE shipping_docs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kedatangan_barang ENABLE ROW LEVEL SECURITY;
 
 -- ====================================================================
--- STEP 4: DEFINE ACCESS CONTROL LIST & ROLE-BASED POLICIES
+-- STEP 4: DEFINE ACCESS CONTROL LIST & DOMAIN-BASED POLICIES
 -- ====================================================================
 
 -- 1. day_menus POLICIES
 CREATE POLICY "day_menus_read_all" ON day_menus FOR SELECT TO authenticated USING (true);
-CREATE POLICY "day_menus_write_admin_gizi_chef" ON day_menus FOR ALL TO authenticated 
+CREATE POLICY "day_menus_write_staff_domain" ON day_menus FOR ALL TO authenticated 
     USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com',
-            'gizi@qomaruddin.com', 'chef@qomaruddin.com'
-        )
+        lower(auth.jwt() ->> 'email') LIKE '%@qomaruddin.com' OR 
+        lower(auth.jwt() ->> 'email') LIKE '%@sppg.com' OR 
+        lower(auth.jwt() ->> 'email') = 'maghfurmunif@gmail.com'
     );
 
 -- 2. sops POLICIES
 CREATE POLICY "sops_read_all" ON sops FOR SELECT TO authenticated USING (true);
-CREATE POLICY "sops_all_admin_chef_gizi_divisi" ON sops FOR ALL TO authenticated
+CREATE POLICY "sops_write_staff_domain" ON sops FOR ALL TO authenticated
     USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com',
-            'chef@qomaruddin.com', 'gizi@qomaruddin.com', 'driver@qomaruddin.com',
-            'stocking@qomaruddin.com', 'masak@qomaruddin.com', 'pemorsian@qomaruddin.com', 'cuci@qomaruddin.com', 'kebersihan@qomaruddin.com', 'keamanan@qomaruddin.com'
-        )
+        lower(auth.jwt() ->> 'email') LIKE '%@qomaruddin.com' OR 
+        lower(auth.jwt() ->> 'email') LIKE '%@sppg.com' OR 
+        lower(auth.jwt() ->> 'email') = 'maghfurmunif@gmail.com'
     );
 
 -- 3. sop_tasks POLICIES
 CREATE POLICY "sop_tasks_read_all" ON sop_tasks FOR SELECT TO authenticated USING (true);
-CREATE POLICY "sop_tasks_all_admin_chef_gizi_divisi" ON sop_tasks FOR ALL TO authenticated
+CREATE POLICY "sop_tasks_write_staff_domain" ON sop_tasks FOR ALL TO authenticated
     USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com',
-            'chef@qomaruddin.com', 'gizi@qomaruddin.com', 'driver@qomaruddin.com',
-            'stocking@qomaruddin.com', 'masak@qomaruddin.com', 'pemorsian@qomaruddin.com', 'cuci@qomaruddin.com', 'kebersihan@qomaruddin.com', 'keamanan@qomaruddin.com'
-        )
+        lower(auth.jwt() ->> 'email') LIKE '%@qomaruddin.com' OR 
+        lower(auth.jwt() ->> 'email') LIKE '%@sppg.com' OR 
+        lower(auth.jwt() ->> 'email') = 'maghfurmunif@gmail.com'
     );
 
 -- 4. sisa_stok POLICIES
 CREATE POLICY "sisa_stok_read_all" ON sisa_stok FOR SELECT TO authenticated USING (true);
-CREATE POLICY "sisa_stok_all_admin_chef_gizi_akuntan" ON sisa_stok FOR ALL TO authenticated
+CREATE POLICY "sisa_stok_write_staff_domain" ON sisa_stok FOR ALL TO authenticated
     USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com',
-            'chef@qomaruddin.com', 'gizi@qomaruddin.com', 'akuntan@qomaruddin.com'
-        )
+        lower(auth.jwt() ->> 'email') LIKE '%@qomaruddin.com' OR 
+        lower(auth.jwt() ->> 'email') LIKE '%@sppg.com' OR 
+        lower(auth.jwt() ->> 'email') = 'maghfurmunif@gmail.com'
     );
 
 -- 5. order_requests POLICIES
 CREATE POLICY "order_requests_read_all" ON order_requests FOR SELECT TO authenticated USING (true);
-CREATE POLICY "order_requests_insert_all" ON order_requests FOR INSERT TO authenticated WITH CHECK (
-    lower(auth.jwt() ->> 'email') NOT IN (
-        'ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'
-    )
-);
-CREATE POLICY "order_requests_update_admin_only" ON order_requests FOR UPDATE TO authenticated
+CREATE POLICY "order_requests_insert_auth" ON order_requests FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "order_requests_write_staff_domain" ON order_requests FOR ALL TO authenticated
     USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'
-        )
-    );
-CREATE POLICY "order_requests_delete_admin_only" ON order_requests FOR DELETE TO authenticated
-    USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'
-        )
+        lower(auth.jwt() ->> 'email') LIKE '%@qomaruddin.com' OR 
+        lower(auth.jwt() ->> 'email') LIKE '%@sppg.com' OR 
+        lower(auth.jwt() ->> 'email') = 'maghfurmunif@gmail.com'
     );
 
 -- 6. volunteer_complaints POLICIES
-CREATE POLICY "volunteer_complaints_read_admin_chef_gizi_divisi" ON volunteer_complaints FOR SELECT TO authenticated
+CREATE POLICY "volunteer_complaints_read_all" ON volunteer_complaints FOR SELECT TO authenticated USING (true);
+CREATE POLICY "volunteer_complaints_insert_auth" ON volunteer_complaints FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "volunteer_complaints_write_staff_domain" ON volunteer_complaints FOR ALL TO authenticated
     USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com',
-            'chef@qomaruddin.com', 'gizi@qomaruddin.com', 'driver@qomaruddin.com',
-            'stocking@qomaruddin.com', 'masak@qomaruddin.com', 'pemorsian@qomaruddin.com', 'cuci@qomaruddin.com', 'kebersihan@qomaruddin.com', 'keamanan@qomaruddin.com'
-        )
-    );
-CREATE POLICY "volunteer_complaints_insert_all" ON volunteer_complaints FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "volunteer_complaints_update_admin_only" ON volunteer_complaints FOR UPDATE TO authenticated
-    USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'
-        )
-    );
-CREATE POLICY "volunteer_complaints_delete_admin_only" ON volunteer_complaints FOR DELETE TO authenticated
-    USING (
-        lower(auth.jwt() ->> 'email') IN (
-            'maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'
-        )
+        lower(auth.jwt() ->> 'email') LIKE '%@qomaruddin.com' OR 
+        lower(auth.jwt() ->> 'email') LIKE '%@sppg.com' OR 
+        lower(auth.jwt() ->> 'email') = 'maghfurmunif@gmail.com'
     );
 
 -- 7. shipping_docs POLICIES
@@ -269,68 +240,70 @@ CREATE POLICY "kedatangan_barang_all_auth" ON kedatangan_barang FOR ALL TO authe
 
 
 -- ====================================================================
--- STEP 5: SEED INITIAL & DUMMY DATA FOR PRODUCTION READY LAUNCH
+-- STEP 5: SEED SAMPLE DATA UNTUK 1 HARI (17 Juli 2026 / Hari ini)
 -- ====================================================================
 
--- Seed menus for 15, 16, 17, 18, 19 June 2026
+-- 1. Seed Menu Gizi Harian (day_menus)
 INSERT INTO day_menus (date, menu_list, created_by) VALUES
-('2026-06-15', ARRAY['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'], 'gizi@qomaruddin.com'),
-('2026-06-16', ARRAY['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'], 'gizi@qomaruddin.com'),
-('2026-06-17', ARRAY['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'], 'gizi@qomaruddin.com'),
-('2026-06-18', ARRAY['Nasi Putih', 'Rawon Daging Sapi Pepesan', 'Mendol Tempe', 'Kecambah Segar & Jeruk Nipis', 'Semangka Merah'], 'gizi@qomaruddin.com'),
-('2026-06-19', ARRAY['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'], 'gizi@qomaruddin.com');
+('2026-07-17', ARRAY['Nasi Putih Sehat', 'Ayam Bakar Madu Bungah', 'Sayur Sop Bakso Gizi', 'Tempe Mendoan Hangat', 'Buah Jeruk Manis'], 'gizi@sppg.com');
 
--- Seed SOPs for 15 June 2026 (Marked as completed)
+-- 2. Seed SOP Header (sops)
 INSERT INTO sops (id, date, division, creator_role, creator_name, is_checked_all, signer_supervisor, signature_supervisor_url, signed_supervisor_at, signer_coordinator, signature_coordinator_url, signed_coordinator_at, status) VALUES
-('2026-06-15-Bahan & Stocking', '2026-06-15', 'Bahan & Stocking', 'Chef / Juru Masak', 'Chef Ahmad', true, 'Chef Ahmad', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Bahan', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
-('2026-06-15-Proses Memasak', '2026-06-15', 'Proses Memasak', 'Chef / Juru Masak', 'Chef Ahmad', true, 'Chef Ahmad', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Masak', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
-('2026-06-15-Pemorsian Ompreng', '2026-06-15', 'Pemorsian Ompreng', 'Ahli Gizi', 'Ustadzah Fatimah, S.Gz', true, 'Ustadzah Fatimah, S.Gz', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Pemorsian', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai');
+('2026-07-17-Bahan & Stocking', '2026-07-17', 'Bahan & Stocking', 'Chef / Juru Masak', 'Chef Ahmad', true, 'Chef Ahmad', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '17/07/2026, 08.00 WIB', 'Koordinator Bahan', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '17/07/2026, 08.30 WIB', 'selesai'),
+('2026-07-17-Proses Memasak', '2026-07-17', 'Proses Memasak', 'Chef / Juru Masak', 'Chef Ahmad', false, NULL, NULL, NULL, NULL, NULL, NULL, 'aktif'),
+('2026-07-17-Pemorsian Ompreng', '2026-07-17', 'Pemorsian Ompreng', 'Ahli Gizi', 'Ustadzah Fatimah, S.Gz', false, NULL, NULL, NULL, NULL, NULL, NULL, 'aktif');
 
--- Seed Tasks for 15 June 2026 (Marked as completed)
+-- 3. Seed SOP Tasks (sop_tasks)
 INSERT INTO sop_tasks (id, sop_id, text, completed, category, sort_order) VALUES
-('2026-06-15-Bahan & Stocking-t-0', '2026-06-15-Bahan & Stocking', 'Hadir tepat waktu sesuai jadwal dinas and melakukan absensi digital.', true, 'persiapan', 0),
-('2026-06-15-Bahan & Stocking-t-1', '2026-06-15-Bahan & Stocking', 'Koordinator mengecek kesiapan anggota tim serta ketersediaan bahan/alat pendukung.', true, 'persiapan', 1),
-('2026-06-15-Bahan & Stocking-t-2', '2026-06-15-Bahan & Stocking', 'Memakai Alat Pelindung Diri (APD) lengkap: Celemek, Masker, Hairnet (Penutup Kepala), dan Sarung Tangan.', true, 'persiapan', 2),
-('2026-06-15-Bahan & Stocking-t-3', '2026-06-15-Bahan & Stocking', 'Menerima dan memeriksa kesegaran serta kelayakan bahan menu.', true, 'aktif', 3),
-('2026-06-15-Bahan & Stocking-t-4', '2026-06-15-Bahan & Stocking', 'Membersihkan dan merendam peralatan yang digunakan.', true, 'penutup', 4),
+-- Division: Bahan & Stocking (Telah selesai)
+('2026-07-17-Bahan & Stocking-t-0', '2026-07-17-Bahan & Stocking', 'Hadir tepat waktu sesuai jadwal dinas dan melakukan absensi digital.', true, 'persiapan', 0),
+('2026-07-17-Bahan & Stocking-t-1', '2026-07-17-Bahan & Stocking', 'Memakai Alat Pelindung Diri (APD) lengkap: Celemek, Masker, Hairnet, dan Sarung Tangan.', true, 'persiapan', 1),
+('2026-07-17-Bahan & Stocking-t-2', '2026-07-17-Bahan & Stocking', 'Menerima dan memeriksa kesegaran serta kelayakan bahan baku daging ayam & sayur.', true, 'aktif', 2),
+('2026-07-17-Bahan & Stocking-t-3', '2026-07-17-Bahan & Stocking', 'Membersihkan area loading dock dan merendam peralatan yang digunakan.', true, 'penutup', 3),
 
-('2026-06-15-Proses Memasak-t-0', '2026-06-15-Proses Memasak', 'Hadir tepat waktu sesuai jadwal dinas dan melakukan absensi digital.', true, 'persiapan', 0),
-('2026-06-15-Proses Memasak-t-1', '2026-06-15-Proses Memasak', 'Memakai Alat Pelindung Diri (APD) lengkap.', true, 'persiapan', 1),
-('2026-06-15-Proses Memasak-t-2', '2026-06-15-Proses Memasak', 'Merebus kuah kaldu utama atau menanak dan mengukus nasi putih sejumlah porsi gizi santri.', true, 'aktif', 2),
-('2026-06-15-Proses Memasak-t-3', '2026-06-15-Proses Memasak', 'Membersihkan area kompor dan mematikan gas secara aman.', true, 'penutup', 3);
+-- Division: Proses Memasak (Masih aktif)
+('2026-07-17-Proses Memasak-t-0', '2026-07-17-Proses Memasak', 'Memastikan seluruh kompor mawar menyala biru bersih dan aman.', true, 'persiapan', 0),
+('2026-07-17-Proses Memasak-t-1', '2026-07-17-Proses Memasak', 'Membakar ayam dengan bumbu madu khas secara merata.', false, 'aktif', 1),
+('2026-07-17-Proses Memasak-t-2', '2026-07-17-Proses Memasak', 'Merebus kuah sop dengan tambahan bakso sapi gizi.', false, 'aktif', 2),
+('2026-07-17-Proses Memasak-t-3', '2026-07-17-Proses Memasak', 'Membersihkan sisa panggangan dan mematikan gas secara aman.', false, 'penutup', 3),
 
--- Seed sisa_stok (Stock Opname Gudang)
+-- Division: Pemorsian Ompreng (Masih aktif)
+('2026-07-17-Pemorsian Ompreng-t-0', '2026-07-17-Pemorsian Ompreng', 'Melakukan sanitasi meja conveyor pemorsian dengan alkohol food-grade.', true, 'persiapan', 0),
+('2026-07-17-Pemorsian Ompreng-t-1', '2026-07-17-Pemorsian Ompreng', 'Mengisi sekat ompreng dengan takaran pas (Nasi 150g, Ayam 80g, Sop 100ml).', false, 'aktif', 1),
+('2026-07-17-Pemorsian Ompreng-t-2', '2026-07-17-Pemorsian Ompreng', 'Mengunci tutup ompreng rapat-rapat dan menyusun ke koli pengiriman.', false, 'penutup', 2);
+
+-- 4. Seed Stock Opname Gudang (sisa_stok)
 INSERT INTO sisa_stok (id, item_name, category, quantity, condition, action_plan, created_by) VALUES
-('stok-1', 'Beras Premium Pinisi', 'Bahan Pokok', '12 Karung @ 50kg', 'Sangat Baik (Kering & Bebas Kutu)', 'Simpan di pallet kayu, tutup terpal rapat', 'akuntan@qomaruddin.com'),
-('stok-2', 'Minyak Goreng SunCo 2L', 'Sembako', '24 Pouch (2 Karton)', 'Suhu Ruang Stabil', 'Pertahankan stok minimum 3 karton seminggu', 'akuntan@qomaruddin.com'),
-('stok-3', 'Garam Beriodium Daun', 'Bumbu Kering', '15 Pak @ 500g', 'Kering & Padat', 'Hindari kelembaban tinggi', 'akuntan@qomaruddin.com'),
-('stok-4', 'Daging Ayam Karkas Frozen', 'Protein Basah', '75 Kg', 'Suhu -18°C Beku Sempurna', 'Gunakan sistem FIFO untuk pemorsian Selasa', 'akuntan@qomaruddin.com');
+('stok-1', 'Beras Premium Pinisi', 'Bahan Pokok', '10 Karung @ 50kg', 'Sangat Baik (Kering & Bebas Kutu)', 'Pertahankan diletakkan di atas pallet kayu.', 'akuntan@sppg.com'),
+('stok-2', 'Minyak Goreng SunCo 2L', 'Sembako', '15 Pouch (1 Karton)', 'Kondisi Segel Utuh', 'Lakukan order tambahan minggu depan.', 'akuntan@sppg.com'),
+('stok-3', 'Daging Ayam Karkas Frozen', 'Protein Basah', '40 Kg', 'Suhu -18°C Beku Sempurna', 'Simpan di Deep Freezer Gudang Utara.', 'akuntan@sppg.com');
 
--- Seed order_requests (Order Alat & Operasional)
+-- 5. Seed Order Alat & Operasional (order_requests)
 INSERT INTO order_requests (id, item_name, qty, reason, category, status, notes, created_by) VALUES
-('req-1', 'Pisau Dapur Stainless Steel Tramontina', '6 Pcs', 'Menggantikan pisau pemotong daging yang tumpul dan berkarat', 'alat', 'disetujui', 'Disetujui. Silakan dibeli melalui nota toko Yayasan.', 'chef@qomaruddin.com'),
-('req-2', 'Spons Cuci Kawat & Sabun Cair Lemon 5L', '4 Galon', 'Stok operasional divisi pencucian ompreng bulanan', 'operasional', 'pending', '', 'akuntan@qomaruddin.com'),
-('req-3', 'Timbangan Digital Gizi Camry 10kg', '2 Unit', 'Mematangkan akurasi sampling timbangan rel pemorsian', 'alat', 'pending', '', 'gizi@qomaruddin.com');
+('req-1', 'Pisau Dapur Stainless Steel Tramontina', '4 Pcs', 'Menggantikan pisau dapur yang tumpul untuk mengiris sayur', 'alat', 'disetujui', 'Disetujui. Silakan diajukan bon belanja ke koperasi.', 'chef@sppg.com'),
+('req-2', 'Timbangan Digital Gizi Camry 10kg', '1 Unit', 'Menambah presisi timbangan porsi gizi harian santri', 'alat', 'pending', '', 'gizi@sppg.com');
 
--- Seed volunteer_complaints (Keluhan Relawan)
+-- 6. Seed Keluhan Relawan (volunteer_complaints)
 INSERT INTO volunteer_complaints (id, source, category, complaint_text, status, action_taken, created_by) VALUES
-('k-1', 'Asrama Putri Gedung SPPG', 'Ketepatan Waktu', 'Pengiriman ompreng makan siang terlambat 15 menit dari jadwal 11.30', 'selesai', 'Driver dialihkan rute tercepat dan koordinasi asrama diperketat', 'gizi@qomaruddin.com'),
-('k-2', 'Asrama Putra Aliyah', 'Citarasa', 'Nasi putih di sekat kanan agak terlalu lembek / lengket untuk porsi pagi', 'pending', '', 'chef@qomaruddin.com');
+('k-1', 'Asrama Putri Gedung C', 'Ketepatan Waktu', 'Pengiriman ompreng makan siang terlambat 10 menit dari jadwal seharusnya.', 'selesai', 'Driver dialihkan ke rute alternatif menghindari kemacetan pasar.', 'gizi@sppg.com'),
+('k-2', 'Asrama Putra Aliyah', 'Citarasa', 'Nasi putih agak terlalu lembek pada porsi makan malam kemarin.', 'pending', '', 'chef@sppg.com');
 
--- Seed shipping_docs for 16 & 17 June 2026
-INSERT INTO shipping_docs (id, type, date, vehicle_number, image_url, comments, uploaded_by, uploaded_at, receiver_name, status, organoleptik_rasa, organoleptik_aroma, organoleptik_tekstur, organoleptik_suhu) VALUES
-('doc-1', 'ompreng', '2026-06-16', 'W 1234 BGH', 'https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=400&auto=format&fit=crop&q=80', 'Pengiriman 12 koli ompreng untuk asrama timur, kondisi bersih dan tertutup rapat.', 'driver@qomaruddin.com', '2026-06-16 11:30:00+07', 'Ustadz Jauhari', 'Selesai Kirim', NULL, NULL, NULL, NULL),
-('doc-2', 'serah_terima', '2026-06-16', 'W 5678 AA', 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=400&auto=format&fit=crop&q=80', 'Lembar BAST ditandatangani oleh Pengurus Asrama Putri C.', 'driver@qomaruddin.com', '2026-06-16 12:05:00+07', 'Ustadzah Fatimah', 'Terverifikasi', NULL, NULL, NULL, NULL),
-('doc-3', 'surat_jalan', '2026-06-17', 'W 1234 BGH', 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=400&auto=format&fit=crop&q=80', 'Surat Jalan No. 104/SJ-SPPG/VI/2026.', 'driver@qomaruddin.com', '2026-06-17 07:15:00+07', 'Ustadz Hakim', 'Dalam Perjalanan', NULL, NULL, NULL, NULL),
-('doc-4', 'organoleptik', '2026-06-17', 'W 1234 BGH', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80', 'Uji organoleptik menu Nasi Sup Ayam Karkas Gizi.', 'driver@qomaruddin.com', '2026-06-17 07:20:00+07', 'Ustadzah Aminah', 'Lulus Uji', 'Sangat Layak (Segar & Gurih)', 'Sangat Harum', 'Sangat Empuk', '72');
+-- 7. Seed Berkas Logistik & Pengiriman (shipping_docs)
+INSERT INTO shipping_docs (id, type, date, vehicle_number, image_url, comments, uploaded_by, uploaded_at, receiver_name, status, organoleptik_rasa, organoleptik_aroma, organoleptik_tekstur, organoleptik_suhu, sj_no, sj_kepada, sj_waktu, sj_driver, sj_rows, sj_signature_aslap, sj_signature_receiver, bast_no, bast_driver, bast_sekolah, bast_penerima, bast_barang, bast_jumlah, bast_waktu, bast_signature_driver, bast_signature_receiver) VALUES
+-- A. Berkas Ompreng
+('doc-1', 'ompreng', '2026-07-17', 'W 1234 BGH', 'https://images.unsplash.com/photo-1594212699903-ec8a3cee50f6?w=500&auto=format&fit=crop&q=80', 'Pengiriman 15 koli ompreng untuk asrama timur, kondisi bersih dan tersegel rapat.', 'driver@sppg.com', '2026-07-17 11:30:00+07', 'Ustadz Jauhari', 'Selesai Kirim', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+-- B. BAST
+('doc-2', 'serah_terima', '2026-07-17', 'W 5678 AA', 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=500&auto=format&fit=crop&q=80', 'BAST serah terima makanan sehat ke Asrama Putri.', 'driver@sppg.com', '2026-07-17 12:05:00+07', 'Ustadzah Fatimah', 'Terverifikasi', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BAST/QOM/17072026-01', 'Driver Sam', 'Asrama Putri Qomaruddin', 'Ustadzah Fatimah', 'Ompreng Sehat', 280, '12:00 WIB', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>'),
+-- C. Surat Jalan
+('doc-3', 'surat_jalan', '2026-07-17', 'W 1234 BGH', 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=500&auto=format&fit=crop&q=80', 'Surat Jalan Pengiriman Sayuran Segar & Bahan Pokok.', 'driver@sppg.com', '2026-07-17 07:15:00+07', 'Ustadz Hakim', 'Dalam Perjalanan', NULL, NULL, NULL, NULL, 'SJ/QOM-DAPUR/1707-02', 'Ustadz Hakim (Gudang Utara)', '07:00 WIB', 'Driver Sam', '[{"item":"Beras Premium","qty":"2 Karung","note":"Utuh"},{"item":"Daging Ayam Frozen","qty":"30 Kg","note":"Beku"}]', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+-- D. Organoleptik
+('doc-4', 'organoleptik', '2026-07-17', 'W 1234 BGH', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80', 'Uji kelayakan organoleptik menu santri lulus uji.', 'driver@sppg.com', '2026-07-17 07:20:00+07', 'Ustadzah Aminah', 'Lulus Uji', 'Sangat Layak (Segar & Gurih)', 'Sangat Harum', 'Sangat Empuk', '72', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
--- Seed kedatangan_barang for 16 June 2026
+-- 8. Seed Logistik Penerimaan / Kedatangan Barang (kedatangan_barang)
 INSERT INTO kedatangan_barang (id, date, name, qty, uom, supplier, checker, input, specification) VALUES
-('kd-seed-1', '2026-06-16', 'tahu putih sidayu', 340, 'pcs', 'SIDAYU', 'LENGKAP', 'SUDAH', 'Tahu putih segar padat berpori halus, tidak asam, tidak berlendir, dibungkus plastik higienis.'),
-('kd-seed-2', '2026-06-16', 'beras giling premium', 180, 'kg', 'BULOG', 'LENGKAP', 'SUDAH', '1 sak @20kg. Butiran beras putih cerah bersih, utuh minimal 85%, tidak berbau apek, bebas kutu & batu kerikil.'),
-('kd-seed-3', '2026-06-16', 'bawang merah super', 5, 'kg', 'PAK MAFTUH', 'LENGKAP', 'SUDAH', 'Siung utuh padat, kering kulitnya, bebas pembusukan/jamur hitam, ukuran seragam.'),
-('kd-seed-4', '2026-06-16', 'bawang putih kupas', 3, 'kg', 'PAK MAFTUH', 'LENGKAP', 'SUDAH', 'Sudah dikupas bersih, siung padat tebal, tidak bertunas, bebas bercak cokelat busuk.'),
-('kd-seed-5', '2026-06-16', 'sayur wortel segar', 57, 'kg', 'PAK MAFTUH', 'LENGKAP', 'SUDAH', 'Warna jingga terang segar, lurus, tekstur renyah padat, sudah dicuci bebas tanah.');
+('kd-seed-1', '2026-07-17', 'tahu putih sidayu', 300, 'pcs', 'SIDAYU', 'LENGKAP', 'SUDAH', 'Tahu putih segar padat, tidak asam, tidak berlendir, dibungkus plastik higienis.'),
+('kd-seed-2', '2026-07-17', 'beras giling premium', 150, 'kg', 'BULOG', 'LENGKAP', 'SUDAH', 'Butiran beras putih cerah bersih, utuh minimal 85%, bebas kutu.'),
+('kd-seed-3', '2026-07-17', 'wortel segar organik', 40, 'kg', 'PAK MAFTUH', 'LENGKAP', 'SUDAH', 'Warna jingga terang segar, tekstur renyah padat, bebas tanah.');
 
 -- ====================================================================
 -- SELESAI. SILAKAN SALIN & JALANKAN DI SUPABASE SQL EDITOR.

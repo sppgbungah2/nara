@@ -70,32 +70,34 @@ export default function App() {
     return '';
   };
 
-  // Listen for route changes (hash route: #/prefix/page)
+  // Listen for route changes (standard clean pathname routing)
   useEffect(() => {
     const handleRouteChange = () => {
-      let path = window.location.hash.replace(/^#\/?/, '/');
-      if (!path || path === '/') {
-        path = window.location.pathname;
+      // Clean up legacy hash paths if present by rewriting them to standard paths
+      if (window.location.hash) {
+        const hashPath = window.location.hash.replace(/^#\/?/, '/');
+        window.history.replaceState(null, '', hashPath);
       }
-      
+
+      const path = window.location.pathname;
       if (!path || path === '/') return;
       
-      const parts = path.split('/').filter(Boolean); // e.g. ["aslap", "sop"]
+      const parts = path.split('/').filter(Boolean); // e.g. ["admin", "sop"]
       if (parts.length >= 1) {
-        // Find which page we are on
+        // Find which page we are on (usually index 1, e.g. /admin/sop)
         const page = parts[1] || 'sop';
         const tab = getTabFromPage(page);
         setActiveTab(tab);
       }
     };
 
-    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
     handleRouteChange(); // Run on mount
 
-    return () => window.removeEventListener('hashchange', handleRouteChange);
+    return () => window.removeEventListener('popstate', handleRouteChange);
   }, []);
 
-  // Update browser URL hash when tab changes
+  // Update browser URL path when tab changes
   useEffect(() => {
     if (!loggedInUser) return;
     
@@ -122,9 +124,9 @@ export default function App() {
     
     const page = getPageFromTab(activeTab);
     if (page) {
-      const newHash = `#/${prefix}/${page}`;
-      if (window.location.hash !== newHash) {
-        window.history.pushState(null, '', newHash);
+      const newPath = `/${prefix}/${page}`;
+      if (window.location.pathname !== newPath) {
+        window.history.pushState(null, '', newPath);
       }
     }
   }, [activeTab, loggedInUser]);
