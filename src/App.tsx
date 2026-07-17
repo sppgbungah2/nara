@@ -55,6 +55,7 @@ export default function App() {
     if (norm === 'serah-terima') return 19;
     if (norm === 'surat-jalan') return 20;
     if (norm === 'organoleptik') return 21;
+    if (norm === 'master-porsi' || norm === 'master_porsi') return 22;
     return 15; // default to SOP
   };
 
@@ -67,6 +68,7 @@ export default function App() {
     if (tabNum === 19) return 'serah-terima';
     if (tabNum === 20) return 'surat-jalan';
     if (tabNum === 21) return 'organoleptik';
+    if (tabNum === 22) return 'master-porsi';
     return '';
   };
 
@@ -716,6 +718,7 @@ export default function App() {
   const FEATURE_MENUS = [
     { num: 15, name: 'SOP Harian Digital', icon: CheckCircle2, category: 'Kontrol Kualitas', badge: 'UTAMA' },
     { num: 10, name: 'Menu Harian Gizi', icon: Calendar, category: 'Perencanaan' },
+    { num: 22, name: 'Master Jumlah Porsi', icon: Users, category: 'Perencanaan' },
     { num: 12, name: 'Stock Opname Gudang', icon: ClipboardList, category: 'Aset & Logistik' },
     { num: 17, name: 'Stok Operasional', icon: Package, category: 'Aset & Logistik' },
     { num: 16, name: 'Rekap Sampah Makanan (Waste)', icon: Trash2, category: 'Kontrol Kualitas' },

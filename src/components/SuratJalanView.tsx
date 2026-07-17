@@ -5,7 +5,8 @@ import {
   Search, Filter, Eye, BarChart3
 } from 'lucide-react';
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
-import { UserProfile } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+import { DEFAULT_PORTIONS, PortionConfig } from './PortionMasterView';
 import SignaturePad from './SignaturePad';
 
 interface SuratJalanViewProps {
@@ -161,9 +162,33 @@ export default function SuratJalanView({
   };
 
   // Auto initialize Surat Jalan for 6 locations
-  const handleInitializeSuratJalan = () => {
-    const currentDayMenu = allDayMenus.find(m => m.date === selectedDate);
-    const calculatedPorsi = 265;
+  const handleInitializeSuratJalan = async () => {
+    // 1. Fetch portions dynamically from Supabase or localStorage
+    let portions: PortionConfig = { ...DEFAULT_PORTIONS };
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase
+          .from('master_porsi')
+          .select('portions')
+          .eq('date', selectedDate)
+          .maybeSingle();
+        
+        if (error) {
+          console.warn("Could not load portions from Supabase for Surat Jalan, trying local cache:", error);
+        } else if (data && data.portions) {
+          portions = data.portions as PortionConfig;
+        } else {
+          const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
+          if (saved) portions = JSON.parse(saved);
+        }
+      } else {
+        const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
+        if (saved) portions = JSON.parse(saved);
+      }
+    } catch (err) {
+      console.error("Error loading portion master data for Surat Jalan initialization:", err);
+    }
+
     const schools = [
       "MA Assa'adah",
       "MTS Assa'adah II",
@@ -172,6 +197,51 @@ export default function SuratJalanView({
       "Desa Sidokumpul",
       "Desa Sukowati"
     ];
+
+    const getPortionCount = (schName: string) => {
+      if (schName === "MA Assa'adah") {
+        return (portions.MA?.guru || 0) + (portions.MA?.siswa || 0);
+      }
+      if (schName === "MTS Assa'adah II") {
+        return (portions["MTS II"]?.guru || 0) + (portions["MTS II"]?.siswa || 0);
+      }
+      if (schName === "SMA Assa'adah") {
+        return (portions.SMA?.guru || 0) + (portions.SMA?.siswa || 0);
+      }
+      if (schName === "SMK Assa'adah") {
+        return (portions.SMK?.guru || 0) + (portions.SMK?.siswa || 0);
+      }
+      if (schName === "Desa Sukowati") {
+        return (portions.Sukowati?.besar || 0) + (portions.Sukowati?.kecil || 0);
+      }
+      if (schName === "Desa Sidokumpul") {
+        return (portions.Sidokumpul?.besar || 0) + (portions.Sidokumpul?.kecil || 0);
+      }
+      return 265; // absolute default
+    };
+
+    const getPortionBreakdown = (schName: string) => {
+      if (schName === "MA Assa'adah") {
+        return `(Siswa: ${portions.MA?.siswa || 0}, Guru: ${portions.MA?.guru || 0})`;
+      }
+      if (schName === "MTS Assa'adah II") {
+        return `(Siswa: ${portions["MTS II"]?.siswa || 0}, Guru: ${portions["MTS II"]?.guru || 0})`;
+      }
+      if (schName === "SMA Assa'adah") {
+        return `(Siswa: ${portions.SMA?.siswa || 0}, Guru: ${portions.SMA?.guru || 0})`;
+      }
+      if (schName === "SMK Assa'adah") {
+        return `(Siswa: ${portions.SMK?.siswa || 0}, Guru: ${portions.SMK?.guru || 0})`;
+      }
+      if (schName === "Desa Sukowati") {
+        return `(Porsi Besar: ${portions.Sukowati?.besar || 0}, Porsi Kecil: ${portions.Sukowati?.kecil || 0})`;
+      }
+      if (schName === "Desa Sidokumpul") {
+        return `(Porsi Besar: ${portions.Sidokumpul?.besar || 0}, Porsi Kecil: ${portions.Sidokumpul?.kecil || 0})`;
+      }
+      return '';
+    };
+
     const parts = selectedDate.split('-');
     const year = parts[0] || '2026';
     const month = parts[1] || '07';
@@ -181,13 +251,16 @@ export default function SuratJalanView({
       const abbrev = generateAbbrev(sch);
       const sjNoStr = `${day}/${abbrev}/SJ/MBGQOM/${month}/${year}`;
       const isDesa = sch.toLowerCase().includes('desa');
+      const docQty = getPortionCount(sch);
+      const breakdownStr = getPortionBreakdown(sch);
+      
       return {
         id: `sj-${selectedDate}-${idx}-${Date.now()}`,
         type: 'surat_jalan',
         date: selectedDate,
         vehicleNumber: 'W 1234 BGH',
         imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500&auto=format&fit=crop&q=80',
-        comments: `Dokumen surat jalan pengiriman logistik untuk ${sch}.`,
+        comments: `Dokumen surat jalan pengiriman logistik untuk ${sch} ${breakdownStr}.`,
         uploadedBy: loggedInUser?.email || 'driver@sppg.com',
         uploadedAt: new Date().toISOString(),
         receiverName: sch,
@@ -197,9 +270,9 @@ export default function SuratJalanView({
         sjWaktu: '11:00 WIB',
         sjDriver: loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0],
         sjRows: [
-          { id: '1', jenis: isDesa ? 'Paket Program Makan Bergizi Gratis (Warga Desa)' : 'Paket Program Makan Bergizi Gratis', porsi: calculatedPorsi, alatSebelum: calculatedPorsi, alatSesudah: calculatedPorsi, keterangan: 'Hangat & Lengkap' },
-          { id: '2', jenis: 'Buah Melon Potong Segar', porsi: calculatedPorsi, alatSebelum: 0, alatSesudah: 0, keterangan: 'Kondisi Baik' },
-          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: calculatedPorsi, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+          { id: '1', jenis: isDesa ? 'Paket Program Makan Bergizi Gratis (Warga Desa)' : 'Paket Program Makan Bergizi Gratis', porsi: docQty, alatSebelum: docQty, alatSesudah: docQty, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Buah Melon Potong Segar', porsi: docQty, alatSebelum: 0, alatSesudah: 0, keterangan: 'Kondisi Baik' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: docQty, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
         ],
         sjSignatureAslap: '',
         sjSignatureReceiver: ''
@@ -207,7 +280,7 @@ export default function SuratJalanView({
     });
 
     setShippingDocs(prev => [...newDocs, ...prev]);
-    setSuccessMsg('Berhasil menginisialisasi 6 Berkas Surat Jalan harian!');
+    setSuccessMsg('Berhasil menginisialisasi 6 Berkas Surat Jalan harian dengan data porsi riil!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 

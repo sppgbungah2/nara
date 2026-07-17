@@ -51,9 +51,14 @@ export function getDefaultTasksForDivision(division: Division, menuList: string[
 
   // 1. ADD PREPARATION CATEGORY (GENERAL)
   tasks.push(
-    { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai jadwal dinas dan melakukan absensi digital.', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-2`, text: 'Koordinator mengecek kesiapan anggota tim serta ketersediaan bahan/alat pendukung.', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-3`, text: 'Memakai Alat Pelindung Diri (APD) lengkap: Celemek, Masker, Hairnet (Penutup Kepala), dan Sarung Tangan.', completed: false, category: 'persiapan' }
+    { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-4`, text: 'Memastikan Koordinator telah mengecek bahan-bahan yang dibutuhkan dan menerapkan sistem First In First Out (FIFO) serta sistem First Expired First Out (FEFO).', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-5`, text: 'Menerima bahan baku dengan teliti serta mengecek kualitas dan kuantitas bahan baku yang diterima secara seksama', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-6`, text: 'Menyortir kelayakan buah sesuai dengan standar kualitas yang ditetapkan', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-7`, text: 'Segera melaporkan apabila terdapat kekurangan atau ketidaklayakan buah dan bahan baku', completed: false, category: 'persiapan' },
+    { id: `${division}-prep-8`, text: 'Memakai Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) dalam proses mempersiapkan bahan-bahan', completed: false, category: 'persiapan' }
   );
 
   // 2. ADD MAIN ACTIVE TASKS (SPECIFIC)
@@ -156,10 +161,11 @@ export function getDefaultTasksForDivision(division: Division, menuList: string[
 
   // 3. ADD CLOSING CATEGORY (CLEANUP)
   tasks.push(
-    { id: `${division}-close-1`, text: 'Membersihkan dan mengeringkan seluruh peralatan yang digunakan dalam tugas tim.', completed: false, category: 'penutup' },
-    { id: `${division}-close-2`, text: 'Membersihkan area kerja masing-masing divisi (Meja dapur, lantai, atau kendaraan dsb.) setelah selesai.', completed: false, category: 'penutup' },
-    { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan ke tempat semula (rak gantung, lemari steril, atau gudang penyimpanan).', completed: false, category: 'penutup' },
-    { id: `${division}-close-4`, text: 'Koordinator mengecek kembali kebersihan, kerapian, pemadaman kompor/lampu, dan menutup area kerja dengan kunci.', completed: false, category: 'penutup' }
+    { id: `${division}-close-1`, text: 'Membersihkan seluruh peralatan kerja (mencuci dan mengeringkan alat seperti baskom, lengser, keranjang, troli, dan peralatan lainnya hingga benar-benar kering)', completed: false, category: 'penutup' },
+    { id: `${division}-close-2`, text: 'Membersihkan seluruh area kerja Tim Persiapan(termasuk meja, lantai, rak, dan bak cuci) segera setelah menyelesaikan pekerjaan', completed: false, category: 'penutup' },
+    { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan yang telah dibersihkan ke tempat penyimpanan semula', completed: false, category: 'penutup' },
+    { id: `${division}-close-4`, text: 'Koordinator memastikan seluruh dapur dalam keadaan bersih dan aman (kompor/gas mati, kran air tertutup).', completed: false, category: 'penutup' },
+    { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang', completed: false, category: 'penutup' }
   );
 
   return tasks;

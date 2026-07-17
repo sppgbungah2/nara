@@ -12,6 +12,7 @@ import SignaturePad from './SignaturePad';
 import BASTView from './BASTView';
 import SuratJalanView from './SuratJalanView';
 import OrganoleptikView from './OrganoleptikView';
+import PortionMasterView from './PortionMasterView';
 
 // Real schemas for SQL integration
 export interface SisaStokItem {
@@ -6885,6 +6886,14 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           setShippingDocs={setShippingDocs}
           selectedDate={selectedDate || '2026-06-16'}
           allDayMenus={allDayMenus}
+        />
+      );
+    }
+
+    case 22: {
+      return (
+        <PortionMasterView
+          selectedDate={selectedDate || '2026-06-16'}
         />
       );
     }

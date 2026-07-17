@@ -5,7 +5,8 @@ import {
   Search, Filter, Eye, BarChart3
 } from 'lucide-react';
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
-import { UserProfile } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+import { DEFAULT_PORTIONS, PortionConfig } from './PortionMasterView';
 import SignaturePad from './SignaturePad';
 
 interface BASTViewProps {
@@ -162,9 +163,33 @@ export default function BASTView({
   };
 
   // Auto initialize BAST for 6 locations
-  const handleInitializeBAST = () => {
-    const currentDayMenu = allDayMenus.find(m => m.date === selectedDate);
-    const calculatedPorsi = 265;
+  const handleInitializeBAST = async () => {
+    // 1. Fetch portions dynamically from Supabase or localStorage
+    let portions: PortionConfig = { ...DEFAULT_PORTIONS };
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase
+          .from('master_porsi')
+          .select('portions')
+          .eq('date', selectedDate)
+          .maybeSingle();
+        
+        if (error) {
+          console.warn("Could not load portions from Supabase for BAST, trying local cache:", error);
+        } else if (data && data.portions) {
+          portions = data.portions as PortionConfig;
+        } else {
+          const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
+          if (saved) portions = JSON.parse(saved);
+        }
+      } else {
+        const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
+        if (saved) portions = JSON.parse(saved);
+      }
+    } catch (err) {
+      console.error("Error loading portion master data for BAST initialization:", err);
+    }
+
     const schools = [
       "MA Assa'adah",
       "MTS Assa'adah II",
@@ -173,6 +198,51 @@ export default function BASTView({
       "Desa Sidokumpul",
       "Desa Sukowati"
     ];
+
+    const getPortionCount = (schName: string) => {
+      if (schName === "MA Assa'adah") {
+        return (portions.MA?.guru || 0) + (portions.MA?.siswa || 0);
+      }
+      if (schName === "MTS Assa'adah II") {
+        return (portions["MTS II"]?.guru || 0) + (portions["MTS II"]?.siswa || 0);
+      }
+      if (schName === "SMA Assa'adah") {
+        return (portions.SMA?.guru || 0) + (portions.SMA?.siswa || 0);
+      }
+      if (schName === "SMK Assa'adah") {
+        return (portions.SMK?.guru || 0) + (portions.SMK?.siswa || 0);
+      }
+      if (schName === "Desa Sukowati") {
+        return (portions.Sukowati?.besar || 0) + (portions.Sukowati?.kecil || 0);
+      }
+      if (schName === "Desa Sidokumpul") {
+        return (portions.Sidokumpul?.besar || 0) + (portions.Sidokumpul?.kecil || 0);
+      }
+      return 265; // absolute default
+    };
+
+    const getPortionBreakdown = (schName: string) => {
+      if (schName === "MA Assa'adah") {
+        return `(Siswa: ${portions.MA?.siswa || 0}, Guru: ${portions.MA?.guru || 0})`;
+      }
+      if (schName === "MTS Assa'adah II") {
+        return `(Siswa: ${portions["MTS II"]?.siswa || 0}, Guru: ${portions["MTS II"]?.guru || 0})`;
+      }
+      if (schName === "SMA Assa'adah") {
+        return `(Siswa: ${portions.SMA?.siswa || 0}, Guru: ${portions.SMA?.guru || 0})`;
+      }
+      if (schName === "SMK Assa'adah") {
+        return `(Siswa: ${portions.SMK?.siswa || 0}, Guru: ${portions.SMK?.guru || 0})`;
+      }
+      if (schName === "Desa Sukowati") {
+        return `(Porsi Besar: ${portions.Sukowati?.besar || 0}, Porsi Kecil: ${portions.Sukowati?.kecil || 0})`;
+      }
+      if (schName === "Desa Sidokumpul") {
+        return `(Porsi Besar: ${portions.Sidokumpul?.besar || 0}, Porsi Kecil: ${portions.Sidokumpul?.kecil || 0})`;
+      }
+      return '';
+    };
+
     const parts = selectedDate.split('-');
     const year = parts[0] || '2026';
     const month = parts[1] || '07';
@@ -182,13 +252,16 @@ export default function BASTView({
       const abbrev = generateAbbrev(sch);
       const bastNoStr = `${day}/${abbrev}/BAST/MBGQOM/${month}/${year}`;
       const isDesa = sch.toLowerCase().includes('desa');
+      const docQty = getPortionCount(sch);
+      const breakdownStr = getPortionBreakdown(sch);
+      
       return {
         id: `bast-${selectedDate}-${idx}-${Date.now()}`,
         type: 'serah_terima',
         date: selectedDate,
         vehicleNumber: 'W 1234 BGH',
         imageUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?w=500&auto=format&fit=crop&q=80',
-        comments: `Dokumen serah terima makanan bergizi untuk ${sch}.`,
+        comments: `Dokumen serah terima makanan bergizi untuk ${sch} ${breakdownStr}.`,
         uploadedBy: loggedInUser?.email || 'driver@sppg.com',
         uploadedAt: new Date().toISOString(),
         receiverName: isDesa ? 'Kepala Desa / Perwakilan' : 'Staf Lembaga',
@@ -198,7 +271,7 @@ export default function BASTView({
         bastSekolah: sch,
         bastPenerima: isDesa ? 'Ibu Sri Wahyuni (Kader)' : 'Ibu Aminah, S.Pd',
         bastBarang: 'PAKET PROGRAM MAKAN BERGIZI GRATIS',
-        bastJumlah: calculatedPorsi,
+        bastJumlah: docQty,
         bastWaktu: '11:15 WIB',
         bastSignatureDriver: '',
         bastSignatureReceiver: ''
@@ -206,7 +279,7 @@ export default function BASTView({
     });
 
     setShippingDocs(prev => [...newDocs, ...prev]);
-    setSuccessMsg('Berhasil menginisialisasi 6 Berkas BAST harian!');
+    setSuccessMsg('Berhasil menginisialisasi 6 Berkas BAST harian dengan data porsi riil!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
