@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+import { uploadToCloudinary, isCloudinaryConfigured } from '../lib/cloudinary';
 import SignaturePad from './SignaturePad';
 import BASTView from './BASTView';
 import SuratJalanView from './SuratJalanView';
@@ -111,6 +112,8 @@ function ShippingDocPanel({
   const [comments, setComments] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [driverName, setDriverName] = useState('');
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadFileError, setUploadFileError] = useState<string | null>(null);
   
   // Organoleptik legacy specifics (retained for compatibility)
   const [organoleptikRasa, setOrganoleptikRasa] = useState('Sangat Layak (Segar & Gurih)');
@@ -358,14 +361,29 @@ function ShippingDocPanel({
     ]
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 1. Instantly read as local dataURL for immediate UI feedback/preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setImageUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // 2. Perform background Cloudinary upload
+      try {
+        setIsUploadingFile(true);
+        setUploadFileError(null);
+        
+        const cdnUrl = await uploadToCloudinary(file, 'image');
+        setImageUrl(cdnUrl);
+      } catch (err: any) {
+        console.error('Error uploading file to Cloudinary:', err);
+        setUploadFileError(err.message || 'Gagal mengunggah dokumentasi ke Cloudinary.');
+      } finally {
+        setIsUploadingFile(false);
+      }
     }
   };
 
@@ -1122,19 +1140,36 @@ function ShippingDocPanel({
           {/* Upload and Simulation camera options */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             
-            <div className="border border-neutral-200 rounded-xl p-3 bg-white space-y-2">
-              <span className="block text-[10px] font-bold text-neutral-500 uppercase">
-                Unggah File Dokumen Fisik / Foto Asli
+            <div className="border border-neutral-200 rounded-xl p-3 bg-white space-y-2 relative overflow-hidden">
+              {isUploadingFile && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center z-10">
+                  <Loader2 className="h-5 w-5 text-emerald-700 animate-spin" />
+                  <span className="text-[10px] font-bold text-neutral-700 mt-1">Mengunggah ke Cloudinary...</span>
+                </div>
+              )}
+              <span className="block text-[10px] font-bold text-neutral-500 uppercase flex items-center justify-between">
+                <span>Unggah File Dokumen Fisik / Foto Asli</span>
+                {isCloudinaryConfigured() ? (
+                  <span className="text-[8px] bg-emerald-50 text-emerald-700 border border-emerald-300 px-1 py-0.5 rounded font-mono">Cloud Active</span>
+                ) : (
+                  <span className="text-[8px] bg-neutral-100 text-neutral-500 border border-neutral-300 px-1 py-0.5 rounded font-mono">Sandbox Mode</span>
+                )}
               </span>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange}
-                className="w-full text-xs text-neutral-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                disabled={isUploadingFile}
+                className="w-full text-xs text-neutral-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer disabled:opacity-50"
               />
               <p className="text-[9px] text-neutral-400 leading-snug">
                 Pilih atau seret foto langsung dari HP / laptop Anda (JPG, PNG, WEBP).
               </p>
+              {uploadFileError && (
+                <p className="text-[9px] text-red-600 font-semibold bg-red-50 p-1.5 rounded">
+                  ⚠ {uploadFileError}
+                </p>
+              )}
             </div>
 
             <div className="border border-emerald-100 rounded-xl p-3 bg-emerald-50/15 space-y-2">
@@ -1147,13 +1182,14 @@ function ShippingDocPanel({
                   <button
                     key={pIdx}
                     type="button"
+                    disabled={isUploadingFile}
                     onClick={() => {
                       setImageUrl(p.url);
                       if (!comments) setComments(p.note);
                       setSuccessMsg(`Simulasi kamera ${p.name} dimuat!`);
                       setTimeout(() => setSuccessMsg(null), 2500);
                     }}
-                    className="bg-white hover:bg-emerald-50 text-[10px] text-neutral-700 font-semibold px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-emerald-500/40 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-3xs hover:shadow-2xs active:scale-[0.97]"
+                    className="bg-white hover:bg-emerald-50 text-[10px] text-neutral-700 font-semibold px-2.5 py-1.5 rounded-lg border border-neutral-200 hover:border-emerald-500/40 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-3xs hover:shadow-2xs active:scale-[0.97] disabled:opacity-50"
                   >
                     📸 {p.name}
                   </button>
@@ -1174,13 +1210,26 @@ function ShippingDocPanel({
                   <span className="block text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded-full w-max text-center">
                     ✓ Berkas Dilampirkan
                   </span>
-                  <span className="text-[9px] text-neutral-400 block font-mono mt-0.5">Kompresi: Base64 Encoders</span>
+                  {imageUrl.startsWith('http') && (imageUrl.includes('cloudinary') || imageUrl.includes('cloudinary.com')) ? (
+                    <span className="text-[9px] text-emerald-600 font-semibold block mt-1 flex items-center gap-1 bg-emerald-50/40 px-1.5 py-0.5 rounded border border-emerald-200/50 w-max">
+                      ⚡ Cloud Storage: Cloudinary CDN
+                    </span>
+                  ) : imageUrl.startsWith('data:') ? (
+                    <span className="text-[9px] text-amber-700 font-semibold block mt-1 flex items-center gap-1 bg-amber-50/40 px-1.5 py-0.5 rounded border border-amber-200/50 w-max">
+                      ⚠ Local Sandbox: Raw Base64 string
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-neutral-500 font-mono block mt-1">
+                      Simulated Camera Preset Asset
+                    </span>
+                  )}
                 </div>
               </div>
               <button
                 type="button"
+                disabled={isUploadingFile}
                 onClick={() => setImageUrl('')}
-                className="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-1 hover:bg-red-50 rounded"
+                className="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-1 hover:bg-red-50 rounded disabled:opacity-50"
               >
                 Hapus
               </button>
@@ -1191,15 +1240,18 @@ function ShippingDocPanel({
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="text-neutral-500 hover:bg-neutral-100 text-xs px-3 py-2 rounded-lg cursor-pointer transition-colors"
+              disabled={isUploadingFile}
+              className="text-neutral-500 hover:bg-neutral-100 text-xs px-3 py-2 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
             >
               Batalkan
             </button>
             <button
               type="submit"
-              className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer transition-colors shadow-xs hover:shadow-sm"
+              disabled={isUploadingFile}
+              className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-2.5 rounded-lg cursor-pointer transition-colors shadow-xs hover:shadow-sm disabled:opacity-50 flex items-center gap-1"
             >
-              Simpan Dokumentasi
+              {isUploadingFile && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isUploadingFile ? 'Sedang Mengunggah...' : 'Simpan Dokumentasi'}
             </button>
           </div>
 
