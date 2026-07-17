@@ -440,15 +440,15 @@ export default function OrganoleptikView({
           {/* Interactive Evaluation Table */}
           <div className="space-y-2 mb-6">
             <span className="text-[10px] font-bold text-neutral-450 uppercase block">Tabel Penilaian Mutu Sensorik (Uji Panelis):</span>
-            <div className="border border-neutral-950 overflow-hidden rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="border border-neutral-950 overflow-x-auto rounded-xl">
+              <table className="min-w-[700px] w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-neutral-100 border-b border-neutral-950 text-[10px] font-bold text-center">
                     <th className="p-3 border-r border-neutral-950 text-left">Komponen Gizi Hidangan</th>
-                    <th className="p-3 border-r border-neutral-950 w-36">Citarasa</th>
-                    <th className="p-3 border-r border-neutral-950 w-36">Warna Alami</th>
-                    <th className="p-3 border-r border-neutral-950 w-36">Aroma Harum</th>
-                    <th className="p-3 border-r border-neutral-950 w-36">Tekstur Matang</th>
+                    <th className="p-3 border-r border-neutral-950 w-44">Citarasa</th>
+                    <th className="p-3 border-r border-neutral-950 w-44">Warna Alami</th>
+                    <th className="p-3 border-r border-neutral-950 w-44">Aroma Harum</th>
+                    <th className="p-3 border-r border-neutral-950 w-44">Tekstur Matang</th>
                     <th className="p-3">Rata-Rata</th>
                   </tr>
                 </thead>
@@ -470,12 +470,12 @@ export default function OrganoleptikView({
                           {isLocked ? (
                             <span className="font-mono text-neutral-600">{rasa} / 5</span>
                           ) : (
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1.5">
                               {[1, 2, 3, 4, 5].map(star => (
                                 <button
                                   key={star}
                                   onClick={() => handleGridRatingChange(`${comp.code}_rasa`, star)}
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer ${
+                                  className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center text-xs md:text-[10px] font-bold transition-all cursor-pointer ${
                                     rasa === star 
                                       ? 'bg-emerald-700 text-white shadow-xs scale-110' 
                                       : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-500'
@@ -493,12 +493,12 @@ export default function OrganoleptikView({
                           {isLocked ? (
                             <span className="font-mono text-neutral-600">{warna} / 5</span>
                           ) : (
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1.5">
                               {[1, 2, 3, 4, 5].map(star => (
                                 <button
                                   key={star}
                                   onClick={() => handleGridRatingChange(`${comp.code}_warna`, star)}
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer ${
+                                  className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center text-xs md:text-[10px] font-bold transition-all cursor-pointer ${
                                     warna === star 
                                       ? 'bg-emerald-700 text-white shadow-xs scale-110' 
                                       : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-500'
@@ -516,12 +516,12 @@ export default function OrganoleptikView({
                           {isLocked ? (
                             <span className="font-mono text-neutral-600">{aroma} / 5</span>
                           ) : (
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1.5">
                               {[1, 2, 3, 4, 5].map(star => (
                                 <button
                                   key={star}
                                   onClick={() => handleGridRatingChange(`${comp.code}_aroma`, star)}
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer ${
+                                  className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center text-xs md:text-[10px] font-bold transition-all cursor-pointer ${
                                     aroma === star 
                                       ? 'bg-emerald-700 text-white shadow-xs scale-110' 
                                       : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-500'
@@ -539,12 +539,12 @@ export default function OrganoleptikView({
                           {isLocked ? (
                             <span className="font-mono text-neutral-600">{tekstur} / 5</span>
                           ) : (
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1.5">
                               {[1, 2, 3, 4, 5].map(star => (
                                 <button
                                   key={star}
                                   onClick={() => handleGridRatingChange(`${comp.code}_tekstur`, star)}
-                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all cursor-pointer ${
+                                  className={`w-8 h-8 md:w-6 md:h-6 rounded-full flex items-center justify-center text-xs md:text-[10px] font-bold transition-all cursor-pointer ${
                                     tekstur === star 
                                       ? 'bg-emerald-700 text-white shadow-xs scale-110' 
                                       : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-500'

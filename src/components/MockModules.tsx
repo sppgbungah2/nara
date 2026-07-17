@@ -5,7 +5,7 @@ import {
   Trash2, Loader2, RefreshCw, Check, X, Code, Clipboard, ShieldAlert, CheckCircle2, Info,
   Save, Archive
 } from 'lucide-react';
-import { DayMenu, UserRole } from '../types';
+import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
 import SignaturePad from './SignaturePad';
 import BASTView from './BASTView';
@@ -110,6 +110,7 @@ function ShippingDocPanel({
   const [receiverName, setReceiverName] = useState('');
   const [comments, setComments] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [driverName, setDriverName] = useState('');
   
   // Organoleptik legacy specifics (retained for compatibility)
   const [organoleptikRasa, setOrganoleptikRasa] = useState('Sangat Layak (Segar & Gurih)');
@@ -304,6 +305,7 @@ function ShippingDocPanel({
       setBastSekolah(receiverName || 'Madrasah Aliyah Qomaruddin Bungah');
       setBastPenerima(receiverName || 'Ibu Aminah, S.Pd');
       setBastJumlah(calculatedPorsi);
+      setDriverName(loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0]);
 
       // 3. Organoleptik defaults
       const menuStr = currentDayMenu ? currentDayMenu.menuList.join(', ') : 'Nasi Krawu Bungah, Tempe Goreng, Timun, Melon';
@@ -397,6 +399,7 @@ function ShippingDocPanel({
       uploadedAt: new Date().toISOString(),
       receiverName: type === 'serah_terima' ? bastPenerima : (type === 'surat_jalan' ? sjKepada : receiverName.trim() || 'Staf Penerima'),
       status: type === 'organoleptik' ? 'Lulus Uji Orlep' : (type === 'serah_terima' ? 'BAST Sah' : 'Kirim Sukses'),
+      driverName: type === 'ompreng' ? driverName : undefined,
       
       // Organoleptik specifics
       organoleptikRasa: type === 'organoleptik' ? organoleptikRasa : undefined,
@@ -541,25 +544,56 @@ function ShippingDocPanel({
             )}
 
             {type === 'ompreng' ? (
-              <div>
-                <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
-                  Lokasi Distribusi Sasaran
-                </label>
-                <select
-                  required
-                  value={receiverName}
-                  onChange={e => setReceiverName(e.target.value)}
-                  className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800 font-extrabold"
-                >
-                  <option value="">-- Pilih Lokasi Distribusi --</option>
-                  <option value="MA Assa'adah">MA Assa'adah</option>
-                  <option value="MTS Assa'adah II">MTS Assa'adah II</option>
-                  <option value="SMA Assa'adah">SMA Assa'adah</option>
-                  <option value="SMK Assa'adah">SMK Assa'adah</option>
-                  <option value="Desa Sidokumpul">Desa Sidokumpul</option>
-                  <option value="Desa Sukowati">Desa Sukowati</option>
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                    Lokasi Distribusi Sasaran
+                  </label>
+                  <select
+                    required
+                    value={receiverName}
+                    onChange={e => setReceiverName(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-800 font-extrabold"
+                  >
+                    <option value="">-- Pilih Lokasi Distribusi --</option>
+                    <option value="MA Assa'adah">MA Assa'adah</option>
+                    <option value="MTS Assa'adah II">MTS Assa'adah II</option>
+                    <option value="SMA Assa'adah">SMA Assa'adah</option>
+                    <option value="SMK Assa'adah">SMK Assa'adah</option>
+                    <option value="Desa Sidokumpul">Desa Sidokumpul</option>
+                    <option value="Desa Sukowati">Desa Sukowati</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                    Nama Driver (Pengemudi)
+                  </label>
+                  <select
+                    required
+                    value={driverName}
+                    onChange={e => setDriverName(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden text-neutral-850 font-bold"
+                  >
+                    <option value="">-- Pilih Driver --</option>
+                    {DRIVERS_LIST.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
+                    No Plat Kendaraan
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={vehicleNumber}
+                    onChange={e => setVehicleNumber(e.target.value)}
+                    placeholder="Contoh: W 1234 BGH"
+                    className="w-full text-xs border border-neutral-200 bg-white rounded-lg p-2.5 shadow-2xs focus:ring-1 focus:ring-emerald-700 outline-hidden uppercase font-semibold text-neutral-800"
+                  />
+                </div>
+              </>
             ) : (
               <div>
                 <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">
@@ -1248,13 +1282,20 @@ function ShippingDocPanel({
                       <span className="text-neutral-450 block text-[8px] uppercase font-black tracking-wider">Penerima / U.P</span>
                       <span className="font-semibold text-neutral-700 truncate block">{doc.receiverName || 'Staf Asrama'}</span>
                     </div>
-                    <div>
-                      <span className="text-neutral-450 block text-[8px] uppercase font-black tracking-wider">Status Validasi</span>
-                      <span className="font-extrabold text-emerald-800 flex items-center gap-0.5 font-sans">
-                        <Check className="h-3 w-3 text-emerald-700 shrink-0 stroke-[3]" />
-                        {doc.status}
-                      </span>
-                    </div>
+                    {doc.type === 'ompreng' && doc.driverName ? (
+                      <div>
+                        <span className="text-neutral-450 block text-[8px] uppercase font-black tracking-wider">Driver Pengirim</span>
+                        <span className="font-semibold text-neutral-700 truncate block">{doc.driverName}</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-neutral-450 block text-[8px] uppercase font-black tracking-wider">Status Validasi</span>
+                        <span className="font-extrabold text-emerald-800 flex items-center gap-0.5 font-sans">
+                          <Check className="h-3 w-3 text-emerald-700 shrink-0 stroke-[3]" />
+                          {doc.status}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Summary labels for rich docs */}

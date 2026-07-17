@@ -73,3 +73,10 @@ export interface SOPRecapItem {
   signatureCoordinatorUrl: string;
   signedAt: string;
 }
+
+export const DRIVERS_LIST = [
+  'Imam Durori',
+  'Ahmad Wahyudi',
+  'Sholahuddin Nuraini',
+  'Faliqul Habibi'
+];

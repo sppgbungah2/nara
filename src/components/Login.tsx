@@ -101,18 +101,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       // Translate typical supabase error messages for Indonesian boarding school environment
       let customErr = err.message || 'Gagal tersambung dengan server auth.';
       if (customErr.includes('Invalid login credentials')) {
-        customErr = 'Email atau kata sandi salah. Silakan coba kembali atau gunakan preset di bawah.';
+        customErr = 'Email atau kata sandi salah. Silakan coba kembali.';
       }
       setErrorMsg(customErr);
       setLoading(false);
     }
-  };
-
-  // Preset accounts helper to speed up reviewing and copy-pasting
-  const handleUsePreset = (presetEmail: string) => {
-    setEmail(presetEmail);
-    setPassword('qomaruddin2026'); // Standard mock credentials
-    setErrorMsg(null);
   };
 
   return (

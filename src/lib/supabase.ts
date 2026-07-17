@@ -129,7 +129,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.CHEF,
-      fullName: 'Chef Ahmad (Tim Utama)'
+      fullName: 'Rizka Aulia (Head Chef)'
     };
   }
   if (normEmail === 'gizi@qomaruddin.com') {
@@ -199,7 +199,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.DRIVER,
-      fullName: 'Bpk. Sholeh (Driver Distribusi)',
+      fullName: 'Imam Durori (Driver)',
       isCoordinator: true,
       coordinatorDivision: Division.DRIVER
     };
@@ -262,7 +262,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.CHEF,
-      fullName: 'Chef Ahmad (Head Chef)'
+      fullName: 'Rizka Aulia (Head Chef)'
     };
   }
   
@@ -280,7 +280,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.ASLAP,
-      fullName: 'Ustadz Hakim, S.Pd (Aslap)'
+      fullName: 'Ahmad Maghfur (Aslap)'
     };
   }
 

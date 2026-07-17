@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Truck, Calendar, Plus, Trash2, CheckCircle2, ChevronRight, 
-  ArrowLeft, Printer, ShieldAlert, Check, X, UserCheck
+  ArrowLeft, Printer, ShieldAlert, Check, X, UserCheck,
+  Search, Filter, Eye, BarChart3
 } from 'lucide-react';
-import { DayMenu, UserRole } from '../types';
+import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { UserProfile } from '../lib/supabase';
 import SignaturePad from './SignaturePad';
 
@@ -29,6 +30,12 @@ export default function SuratJalanView({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Dashboard & Rekapitulasi States
+  const [filterSchool, setFilterSchool] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<'selected' | 'all'>('selected');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
   // Signature state for active sheet
   const [activeSigRequest, setActiveSigRequest] = useState<{
     targetField: 'sjSignatureAslap' | 'sjSignatureReceiver';
@@ -48,22 +55,43 @@ export default function SuratJalanView({
   };
 
   const restrictedLocation = loggedInUser?.email ? getPenerimaLocation(loggedInUser.email) : "";
+  const isAdminOrAslap = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.ASLAP || (loggedInUser?.email && ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
 
-  // Filter Surat Jalan docs for the selected date
-  let dateDocs = shippingDocs.filter(d => d.type === 'surat_jalan' && d.date === selectedDate);
-  if (restrictedLocation) {
-    dateDocs = dateDocs.filter(d => d.sjKepada === restrictedLocation);
-  }
+  // Daily list of docs for selected date (for releasing check)
+  const dateDocs = shippingDocs.filter(d => d.type === 'surat_jalan' && d.date === selectedDate);
 
-  // Search filter
-  const filteredDocs = dateDocs.filter(d => {
-    if (!searchTerm) return true;
-    const s = searchTerm.toLowerCase();
-    return (
-      (d.sjKepada && d.sjKepada.toLowerCase().includes(s)) ||
-      (d.sjNo && d.sjNo.toLowerCase().includes(s)) ||
-      (d.sjDriver && d.sjDriver.toLowerCase().includes(s))
-    );
+  // Full dataset for filters & rekapitulasi
+  const allSjDocs = shippingDocs.filter(d => d.type === 'surat_jalan');
+
+  // Filtered list based on role and choices
+  const filteredDocs = allSjDocs.filter(doc => {
+    // 1. Role boundaries
+    if (restrictedLocation && doc.sjKepada !== restrictedLocation) return false;
+    
+    // For non-admin (driver/penerima), we ONLY show current date
+    if (!isAdminOrAslap && doc.date !== selectedDate) return false;
+
+    // 2. Admin filters
+    if (isAdminOrAslap) {
+      const matchesDate = filterDate === 'all' || doc.date === selectedDate;
+      const matchesSchool = filterSchool === 'all' || doc.sjKepada === filterSchool;
+      const matchesStatus = filterStatus === 'all' || doc.status === filterStatus;
+      if (!matchesDate || !matchesSchool || !matchesStatus) return false;
+    }
+
+    // 3. Search text
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      const matchesSearch = (
+        (doc.sjKepada && doc.sjKepada.toLowerCase().includes(s)) ||
+        (doc.sjNo && doc.sjNo.toLowerCase().includes(s)) ||
+        (doc.sjDriver && doc.sjDriver.toLowerCase().includes(s)) ||
+        (doc.date && doc.date.includes(s))
+      );
+      if (!matchesSearch) return false;
+    }
+
+    return true;
   });
 
   // Keep activeDoc in sync with updated shippingDocs from parent state
@@ -167,7 +195,7 @@ export default function SuratJalanView({
         sjNo: sjNoStr,
         sjKepada: sch,
         sjWaktu: '11:00 WIB',
-        sjDriver: loggedInUser?.fullName || 'Bpk. Sholeh (Driver)',
+        sjDriver: loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0],
         sjRows: [
           { id: '1', jenis: isDesa ? 'Paket Program Makan Bergizi Gratis (Warga Desa)' : 'Paket Program Makan Bergizi Gratis', porsi: calculatedPorsi, alatSebelum: calculatedPorsi, alatSesudah: calculatedPorsi, keterangan: 'Hangat & Lengkap' },
           { id: '2', jenis: 'Buah Melon Potong Segar', porsi: calculatedPorsi, alatSebelum: 0, alatSesudah: 0, keterangan: 'Kondisi Baik' },
@@ -264,6 +292,7 @@ export default function SuratJalanView({
   // If viewing a document in full-depth
   if (activeDoc) {
     const isLocked = activeDoc.status === 'Selesai';
+    const isFieldReadOnly = isLocked || currentUserRole === UserRole.DRIVER || currentUserRole === UserRole.PENERIMA;
     return (
       <div className="space-y-6 animate-fade-in" id="sj-printed-view">
         {/* Sticky Action Toolbar */}
@@ -360,7 +389,7 @@ export default function SuratJalanView({
             </h1>
             <div className="flex justify-center items-center gap-1.5 text-xs font-semibold">
               <span className="text-neutral-500 uppercase text-[9px] tracking-wider">No. Dokumen:</span>
-              {isLocked ? (
+              {isFieldReadOnly ? (
                 <span className="font-mono font-bold text-neutral-850">{activeDoc.sjNo}</span>
               ) : (
                 <input
@@ -380,7 +409,7 @@ export default function SuratJalanView({
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-450 uppercase w-32 shrink-0">Kepada Yth. (Sekolah/Desa):</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.sjKepada}</span>
                 ) : (
                   <select
@@ -400,7 +429,7 @@ export default function SuratJalanView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-450 uppercase w-32 shrink-0">Waktu Kirim:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.sjWaktu}</span>
                 ) : (
                   <input
@@ -416,21 +445,25 @@ export default function SuratJalanView({
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-450 uppercase w-32 shrink-0">Pengemudi (Driver):</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-bold text-neutral-800">{activeDoc.sjDriver}</span>
                 ) : (
-                  <input
-                    type="text"
+                  <select
                     value={activeDoc.sjDriver || ''}
                     onChange={(e) => handleFieldChange('sjDriver', e.target.value)}
-                    className="text-xs font-bold text-neutral-850 border-b border-dashed border-neutral-300 focus:border-emerald-600 focus:outline-hidden w-full px-1"
-                  />
+                    className="text-xs font-bold text-neutral-850 border-b border-dashed border-neutral-300 focus:border-emerald-600 focus:outline-hidden w-full px-1 bg-transparent"
+                  >
+                    <option value="">Pilih Driver...</option>
+                    {DRIVERS_LIST.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-450 uppercase w-32 shrink-0">No Kendaraan:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-mono font-bold text-neutral-850">{activeDoc.vehicleNumber}</span>
                 ) : (
                   <input
@@ -457,7 +490,7 @@ export default function SuratJalanView({
                     <th className="p-2.5 border-r border-neutral-950 w-20">Alat (Bfr)</th>
                     <th className="p-2.5 border-r border-neutral-950 w-20">Alat (Aft)</th>
                     <th className="p-2.5 border-r border-neutral-950">Keterangan</th>
-                    {!isLocked && <th className="p-2.5 w-12 text-center print:hidden">Aksi</th>}
+                    {!isFieldReadOnly && <th className="p-2.5 w-12 text-center print:hidden">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-950 text-center text-neutral-850">
@@ -465,7 +498,7 @@ export default function SuratJalanView({
                     <tr key={row.id}>
                       <td className="p-2 border-r border-neutral-950 font-mono text-neutral-400 text-center">{idx + 1}</td>
                       <td className="p-1 border-r border-neutral-950 text-left font-medium">
-                        {isLocked ? (
+                        {isFieldReadOnly ? (
                           <span className="px-1.5">{row.jenis}</span>
                         ) : (
                           <input
@@ -477,7 +510,7 @@ export default function SuratJalanView({
                         )}
                       </td>
                       <td className="p-1 border-r border-neutral-950 font-semibold text-neutral-800">
-                        {isLocked ? (
+                        {isFieldReadOnly ? (
                           <span>{row.porsi}</span>
                         ) : (
                           <input
@@ -489,7 +522,7 @@ export default function SuratJalanView({
                         )}
                       </td>
                       <td className="p-1 border-r border-neutral-950">
-                        {isLocked ? (
+                        {isFieldReadOnly ? (
                           <span>{row.alatSebelum}</span>
                         ) : (
                           <input
@@ -501,7 +534,7 @@ export default function SuratJalanView({
                         )}
                       </td>
                       <td className="p-1 border-r border-neutral-950">
-                        {isLocked ? (
+                        {isFieldReadOnly ? (
                           <span>{row.alatSesudah}</span>
                         ) : (
                           <input
@@ -513,7 +546,7 @@ export default function SuratJalanView({
                         )}
                       </td>
                       <td className="p-1 border-r border-neutral-950 text-left">
-                        {isLocked ? (
+                        {isFieldReadOnly ? (
                           <span className="px-1.5">{row.keterangan}</span>
                         ) : (
                           <input
@@ -524,7 +557,7 @@ export default function SuratJalanView({
                           />
                         )}
                       </td>
-                      {!isLocked && (
+                      {!isFieldReadOnly && (
                         <td className="p-1 text-center print:hidden">
                           <button
                             onClick={() => handleDeleteRow(row.id)}
@@ -543,7 +576,7 @@ export default function SuratJalanView({
                     <td className="p-2.5 border-r border-neutral-950 font-mono">{totalPorsi} Box</td>
                     <td className="p-2.5 border-r border-neutral-950 font-mono">{totalAlatSebelum} Koli</td>
                     <td className="p-2.5 border-r border-neutral-950 font-mono">{totalAlatSesudah} Koli</td>
-                    <td className="p-2.5 text-left italic font-normal text-neutral-500" colSpan={isLocked ? 1 : 2}>
+                    <td className="p-2.5 text-left italic font-normal text-neutral-500" colSpan={isFieldReadOnly ? 1 : 2}>
                       Beban alat terpenuhi otomatis.
                     </td>
                   </tr>
@@ -551,7 +584,7 @@ export default function SuratJalanView({
               </table>
             </div>
 
-            {!isLocked && (
+            {!isFieldReadOnly && (
               <button
                 onClick={handleAddRow}
                 className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 self-start mt-1 print:hidden"
@@ -595,7 +628,7 @@ export default function SuratJalanView({
                       alt="Ttd Aslap"
                       className="max-h-full max-w-full object-contain"
                     />
-                    {!isLocked && (
+                    {!isLocked && isAdminOrAslap && (
                       <button
                         onClick={() => handleFieldChange('sjSignatureAslap', '')}
                         className="absolute top-1 right-1 bg-red-500 hover:bg-red-700 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer print:hidden"
@@ -605,22 +638,26 @@ export default function SuratJalanView({
                     )}
                   </>
                 ) : (
-                  <button
-                    onClick={() => setActiveSigRequest({
-                      targetField: 'sjSignatureAslap',
-                      title: 'Tanda Tangan Penanggung Jawab Dapur (Aslap)',
-                      suggestedName: loggedInUser?.fullName || 'Ust. Maghfur Munif, S.Pd'
-                    })}
-                    className="text-[10px] font-bold text-emerald-800 hover:text-emerald-950 flex flex-col items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    <UserCheck className="h-4 w-4" />
-                    Klik Bubuhkan Ttd
-                  </button>
+                  isAdminOrAslap ? (
+                    <button
+                      onClick={() => setActiveSigRequest({
+                        targetField: 'sjSignatureAslap',
+                        title: 'Tanda Tangan Penanggung Jawab Dapur (Aslap)',
+                        suggestedName: loggedInUser?.fullName || 'Ahmad Maghfur'
+                      })}
+                      className="text-[10px] font-bold text-emerald-800 hover:text-emerald-950 flex flex-col items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform"
+                    >
+                      <UserCheck className="h-4 w-4" />
+                      Klik Bubuhkan Ttd
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-neutral-400 italic font-medium">Belum ditandatangani</span>
+                  )
                 )}
               </div>
 
               <div className="border-b border-neutral-900 w-44 font-bold text-neutral-900 uppercase">
-                {loggedInUser?.fullName || 'Ust. Maghfur Munif, S.Pd'}
+                {activeDoc.sjSignatureAslap ? 'Ahmad Maghfur' : 'Ahmad Maghfur (Aslap)'}
               </div>
             </div>
 
@@ -638,7 +675,7 @@ export default function SuratJalanView({
                       alt="Ttd Receiver"
                       className="max-h-full max-w-full object-contain"
                     />
-                    {!isLocked && (
+                    {!isLocked && (currentUserRole === UserRole.PENERIMA || currentUserRole === UserRole.ADMIN || isAdminOrAslap) && (
                       <button
                         onClick={() => handleFieldChange('sjSignatureReceiver', '')}
                         className="absolute top-1 right-1 bg-red-500 hover:bg-red-700 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer print:hidden"
@@ -648,17 +685,21 @@ export default function SuratJalanView({
                     )}
                   </>
                 ) : (
-                  <button
-                    onClick={() => setActiveSigRequest({
-                      targetField: 'sjSignatureReceiver',
-                      title: 'Tanda Tangan Penerima Sekolah',
-                      suggestedName: activeDoc.sjKepada
-                    })}
-                    className="text-[10px] font-bold text-emerald-800 hover:text-emerald-950 flex flex-col items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform"
-                  >
-                    <UserCheck className="h-4 w-4" />
-                    Klik Bubuhkan Ttd
-                  </button>
+                  (currentUserRole === UserRole.PENERIMA || currentUserRole === UserRole.ADMIN || isAdminOrAslap) ? (
+                    <button
+                      onClick={() => setActiveSigRequest({
+                        targetField: 'sjSignatureReceiver',
+                        title: 'Tanda Tangan Penerima Sekolah',
+                        suggestedName: activeDoc.sjKepada
+                      })}
+                      className="text-[10px] font-bold text-emerald-800 hover:text-emerald-950 flex flex-col items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform"
+                    >
+                      <UserCheck className="h-4 w-4" />
+                      Klik Bubuhkan Ttd
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-neutral-400 italic font-medium">Belum ditandatangani</span>
+                  )
                 )}
               </div>
 
@@ -687,146 +728,370 @@ export default function SuratJalanView({
   }
 
   // Dashboard / List View
+  const totalSJ = filteredDocs.length;
+  const completedSJ = filteredDocs.filter(d => d.status === 'Selesai').length;
+  const activeSJ = filteredDocs.filter(d => d.status === 'Aktif').length;
+  
+  let totalSigsNeeded = totalSJ * 2;
+  let filledSigs = 0;
+  filteredDocs.forEach(d => {
+    if (d.sjSignatureAslap) filledSigs++;
+    if (d.sjSignatureReceiver) filledSigs++;
+  });
+  const complianceScore = totalSigsNeeded > 0 ? Math.round((filledSigs / totalSigsNeeded) * 100) : 100;
+
   return (
     <div className="space-y-6 animate-fade-in" id="sj-dashboard">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      
+      {/* 1. Header & Title Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold font-sans text-neutral-800 flex items-center gap-2">
-              <Truck className="h-6 w-6 text-emerald-700 shrink-0" />
-              Arsip Lembar Surat Jalan Logistik
+            <h2 className="text-xl font-extrabold font-sans text-neutral-900 flex items-center gap-2 tracking-tight">
+              <Truck className="h-6 w-6 text-emerald-800 shrink-0" />
+              Arsip &amp; Rekapitulasi Surat Jalan Logistik
             </h2>
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">
               SOP-Aligned
             </span>
           </div>
-          <p className="text-sm text-neutral-500">Lembar legalisasi perjalanan logistik dwi-harian, mencakup berat muatan, nomor segel kirim, dan porsi box hidangan.</p>
+          <p className="text-xs text-neutral-500">Lembar legalisasi perjalanan logistik dwi-harian, mencakup porsi koli boks hidangan, berat muatan, dan otorisasi tanda tangan.</p>
         </div>
 
-        {dateDocs.length > 0 && (
+        {isAdminOrAslap && dateDocs.length > 0 && (
           <button
             onClick={handleInitializeSuratJalan}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto md:ml-0"
           >
             <Plus className="h-4 w-4" />
-            Re-Inisialisasi Surat Jalan
+            Re-Inisialisasi Surat Jalan Hari Ini
           </button>
         )}
       </div>
 
       {successMsg && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center gap-2 animate-fade-in">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
           {successMsg}
         </div>
       )}
 
-      {/* Primary SOP-Like Checklist Dashboard */}
-      {dateDocs.length === 0 ? (
-        <div className="p-16 border border-neutral-200 rounded-3xl bg-white text-center space-y-4 max-w-2xl mx-auto shadow-2xs">
-          <ShieldAlert className="h-10 w-10 text-amber-500 mx-auto animate-bounce" />
-          <div className="space-y-1.5">
-            <h4 className="text-neutral-700 font-bold text-sm">Surat Jalan Belum Dirilis untuk Hari Ini</h4>
-            <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-              Lembar Surat Jalan pengiriman logistik untuk 6 lokasi sasaran belum diinisialisasi untuk tanggal {selectedDate}.
-            </p>
+      {/* 2. Admin Analytics Scorecard (Only visible for Admins / Aslaps) */}
+      {isAdminOrAslap && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-3xs flex flex-col justify-between">
+            <span className="text-neutral-400 font-bold text-[10px] block uppercase tracking-wider">Total Surat Jalan</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-neutral-800">{totalSJ}</span>
+              <span className="text-[10px] text-neutral-400 font-mono">Berkas</span>
+            </div>
           </div>
-          <button
-            onClick={handleInitializeSuratJalan}
-            className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
-          >
-            <Plus className="h-4 w-4" />
-            + Inisialisasi 6 Surat Jalan Hari Ini
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider">
-              Daftar Surat Jalan Sekolah ({filteredDocs.length} Berkas)
-            </h3>
-            
-            <div className="relative w-64">
-              <input
-                type="text"
-                placeholder="Cari sekolah, driver, No Surat Jalan..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full text-xs border border-neutral-200 rounded-xl pl-8 pr-3 py-2 bg-neutral-50 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-700 text-neutral-800"
-              />
-              <span className="absolute left-2.5 top-2.5 text-neutral-400">🔍</span>
+          
+          <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 flex flex-col justify-between">
+            <span className="text-emerald-850 font-extrabold text-[10px] block uppercase tracking-wider">Terkunci &amp; Sah</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-emerald-800">{completedSJ}</span>
+              <span className="text-[10px] text-emerald-500 font-mono font-bold">Lengkap</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredDocs.map((doc) => {
-              const hasAslapSig = !!doc.sjSignatureAslap;
-              const hasReceiverSig = !!doc.sjSignatureReceiver;
-              const isDone = doc.status === 'Selesai';
-              
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => setActiveDoc(doc)}
-                  className="bg-white hover:border-emerald-600 border border-neutral-200/80 rounded-2xl p-5 shadow-3xs cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group flex flex-col justify-between min-h-[175px]"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">SURAT JALAN</span>
-                        <h4 className="font-bold text-sm text-neutral-800 group-hover:text-emerald-800 transition-colors">
-                          {doc.sjKepada}
-                        </h4>
-                      </div>
-                      
-                      <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold border ${
-                        isDone
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}>
-                        {isDone ? 'TERKUNCI' : 'AKTIF'}
-                      </span>
-                    </div>
+          <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 flex flex-col justify-between">
+            <span className="text-amber-850 font-extrabold text-[10px] block uppercase tracking-wider">Sedang Berjalan</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-amber-700">{activeSJ}</span>
+              <span className="text-[10px] text-amber-500 font-mono font-bold">Aktif</span>
+            </div>
+          </div>
 
-                    <p className="text-[10px] font-mono text-neutral-500 mt-2 block overflow-hidden text-ellipsis whitespace-nowrap">
-                      No: {doc.sjNo}
-                    </p>
-                    <p className="text-[10px] text-neutral-400 mt-1">
-                      Muatan: <strong className="text-neutral-700">{(doc.sjRows || []).length} Baris Logistik</strong> | Driver: {doc.sjDriver}
-                    </p>
+          <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 flex flex-col justify-between">
+            <span className="text-indigo-850 font-extrabold text-[10px] block uppercase tracking-wider">Otorisasi Tanda Tangan</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-indigo-800">{complianceScore}%</span>
+              <span className="text-[10px] text-indigo-500 font-mono font-bold">Ttd Sah</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Advanced Filtering Toolbar */}
+      <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-3xs space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-3">
+          <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <Filter className="h-4 w-4 text-emerald-800" />
+            Panel Filter Rekapitulasi &amp; Kontrol Surat Jalan
+          </h3>
+
+          {/* Toggle View Mode Buttons (only for admin/aslap) */}
+          {isAdminOrAslap && (
+            <div className="flex bg-neutral-100 rounded-lg p-0.5 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Tampilan Tabel
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${viewMode === 'grid' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Tampilan Kartu
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Search bar input */}
+          <div className="relative">
+            <span className="absolute left-3 top-2.5 text-neutral-400 text-xs">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Cari No SJ, Driver, Tujuan..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 border border-neutral-200 rounded-xl text-xs bg-neutral-50/50 outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700"
+            />
+          </div>
+
+          {/* School filter */}
+          <select
+            value={filterSchool}
+            onChange={e => setFilterSchool(e.target.value)}
+            disabled={!!restrictedLocation}
+            className="border border-neutral-200 bg-neutral-50/50 rounded-xl px-3 py-1.5 text-xs outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700 disabled:opacity-65"
+          >
+            <option value="all">Semua Lembaga / Desa (6 Lokasi)</option>
+            <option value="MA Assa'adah">MA Assa'adah</option>
+            <option value="MTS Assa'adah II">MTS Assa'adah II</option>
+            <option value="SMA Assa'adah">SMA Assa'adah</option>
+            <option value="SMK Assa'adah">SMK Assa'adah</option>
+            <option value="Desa Sidokumpul">Desa Sidokumpul</option>
+            <option value="Desa Sukowati">Desa Sukowati</option>
+          </select>
+
+          {/* Status selection */}
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="border border-neutral-200 bg-neutral-50/50 rounded-xl px-3 py-1.5 text-xs outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700"
+          >
+            <option value="all">Semua Status Berkas</option>
+            <option value="Aktif">Sedang Berjalan (Aktif)</option>
+            <option value="Selesai">Terkunci &amp; Sah (Selesai)</option>
+          </select>
+
+          {/* Date range constraint filter */}
+          {isAdminOrAslap ? (
+            <select
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value as any)}
+              className="border border-neutral-200 bg-neutral-50/50 rounded-xl px-3 py-1.5 text-xs outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700"
+            >
+              <option value="selected">Tanggal Terpilih ({selectedDate})</option>
+              <option value="all">Semua Tanggal (Arsip Historis)</option>
+            </select>
+          ) : (
+            <div className="bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-1.5 text-xs text-neutral-500 font-mono font-bold flex items-center justify-center">
+              📅 Hari Ini: {selectedDate}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Release check or Records display */}
+      {dateDocs.length === 0 && filterDate === 'selected' ? (
+        <div className="p-16 border border-neutral-200 rounded-3xl bg-white text-center space-y-4 max-w-2xl mx-auto shadow-2xs">
+          <ShieldAlert className="h-10 w-10 text-amber-500 mx-auto animate-bounce" />
+          <div className="space-y-1.5">
+            <h4 className="text-neutral-700 font-bold text-sm">Surat Jalan Belum Dirilis</h4>
+            <p className="text-xs text-neutral-400 max-w-sm mx-auto">
+              Berkas digital Surat Jalan pengiriman logistik untuk 6 lokasi sasaran belum diinisialisasi untuk tanggal {selectedDate}.
+            </p>
+          </div>
+          {isAdminOrAslap && (
+            <button
+              onClick={handleInitializeSuratJalan}
+              className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <Plus className="h-4 w-4" />
+              Inisialisasi 6 Berkas Surat Jalan Sekarang
+            </button>
+          )}
+        </div>
+      ) : filteredDocs.length === 0 ? (
+        <div className="p-16 text-center text-xs text-neutral-400 space-y-2 bg-white rounded-3xl border border-neutral-100 shadow-2xs">
+          <ShieldAlert className="h-10 w-10 text-neutral-300 mx-auto" />
+          <p className="font-bold text-neutral-600 text-sm">Tidak Ada Arsip Surat Jalan yang Cocok</p>
+          <p className="max-w-xs mx-auto text-neutral-400">Silakan sesuaikan filter pencarian atau hubungi Aslap dapur untuk menerbitkan.</p>
+        </div>
+      ) : isAdminOrAslap && viewMode === 'table' ? (
+        /* --- HIGH-DENSITY ANALYTICAL TABLE VIEW --- */
+        <div className="bg-white rounded-2xl border border-neutral-100 shadow-3xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs md:text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 bg-neutral-50/80 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                  <th className="py-4 px-5">Hari, Tanggal</th>
+                  <th className="py-4 px-5">Nomor Surat Jalan</th>
+                  <th className="py-4 px-5">Tujuan Pengiriman</th>
+                  <th className="py-4 px-5">Driver</th>
+                  <th className="py-4 px-5">Waktu Kirim</th>
+                  <th className="py-4 px-5 text-center">Ttd Aslap</th>
+                  <th className="py-4 px-5 text-center">Ttd Penerima</th>
+                  <th className="py-4 px-5 text-center">Status</th>
+                  <th className="py-4 px-5 text-right">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100 text-neutral-700">
+                {filteredDocs.map((doc) => {
+                  const hasAslapSig = !!doc.sjSignatureAslap;
+                  const hasReceiverSig = !!doc.sjSignatureReceiver;
+                  const isDone = doc.status === 'Selesai';
+                  const parts = doc.date.split('-');
+                  const dateTextLabel = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : doc.date;
+                  
+                  return (
+                    <tr key={doc.id} className="hover:bg-neutral-50/30 transition-colors">
+                      <td className="py-3.5 px-5 font-bold text-neutral-900 font-mono">
+                        {dateTextLabel}
+                      </td>
+                      <td className="py-3.5 px-5 font-mono text-neutral-500 text-[11px] font-semibold">
+                        {doc.sjNo}
+                      </td>
+                      <td className="py-3.5 px-5 font-extrabold text-neutral-800">
+                        {doc.sjKepada}
+                      </td>
+                      <td className="py-3.5 px-5 font-medium text-neutral-700">
+                        {doc.sjDriver}
+                      </td>
+                      <td className="py-3.5 px-5 font-mono">
+                        {doc.sjWaktu}
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        {hasAslapSig ? (
+                          <span className="text-[9px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold font-mono">SIGNED ✓</span>
+                        ) : (
+                          <span className="text-[9px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full font-bold font-mono">PENDING ✗</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        {hasReceiverSig ? (
+                          <span className="text-[9px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold font-mono">SIGNED ✓</span>
+                        ) : (
+                          <span className="text-[9px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full font-bold font-mono">PENDING ✗</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-extrabold border ${
+                          isDone
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {isDone ? 'TERKUNCI' : 'AKTIF'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!isDone && (
+                            <button
+                              onClick={(e) => handleDeleteDoc(doc.id, e)}
+                              className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors"
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setActiveDoc(doc)}
+                            className="text-white bg-emerald-800 hover:bg-emerald-950 font-semibold px-3 py-1 rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer shadow-3xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Buka
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* --- HIGH-QUALITY GRID CARDS VIEW --- */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredDocs.map((doc) => {
+            const hasAslapSig = !!doc.sjSignatureAslap;
+            const hasReceiverSig = !!doc.sjSignatureReceiver;
+            const isDone = doc.status === 'Selesai';
+            
+            return (
+              <div
+                key={doc.id}
+                onClick={() => setActiveDoc(doc)}
+                className="bg-white hover:border-emerald-600 border border-neutral-200/80 rounded-2xl p-5 shadow-3xs cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group flex flex-col justify-between min-h-[185px]"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">TUJUAN PENGIRIMAN</span>
+                      <h4 className="font-bold text-sm text-neutral-850 group-hover:text-emerald-800 transition-colors">
+                        {doc.sjKepada}
+                      </h4>
+                    </div>
+                    
+                    <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold border ${
+                      isDone
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      {isDone ? 'TERKUNCI' : 'AKTIF'}
+                    </span>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-[10px] text-neutral-500">
-                      <span>Tanda Tangan:</span>
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <span className={hasAslapSig ? 'text-emerald-700' : 'text-neutral-400'}>Aslap {hasAslapSig ? '✓' : '✗'}</span>
-                        <span>•</span>
-                        <span className={hasReceiverSig ? 'text-emerald-700' : 'text-neutral-400'}>Penerima {hasReceiverSig ? '✓' : '✗'}</span>
-                      </div>
-                    </div>
+                  <p className="text-[10px] font-mono text-neutral-500 mt-2 block overflow-hidden text-ellipsis whitespace-nowrap">
+                    No: {doc.sjNo}
+                  </p>
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    Muatan: <strong className="text-neutral-700">{(doc.sjRows || []).length} Item Logistik</strong> | Driver: {doc.sjDriver}
+                  </p>
+                  <span className="text-[9.5px] font-mono text-neutral-400 mt-0.5 block">
+                    Tanggal: {doc.date}
+                  </span>
+                </div>
 
-                    <div className="flex items-center justify-between mt-1">
-                      {!isDone && (
-                        <button
-                          onClick={(e) => handleDeleteDoc(doc.id, e)}
-                          className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
-                          title="Hapus berkas Surat Jalan"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      
-                      <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider flex items-center gap-0.5 ml-auto">
-                        {isDone ? 'Buka Berkas 📄' : 'Kelola & Isi ✍️'} 
-                        <ChevronRight className="h-3 w-3 translate-x-0 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
+                <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                    <span>Tanda Tangan:</span>
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span className={hasAslapSig ? 'text-emerald-700' : 'text-neutral-400'}>Aslap {hasAslapSig ? '✓' : '✗'}</span>
+                      <span>•</span>
+                      <span className={hasReceiverSig ? 'text-emerald-700' : 'text-neutral-400'}>Penerima {hasReceiverSig ? '✓' : '✗'}</span>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-1">
+                    {!isDone && (
+                      <button
+                        onClick={(e) => handleDeleteDoc(doc.id, e)}
+                        className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                        title="Hapus berkas Surat Jalan"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    
+                    <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider flex items-center gap-0.5 ml-auto">
+                      {isDone ? 'Buka Berkas 📄' : 'Kelola & Isi ✍️'} 
+                      <ChevronRight className="h-3 w-3 translate-x-0 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

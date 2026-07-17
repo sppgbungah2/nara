@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Calendar, Plus, Trash2, CheckCircle2, ChevronRight, 
-  ArrowLeft, Printer, ShieldAlert, Check, X, UserCheck
+  ArrowLeft, Printer, ShieldAlert, Check, X, UserCheck,
+  Search, Filter, Eye, BarChart3
 } from 'lucide-react';
-import { DayMenu, UserRole } from '../types';
+import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { UserProfile } from '../lib/supabase';
 import SignaturePad from './SignaturePad';
 
@@ -29,6 +30,12 @@ export default function BASTView({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Dashboard & Rekapitulasi States
+  const [filterSchool, setFilterSchool] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<'selected' | 'all'>('selected');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
   // Signature state for active sheet
   const [activeSigRequest, setActiveSigRequest] = useState<{
     targetField: 'bastSignatureDriver' | 'bastSignatureReceiver';
@@ -48,23 +55,44 @@ export default function BASTView({
   };
 
   const restrictedLocation = loggedInUser?.email ? getPenerimaLocation(loggedInUser.email) : "";
+  const isAdminOrAslap = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.ASLAP || (loggedInUser?.email && ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
 
-  // Filter BAST docs for the selected date
-  let dateDocs = shippingDocs.filter(d => d.type === 'serah_terima' && d.date === selectedDate);
-  if (restrictedLocation) {
-    dateDocs = dateDocs.filter(d => d.bastSekolah === restrictedLocation);
-  }
+  // Daily list of docs for selected date (for releasing check)
+  const dateDocs = shippingDocs.filter(d => d.type === 'serah_terima' && d.date === selectedDate);
 
-  // Search filter
-  const filteredDocs = dateDocs.filter(d => {
-    if (!searchTerm) return true;
-    const s = searchTerm.toLowerCase();
-    return (
-      (d.bastSekolah && d.bastSekolah.toLowerCase().includes(s)) ||
-      (d.bastNo && d.bastNo.toLowerCase().includes(s)) ||
-      (d.bastDriver && d.bastDriver.toLowerCase().includes(s)) ||
-      (d.bastPenerima && d.bastPenerima.toLowerCase().includes(s))
-    );
+  // Full dataset for filters & rekapitulasi
+  const allBastDocs = shippingDocs.filter(d => d.type === 'serah_terima');
+
+  // Filtered list based on role and choices
+  const filteredDocs = allBastDocs.filter(doc => {
+    // 1. Role boundaries
+    if (restrictedLocation && doc.bastSekolah !== restrictedLocation) return false;
+    
+    // For non-admin (driver/penerima), we ONLY show current date
+    if (!isAdminOrAslap && doc.date !== selectedDate) return false;
+
+    // 2. Admin filters
+    if (isAdminOrAslap) {
+      const matchesDate = filterDate === 'all' || doc.date === selectedDate;
+      const matchesSchool = filterSchool === 'all' || doc.bastSekolah === filterSchool;
+      const matchesStatus = filterStatus === 'all' || doc.status === filterStatus;
+      if (!matchesDate || !matchesSchool || !matchesStatus) return false;
+    }
+
+    // 3. Search text
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      const matchesSearch = (
+        (doc.bastSekolah && doc.bastSekolah.toLowerCase().includes(s)) ||
+        (doc.bastNo && doc.bastNo.toLowerCase().includes(s)) ||
+        (doc.bastDriver && doc.bastDriver.toLowerCase().includes(s)) ||
+        (doc.bastPenerima && doc.bastPenerima.toLowerCase().includes(s)) ||
+        (doc.date && doc.date.includes(s))
+      );
+      if (!matchesSearch) return false;
+    }
+
+    return true;
   });
 
   // Keep activeDoc in sync with updated shippingDocs from parent state
@@ -166,7 +194,7 @@ export default function BASTView({
         receiverName: isDesa ? 'Kepala Desa / Perwakilan' : 'Staf Lembaga',
         status: 'Aktif',
         bastNo: bastNoStr,
-        bastDriver: loggedInUser?.fullName || 'Bpk. Sholeh (Driver)',
+        bastDriver: loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0],
         bastSekolah: sch,
         bastPenerima: isDesa ? 'Ibu Sri Wahyuni (Kader)' : 'Ibu Aminah, S.Pd',
         bastBarang: 'PAKET PROGRAM MAKAN BERGIZI GRATIS',
@@ -225,6 +253,7 @@ export default function BASTView({
   // If viewing a document in full-depth
   if (activeDoc) {
     const isLocked = activeDoc.status === 'Selesai';
+    const isFieldReadOnly = isLocked || currentUserRole === UserRole.DRIVER || currentUserRole === UserRole.PENERIMA;
     return (
       <div className="space-y-6 animate-fade-in" id="bast-printed-view">
         {/* Sticky Action Toolbar */}
@@ -321,7 +350,7 @@ export default function BASTView({
             </h1>
             <div className="flex justify-center items-center gap-1.5 text-xs font-semibold">
               <span className="text-neutral-500 uppercase text-[9px] tracking-wider">No. Dokumen:</span>
-              {isLocked ? (
+              {isFieldReadOnly ? (
                 <span className="font-mono font-bold text-neutral-850">{activeDoc.bastNo}</span>
               ) : (
                 <input
@@ -345,21 +374,25 @@ export default function BASTView({
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Pihak I (Pengirim/Driver):</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.bastDriver}</span>
                 ) : (
-                  <input
-                    type="text"
+                  <select
                     value={activeDoc.bastDriver || ''}
                     onChange={(e) => handleFieldChange('bastDriver', e.target.value)}
-                    className="text-xs font-bold text-neutral-850 border-b border-dashed border-neutral-300 focus:border-emerald-600 focus:outline-hidden w-full px-1"
-                  />
+                    className="text-xs font-bold text-neutral-850 border-b border-dashed border-neutral-300 focus:border-emerald-600 focus:outline-hidden w-full px-1 bg-transparent"
+                  >
+                    <option value="">Pilih Driver...</option>
+                    {DRIVERS_LIST.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">No Plat Kendaraan:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.vehicleNumber}</span>
                 ) : (
                   <input
@@ -373,7 +406,7 @@ export default function BASTView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Lembaga/Desa Sasaran:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.bastSekolah}</span>
                 ) : (
                   <select
@@ -393,7 +426,7 @@ export default function BASTView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Penerima Pihak II:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.bastPenerima}</span>
                 ) : (
                   <input
@@ -409,7 +442,7 @@ export default function BASTView({
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Nama Komoditas/Barang:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-bold text-neutral-800">{activeDoc.bastBarang}</span>
                 ) : (
                   <input
@@ -423,7 +456,7 @@ export default function BASTView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Kuantitas (Jumlah Box):</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-mono font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{activeDoc.bastJumlah} Box / Porsi</span>
                 ) : (
                   <input
@@ -437,7 +470,7 @@ export default function BASTView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Jam Penyerahan:</span>
-                {isLocked ? (
+                {isFieldReadOnly ? (
                   <span className="text-xs font-bold text-neutral-800">{activeDoc.bastWaktu}</span>
                 ) : (
                   <input
@@ -576,42 +609,178 @@ export default function BASTView({
   }
 
   // Dashboard / List View
+  const totalBAST = filteredDocs.length;
+  const completedBAST = filteredDocs.filter(d => d.status === 'Selesai').length;
+  const activeBAST = filteredDocs.filter(d => d.status === 'Aktif').length;
+  
+  let totalSigsNeeded = totalBAST * 2;
+  let filledSigs = 0;
+  filteredDocs.forEach(d => {
+    if (d.bastSignatureDriver) filledSigs++;
+    if (d.bastSignatureReceiver) filledSigs++;
+  });
+  const complianceScore = totalSigsNeeded > 0 ? Math.round((filledSigs / totalSigsNeeded) * 100) : 100;
+
   return (
     <div className="space-y-6 animate-fade-in" id="bast-dashboard">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      
+      {/* 1. Header & Title Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold font-sans text-neutral-800 flex items-center gap-2">
-              <FileText className="h-6 w-6 text-emerald-700 shrink-0" />
-              Arsip Lembar Berita Acara (BAST)
+            <h2 className="text-xl font-extrabold font-sans text-neutral-900 flex items-center gap-2 tracking-tight">
+              <FileText className="h-6 w-6 text-emerald-800 shrink-0" />
+              Arsip &amp; Rekapitulasi Berita Acara Serah Terima (BAST)
             </h2>
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-full">
               SOP-Aligned
             </span>
           </div>
-          <p className="text-sm text-neutral-500">Pencatatan legalitas penyerahan logistik paket makanan gizi kepada pembimbing asrama / perwakilan sekolah.</p>
+          <p className="text-xs text-neutral-500">Pencatatan formalitas serah terima paket hidangan bergizi harian dari tim dapur kepada pihak lembaga sasaran.</p>
         </div>
 
-        {dateDocs.length > 0 && (
+        {isAdminOrAslap && dateDocs.length > 0 && (
           <button
             onClick={handleInitializeBAST}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto md:ml-0"
           >
             <Plus className="h-4 w-4" />
-            Re-Inisialisasi BAST
+            Re-Inisialisasi BAST Hari Ini
           </button>
         )}
       </div>
 
       {successMsg && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center gap-2 animate-fade-in">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
           {successMsg}
         </div>
       )}
 
-      {/* Primary SOP-Like Checklist Dashboard */}
-      {dateDocs.length === 0 ? (
+      {/* 2. Admin Analytics Scorecard (Only visible for Admins / Aslaps) */}
+      {isAdminOrAslap && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-3xs flex flex-col justify-between">
+            <span className="text-neutral-400 font-bold text-[10px] block uppercase tracking-wider">Total Berkas BAST</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-neutral-800">{totalBAST}</span>
+              <span className="text-[10px] text-neutral-400 font-mono">Berkas</span>
+            </div>
+          </div>
+          
+          <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 flex flex-col justify-between">
+            <span className="text-emerald-850 font-extrabold text-[10px] block uppercase tracking-wider">Lembaga Terkunci &amp; Sah</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-emerald-800">{completedBAST}</span>
+              <span className="text-[10px] text-emerald-500 font-mono font-bold">Lengkap</span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-100 flex flex-col justify-between">
+            <span className="text-amber-850 font-extrabold text-[10px] block uppercase tracking-wider">Sedang Berjalan</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-amber-700">{activeBAST}</span>
+              <span className="text-[10px] text-amber-500 font-mono font-bold">Aktif</span>
+            </div>
+          </div>
+
+          <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 flex flex-col justify-between">
+            <span className="text-indigo-850 font-extrabold text-[10px] block uppercase tracking-wider">Kelengkapan Tanda Tangan</span>
+            <div className="mt-2 flex items-baseline gap-1">
+              <span className="text-2xl font-black text-indigo-800">{complianceScore}%</span>
+              <span className="text-[10px] text-indigo-500 font-mono font-bold">Ttd Sah</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Advanced Filtering Toolbar */}
+      <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-3xs space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 pb-3">
+          <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+            <Filter className="h-4 w-4 text-emerald-800" />
+            Panel Filter Rekapitulasi &amp; Kontrol BAST
+          </h3>
+
+          {/* Toggle View Mode Buttons (only for admin/aslap) */}
+          {isAdminOrAslap && (
+            <div className="flex bg-neutral-100 rounded-lg p-0.5 text-[10px] font-bold">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${viewMode === 'table' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Tampilan Tabel
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1 rounded-md transition-all cursor-pointer ${viewMode === 'grid' ? 'bg-white text-emerald-900 shadow-2xs' : 'text-neutral-500 hover:text-neutral-800'}`}
+              >
+                Tampilan Kartu
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Search bar input */}
+          <div className="relative">
+            <span className="absolute left-3 top-2.5 text-neutral-400 text-xs">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Cari No BAST, Driver, Penerima..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 border border-neutral-200 rounded-xl text-xs bg-neutral-50/50 outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700"
+            />
+          </div>
+
+          {/* School filter (Visible to everyone but only enabled for admin) */}
+          <select
+            value={filterSchool}
+            onChange={e => setFilterSchool(e.target.value)}
+            disabled={!!restrictedLocation}
+            className="border border-neutral-200 bg-neutral-50/50 rounded-xl px-3 py-1.5 text-xs outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700 disabled:opacity-65"
+          >
+            <option value="all">Semua Lembaga / Desa (6 Lokasi)</option>
+            <option value="MA Assa'adah">MA Assa'adah</option>
+            <option value="MTS Assa'adah II">MTS Assa'adah II</option>
+            <option value="SMA Assa'adah">SMA Assa'adah</option>
+            <option value="SMK Assa'adah">SMK Assa'adah</option>
+            <option value="Desa Sidokumpul">Desa Sidokumpul</option>
+            <option value="Desa Sukowati">Desa Sukowati</option>
+          </select>
+
+          {/* Status selection */}
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="border border-neutral-200 bg-neutral-50/50 rounded-xl px-3 py-1.5 text-xs outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700"
+          >
+            <option value="all">Semua Status Berkas</option>
+            <option value="Aktif">Sedang Berjalan (Aktif)</option>
+            <option value="Selesai">Terkunci &amp; Sah (Selesai)</option>
+          </select>
+
+          {/* Date range constraint filter */}
+          {isAdminOrAslap ? (
+            <select
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value as any)}
+              className="border border-neutral-200 bg-neutral-50/50 rounded-xl px-3 py-1.5 text-xs outline-hidden focus:bg-white focus:ring-1 focus:ring-emerald-700"
+            >
+              <option value="selected">Tanggal Terpilih ({selectedDate})</option>
+              <option value="all">Semua Tanggal (Arsip Historis)</option>
+            </select>
+          ) : (
+            <div className="bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-1.5 text-xs text-neutral-500 font-mono font-bold flex items-center justify-center">
+              📅 Hari Ini: {selectedDate}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Release check or Records display */}
+      {dateDocs.length === 0 && filterDate === 'selected' ? (
         <div className="p-16 border border-neutral-200 rounded-3xl bg-white text-center space-y-4 max-w-2xl mx-auto shadow-2xs">
           <ShieldAlert className="h-10 w-10 text-amber-500 mx-auto animate-bounce" />
           <div className="space-y-1.5">
@@ -620,102 +789,190 @@ export default function BASTView({
               Berkas digital Berita Acara Serah Terima makanan untuk 6 lokasi sasaran belum diinisialisasi untuk tanggal {selectedDate}.
             </p>
           </div>
-          <button
-            onClick={handleInitializeBAST}
-            className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
-          >
-            <Plus className="h-4 w-4" />
-            + Inisialisasi 6 Berkas BAST Hari Ini
-          </button>
+          {isAdminOrAslap && (
+            <button
+              onClick={handleInitializeBAST}
+              className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <Plus className="h-4 w-4" />
+              Inisialisasi 6 Berkas BAST Sekarang
+            </button>
+          )}
+        </div>
+      ) : filteredDocs.length === 0 ? (
+        <div className="p-16 text-center text-xs text-neutral-400 space-y-2 bg-white rounded-3xl border border-neutral-100 shadow-2xs">
+          <ShieldAlert className="h-10 w-10 text-neutral-300 mx-auto" />
+          <p className="font-bold text-neutral-600 text-sm">Tidak Ada Arsip BAST yang Cocok</p>
+          <p className="max-w-xs mx-auto text-neutral-400">Silakan sesuaikan filter pencarian atau inisialisasi dokumen baru jika diperlukan.</p>
+        </div>
+      ) : isAdminOrAslap && viewMode === 'table' ? (
+        /* --- HIGH-DENSITY ANALYTICAL TABLE VIEW (Admin/Aslap Priority) --- */
+        <div className="bg-white rounded-2xl border border-neutral-100 shadow-3xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs md:text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 bg-neutral-50/80 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                  <th className="py-4 px-5">Hari, Tanggal</th>
+                  <th className="py-4 px-5">Nomor BAST</th>
+                  <th className="py-4 px-5">Lembaga Sasaran</th>
+                  <th className="py-4 px-5">Driver (Pihak I)</th>
+                  <th className="py-4 px-5">Kuantitas</th>
+                  <th className="py-4 px-5 text-center">Ttd Driver</th>
+                  <th className="py-4 px-5 text-center">Ttd Penerima</th>
+                  <th className="py-4 px-5 text-center">Status</th>
+                  <th className="py-4 px-5 text-right">Tindakan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100 text-neutral-700">
+                {filteredDocs.map((doc) => {
+                  const hasDriverSig = !!doc.bastSignatureDriver;
+                  const hasReceiverSig = !!doc.bastSignatureReceiver;
+                  const isDone = doc.status === 'Selesai';
+                  const parts = doc.date.split('-');
+                  const dateTextLabel = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : doc.date;
+                  
+                  return (
+                    <tr key={doc.id} className="hover:bg-neutral-50/30 transition-colors">
+                      <td className="py-3.5 px-5 font-bold text-neutral-900 font-mono">
+                        {dateTextLabel}
+                      </td>
+                      <td className="py-3.5 px-5 font-mono text-neutral-500 text-[11px] font-semibold">
+                        {doc.bastNo}
+                      </td>
+                      <td className="py-3.5 px-5 font-extrabold text-neutral-800">
+                        {doc.bastSekolah}
+                      </td>
+                      <td className="py-3.5 px-5 font-medium text-neutral-700">
+                        {doc.bastDriver}
+                      </td>
+                      <td className="py-3.5 px-5 font-mono">
+                        <span className="font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                          {doc.bastJumlah} Box
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        {hasDriverSig ? (
+                          <span className="text-[9px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold font-mono">SIGNED ✓</span>
+                        ) : (
+                          <span className="text-[9px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full font-bold font-mono">PENDING ✗</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        {hasReceiverSig ? (
+                          <span className="text-[9px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full font-bold font-mono">SIGNED ✓</span>
+                        ) : (
+                          <span className="text-[9px] text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full font-bold font-mono">PENDING ✗</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-extrabold border ${
+                          isDone
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {isDone ? 'TERKUNCI' : 'AKTIF'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!isDone && (
+                            <button
+                              onClick={(e) => handleDeleteDoc(doc.id, e)}
+                              className="text-neutral-400 hover:text-red-650 p-1 rounded transition-colors"
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setActiveDoc(doc)}
+                            className="text-white bg-emerald-800 hover:bg-emerald-950 font-semibold px-3 py-1 rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer shadow-3xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Buka
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="font-bold text-neutral-800 text-xs uppercase tracking-wider">
-              Daftar Lembaga Sasaran ({filteredDocs.length} Berkas)
-            </h3>
+        /* --- HIGH-QUALITY GRID CARDS VIEW --- */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredDocs.map((doc) => {
+            const hasDriverSig = !!doc.bastSignatureDriver;
+            const hasReceiverSig = !!doc.bastSignatureReceiver;
+            const isDone = doc.status === 'Selesai';
             
-            <div className="relative w-64">
-              <input
-                type="text"
-                placeholder="Cari sekolah, driver, No BAST..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="w-full text-xs border border-neutral-200 rounded-xl pl-8 pr-3 py-2 bg-neutral-50 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-700 text-neutral-800"
-              />
-              <span className="absolute left-2.5 top-2.5 text-neutral-400">🔍</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredDocs.map((doc) => {
-              const hasDriverSig = !!doc.bastSignatureDriver;
-              const hasReceiverSig = !!doc.bastSignatureReceiver;
-              const isDone = doc.status === 'Selesai';
-              
-              return (
-                <div
-                  key={doc.id}
-                  onClick={() => setActiveDoc(doc)}
-                  className="bg-white hover:border-emerald-600 border border-neutral-200/80 rounded-2xl p-5 shadow-3xs cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group flex flex-col justify-between min-h-[175px]"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">BAST SEKOLAH</span>
-                        <h4 className="font-bold text-sm text-neutral-800 group-hover:text-emerald-800 transition-colors">
-                          {doc.bastSekolah}
-                        </h4>
-                      </div>
-                      
-                      <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold border ${
-                        isDone
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
-                      }`}>
-                        {isDone ? 'TERKUNCI' : 'AKTIF'}
-                      </span>
+            return (
+              <div
+                key={doc.id}
+                onClick={() => setActiveDoc(doc)}
+                className="bg-white hover:border-emerald-600 border border-neutral-200/80 rounded-2xl p-5 shadow-3xs cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group flex flex-col justify-between min-h-[185px]"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">BAST LOKASI</span>
+                      <h4 className="font-bold text-sm text-neutral-850 group-hover:text-emerald-800 transition-colors">
+                        {doc.bastSekolah}
+                      </h4>
                     </div>
-
-                    <p className="text-[10px] font-mono text-neutral-500 mt-2 block overflow-hidden text-ellipsis whitespace-nowrap">
-                      No: {doc.bastNo}
-                    </p>
-                    <p className="text-[10px] text-neutral-400 mt-1">
-                      Jumlah: <strong className="text-neutral-700">{doc.bastJumlah} Box</strong> | Driver: {doc.bastDriver}
-                    </p>
+                    
+                    <span className={`px-2 py-0.5 rounded text-[8px] uppercase tracking-wider font-extrabold border ${
+                      isDone
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      {isDone ? 'TERKUNCI' : 'AKTIF'}
+                    </span>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-[10px] text-neutral-500">
-                      <span>Tanda Tangan:</span>
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <span className={hasDriverSig ? 'text-emerald-700' : 'text-neutral-400'}>Pihak I {hasDriverSig ? '✓' : '✗'}</span>
-                        <span>•</span>
-                        <span className={hasReceiverSig ? 'text-emerald-700' : 'text-neutral-400'}>Pihak II {hasReceiverSig ? '✓' : '✗'}</span>
-                      </div>
-                    </div>
+                  <p className="text-[10px] font-mono text-neutral-500 mt-2 block overflow-hidden text-ellipsis whitespace-nowrap">
+                    No: {doc.bastNo}
+                  </p>
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    Jumlah: <strong className="text-neutral-700">{doc.bastJumlah} Box</strong> | Driver: {doc.bastDriver}
+                  </p>
+                  <span className="text-[9.5px] font-mono text-neutral-400 mt-0.5 block">
+                    Tanggal: {doc.date}
+                  </span>
+                </div>
 
-                    <div className="flex items-center justify-between mt-1">
-                      {!isDone && (
-                        <button
-                          onClick={(e) => handleDeleteDoc(doc.id, e)}
-                          className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
-                          title="Hapus berkas BAST"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      
-                      <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider flex items-center gap-0.5 ml-auto">
-                        {isDone ? 'Buka Berkas 📄' : 'Kelola & Isi ✍️'} 
-                        <ChevronRight className="h-3 w-3 translate-x-0 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
+                <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-col gap-2">
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500">
+                    <span>Tanda Tangan:</span>
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span className={hasDriverSig ? 'text-emerald-700' : 'text-neutral-400'}>Pihak I {hasDriverSig ? '✓' : '✗'}</span>
+                      <span>•</span>
+                      <span className={hasReceiverSig ? 'text-emerald-700' : 'text-neutral-400'}>Pihak II {hasReceiverSig ? '✓' : '✗'}</span>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-1">
+                    {!isDone && (
+                      <button
+                        onClick={(e) => handleDeleteDoc(doc.id, e)}
+                        className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                        title="Hapus berkas BAST"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    
+                    <span className="text-[9px] text-emerald-800 font-extrabold uppercase tracking-wider flex items-center gap-0.5 ml-auto">
+                      {isDone ? 'Buka Berkas 📄' : 'Kelola & Isi ✍️'} 
+                      <ChevronRight className="h-3 w-3 translate-x-0 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

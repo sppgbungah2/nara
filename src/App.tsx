@@ -150,13 +150,13 @@ export default function App() {
     }
     switch (currentUserRole) {
       case UserRole.CHEF:
-        setCurrentUsername('Chef Ahmad (Head Chef)');
+        setCurrentUsername('Rizka Aulia (Head Chef)');
         break;
       case UserRole.AHLI_GIZI:
         setCurrentUsername('Ustadzah Fatimah, S.Gz');
         break;
       case UserRole.ASLAP:
-        setCurrentUsername('Ustadz Hakim, S.Pd (Aslap)');
+        setCurrentUsername('Ahmad Maghfur (Aslap)');
         break;
       case UserRole.ADMIN:
         setCurrentUsername('Admin Utama SPPG');
@@ -228,8 +228,8 @@ export default function App() {
       const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
       Object.values(Division).forEach((div) => {
         const creatorInfo = DIVISION_CREATOR_MAP[div];
-        const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+        const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-15-${div}`;
         initialSopsInDatabase.push({
@@ -266,8 +266,8 @@ export default function App() {
       const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
       Object.values(Division).forEach((div) => {
         const creatorInfo = DIVISION_CREATOR_MAP[div];
-        const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+        const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-16-${div}`;
         initialSopsInDatabase.push({
@@ -317,8 +317,8 @@ export default function App() {
 
         Object.values(Division).forEach((div) => {
           const creatorInfo = DIVISION_CREATOR_MAP[div];
-          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
           
           const monSOP: SOPDocument = {
             id: `2026-06-15-${div}`,
@@ -343,8 +343,8 @@ export default function App() {
         const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
         Object.values(Division).forEach((div) => {
           const creatorInfo = DIVISION_CREATOR_MAP[div];
-          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Chef Ahmad' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ustadz Hakim, S.Pd';
+          const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
           
           const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
           const populatedTasks = defaultTasks.map((t: any, i: number) => 

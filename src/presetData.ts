@@ -171,11 +171,11 @@ export function generateInitialSOPsForDate(date: string, menuList: string[]): Re
   
   Object.values(Division).forEach(div => {
     const creatorInfo = DIVISION_CREATOR_MAP[div];
-    let creatorName = 'Bpk. Chef Ahmad';
+    let creatorName = 'Rizka Aulia';
     if (creatorInfo.role === UserRole.AHLI_GIZI) {
       creatorName = 'Ustadzah Fatimah, S.Gz';
     } else if (creatorInfo.role === UserRole.ASLAP) {
-      creatorName = 'Ustadz Hakim, S.Pd (Aslap)';
+      creatorName = 'Ahmad Maghfur (Aslap)';
     }
 
     const defaultTasks = getDefaultTasksForDivision(div, menuList).map((t, idx) => ({
