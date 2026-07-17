@@ -254,6 +254,69 @@ export default function SuratJalanView({
       const docQty = getPortionCount(sch);
       const breakdownStr = getPortionBreakdown(sch);
       
+      let sjRows = [];
+      if (sch === "MA Assa'adah") {
+        const g = portions.MA?.guru || 0;
+        const s = portions.MA?.siswa || 0;
+        const tot = g + s;
+        sjRows = [
+          { id: '1', jenis: 'Porsi Guru', porsi: g, alatSebelum: g, alatSesudah: g, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Siswa', porsi: s, alatSebelum: s, alatSesudah: s, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: tot, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      } else if (sch === "MTS Assa'adah II") {
+        const g = portions["MTS II"]?.guru || 0;
+        const s = portions["MTS II"]?.siswa || 0;
+        const tot = g + s;
+        sjRows = [
+          { id: '1', jenis: 'Porsi Guru', porsi: g, alatSebelum: g, alatSesudah: g, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Siswa', porsi: s, alatSebelum: s, alatSesudah: s, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: tot, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      } else if (sch === "SMA Assa'adah") {
+        const g = portions.SMA?.guru || 0;
+        const s = portions.SMA?.siswa || 0;
+        const tot = g + s;
+        sjRows = [
+          { id: '1', jenis: 'Porsi Guru', porsi: g, alatSebelum: g, alatSesudah: g, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Siswa', porsi: s, alatSebelum: s, alatSesudah: s, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: tot, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      } else if (sch === "SMK Assa'adah") {
+        const g = portions.SMK?.guru || 0;
+        const s = portions.SMK?.siswa || 0;
+        const tot = g + s;
+        sjRows = [
+          { id: '1', jenis: 'Porsi Guru', porsi: g, alatSebelum: g, alatSesudah: g, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Siswa', porsi: s, alatSebelum: s, alatSesudah: s, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: tot, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      } else if (sch === "Desa Sukowati") {
+        const b = portions.Sukowati?.besar || 0;
+        const k = portions.Sukowati?.kecil || 0;
+        const tot = b + k;
+        sjRows = [
+          { id: '1', jenis: 'Porsi Kecil', porsi: k, alatSebelum: k, alatSesudah: k, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Besar', porsi: b, alatSebelum: b, alatSesudah: b, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: tot, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      } else if (sch === "Desa Sidokumpul") {
+        const b = portions.Sidokumpul?.besar || 0;
+        const k = portions.Sidokumpul?.kecil || 0;
+        const tot = b + k;
+        sjRows = [
+          { id: '1', jenis: 'Porsi Kecil', porsi: k, alatSebelum: k, alatSesudah: k, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Besar', porsi: b, alatSebelum: b, alatSesudah: b, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: tot, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      } else {
+        sjRows = [
+          { id: '1', jenis: 'Porsi Guru', porsi: 15, alatSebelum: 15, alatSesudah: 15, keterangan: 'Hangat & Lengkap' },
+          { id: '2', jenis: 'Porsi Siswa', porsi: 120, alatSebelum: 120, alatSesudah: 120, keterangan: 'Hangat & Lengkap' },
+          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: 135, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
+        ];
+      }
+      
       return {
         id: `sj-${selectedDate}-${idx}-${Date.now()}`,
         type: 'surat_jalan',
@@ -269,11 +332,7 @@ export default function SuratJalanView({
         sjKepada: sch,
         sjWaktu: '11:00 WIB',
         sjDriver: loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0],
-        sjRows: [
-          { id: '1', jenis: isDesa ? 'Paket Program Makan Bergizi Gratis (Warga Desa)' : 'Paket Program Makan Bergizi Gratis', porsi: docQty, alatSebelum: docQty, alatSesudah: docQty, keterangan: 'Hangat & Lengkap' },
-          { id: '2', jenis: 'Buah Melon Potong Segar', porsi: docQty, alatSebelum: 0, alatSesudah: 0, keterangan: 'Kondisi Baik' },
-          { id: '3', jenis: 'Susu Kotak UHT 125ml', porsi: docQty, alatSebelum: 0, alatSesudah: 0, keterangan: 'Karton Utuh' }
-        ],
+        sjRows,
         sjSignatureAslap: '',
         sjSignatureReceiver: ''
       };

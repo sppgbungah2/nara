@@ -187,13 +187,17 @@ export default function OrganoleptikView({
 
   const dateText = getIndonesianDateText(selectedDate);
 
-  // Components to be rated
+  // Find daily menu to map dish names dynamically to Organoleptik items
+  const currentDayMenuForOrlep = allDayMenus.find(m => m.date === selectedDate);
+  const menuListForOrlep = currentDayMenuForOrlep?.menuList || [];
+
+  // Components to be rated, mapping each to the corresponding daily menu item
   const evaluationComponents = [
-    { code: 'MP', name: 'Makanan Pokok (Nasi)' },
-    { code: 'LH', name: 'Lauk Hewani (Daging/Ayam)' },
-    { code: 'LN', name: 'Lauk Nabati (Tahu/Tempe)' },
-    { code: 'SY', name: 'Sayur Hidangan' },
-    { code: 'B', name: 'Buah Segar / Susu' }
+    { code: 'MP', name: `Makanan Pokok (${menuListForOrlep[0] || 'Nasi Putih'})` },
+    { code: 'LH', name: `Lauk Hewani (${menuListForOrlep[1] || 'Lauk Protein'})` },
+    { code: 'LN', name: `Lauk Nabati (${menuListForOrlep[2] || 'Tahu/Tempe'})` },
+    { code: 'SY', name: `Sayur Hidangan (${menuListForOrlep[3] || 'Sayuran'})` },
+    { code: 'B', name: `Buah / Susu (${menuListForOrlep[4] || 'Buah/Susu'})` }
   ];
 
   // Recalculate average scores in real-time

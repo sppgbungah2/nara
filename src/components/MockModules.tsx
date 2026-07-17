@@ -1887,13 +1887,16 @@ function ShippingDocPanel({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-950 text-center font-bold text-neutral-850">
-                        {[
-                          { code: 'MP', name: 'MP (Makanan Pokok / Nasi)' },
-                          { code: 'LH', name: 'LH (Lauk Hewani / Ayam)' },
-                          { code: 'LN', name: 'LN (Lauk Nabati / Tahu)' },
-                          { code: 'SY', name: 'SY (Sayur Wortel Jagung)' },
-                          { code: 'B', name: 'B (Buah Segar / Melon)' }
-                        ].map(comp => {
+                        {(() => {
+                          const menuItems = (activeDocView.orlepMenu || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                          return [
+                            { code: 'MP', name: `Makanan Pokok (${menuItems[0] || 'Nasi Putih'})` },
+                            { code: 'LH', name: `Lauk Hewani (${menuItems[1] || 'Lauk Protein'})` },
+                            { code: 'LN', name: `Lauk Nabati (${menuItems[2] || 'Tahu/Tempe'})` },
+                            { code: 'SY', name: `Sayur Hidangan (${menuItems[3] || 'Sayuran'})` },
+                            { code: 'B', name: `Buah / Susu (${menuItems[4] || 'Buah/Suku'})` }
+                          ];
+                        })().map(comp => {
                           const r = activeDocView.orlepGrid?.[`${comp.code}_rasa`] || 4;
                           const w = activeDocView.orlepGrid?.[`${comp.code}_warna`] || 4;
                           const a = activeDocView.orlepGrid?.[`${comp.code}_aroma`] || 4;
