@@ -32,7 +32,7 @@ export interface OrderRequestItem {
   qty: string;
   reason: string;
   category: 'alat' | 'operasional';
-  status: 'pending' | 'disetujui' | 'ditolak';
+  status: 'pending' | 'disetujui' | 'ditolak' | 'ditolak_admin_utama';
   created_by?: string;
   created_at?: string;
   notes?: string;
@@ -1978,6 +1978,27 @@ function ShippingDocPanel({
   );
 }
 
+// CSV Helper for Excel exports
+const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
+  const content = [
+    headers.join(';'),
+    ...rows.map(row => row.map(val => {
+      const cleanVal = String(val || '').replace(/"/g, '""');
+      return `"${cleanVal}"`;
+    }).join(';'))
+  ].join('\r\n');
+  
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 export default function MockModules({ 
   moduleIndex, 
   onSetMenu,
@@ -2127,8 +2148,16 @@ export default function MockModules({
     });
   };
 
+  const [localKdDate, setLocalKdDate] = useState<string>(selectedDate || '2026-06-16');
+
   useEffect(() => {
-    const activeDate = selectedDate || '2026-06-16';
+    if (selectedDate) {
+      setLocalKdDate(selectedDate);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const activeDate = localKdDate || '2026-06-16';
     if (!kedatanganMap[activeDate]) {
       const initial = getSopTemplateForDate(activeDate).map((item, idx) => ({
         ...item,
@@ -2142,10 +2171,11 @@ export default function MockModules({
         };
       });
     }
-  }, [selectedDate]);
+  }, [localKdDate]);
 
   // Form states for adding new incoming goods (Kedatangan Barang)
   const [isAddingKedatangan, setIsAddingKedatangan] = useState(false);
+  const [kdTab, setKdTab] = useState<'rekap' | 'detail'>('rekap');
   const [newKdName, setNewKdName] = useState('');
   const [newKdQty, setNewKdQty] = useState('');
   const [newKdUom, setNewKdUom] = useState('kg');
@@ -2347,6 +2377,7 @@ export default function MockModules({
     barangMasuk: number;
     stokAkhir: number;
     uom: string;
+    expiredDate?: string;
   }
 
   interface TrashItem {
@@ -2448,6 +2479,7 @@ export default function MockModules({
   const [newStockBarangMasuk, setNewStockBarangMasuk] = useState('0');
   const [newStockStokAkhir, setNewStockStokAkhir] = useState('0');
   const [newStockUom, setNewStockUom] = useState('Kg');
+  const [newStockExpiredDate, setNewStockExpiredDate] = useState('');
   const [isAddingStockItem, setIsAddingStockItem] = useState(false);
 
   // Waste (Rekap Sampah) States & Views
@@ -2519,6 +2551,62 @@ export default function MockModules({
   const [newTrashSisaOrganik, setNewTrashSisaOrganik] = useState(0);
   const [newTrashSisaAnorganik, setNewTrashSisaAnorganik] = useState(0);
   const [isAddingTrash, setIsAddingTrash] = useState(false);
+
+  // Auto-sync Trash Menu and Portions when date changes
+  useEffect(() => {
+    if (!newTrashDate) return;
+    
+    // 1. Map Day name
+    const indonesianDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    try {
+      const d = new Date(newTrashDate);
+      const dayName = indonesianDays[d.getDay()];
+      setNewTrashHari(dayName);
+    } catch (e) {
+      // ignore
+    }
+
+    // 2. Map Menu Name from allDayMenus
+    const foundMenu = allDayMenus?.find(m => m.date === newTrashDate);
+    if (foundMenu && foundMenu.menuList && foundMenu.menuList.length > 0) {
+      setNewTrashMenu(foundMenu.menuList.join(', '));
+    } else {
+      setNewTrashMenu('');
+    }
+
+    // 3. Map Master Portions
+    const DEFAULT_PORTIONS_LOCAL = {
+      MA: { guru: 15, siswa: 120 },
+      "MTS II": { guru: 12, siswa: 110 },
+      SMK: { guru: 18, siswa: 135 },
+      SMA: { guru: 14, siswa: 115 },
+      Sukowati: { besar: 80, kecil: 40 },
+      Sidokumpul: { besar: 95, kecil: 45 }
+    };
+
+    let portionConfig = DEFAULT_PORTIONS_LOCAL;
+    try {
+      const saved = localStorage.getItem(`sppg_portions_${newTrashDate}`);
+      if (saved) {
+        portionConfig = JSON.parse(saved);
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const porsiBesar = 
+      (portionConfig.MA?.guru || 0) + (portionConfig.MA?.siswa || 0) +
+      (portionConfig["MTS II"]?.guru || 0) + (portionConfig["MTS II"]?.siswa || 0) +
+      (portionConfig.SMK?.guru || 0) + (portionConfig.SMK?.siswa || 0) +
+      (portionConfig.SMA?.guru || 0) + (portionConfig.SMA?.siswa || 0) +
+      (portionConfig.Sukowati?.besar || 0) + (portionConfig.Sidokumpul?.besar || 0);
+
+    const porsiKecil = (portionConfig.Sukowati?.kecil || 0) + (portionConfig.Sidokumpul?.kecil || 0);
+
+    setNewTrashPorsiBesar(porsiBesar);
+    setNewTrashPorsiKecil(porsiKecil);
+
+  }, [newTrashDate, allDayMenus]);
 
   // States for case 10 (Menu Harian Gizi Ponpes) declared at top-level to satisfy Rules of Hooks:
   const [localSchedDate, setLocalSchedDate] = useState(() => {
@@ -2904,7 +2992,7 @@ export default function MockModules({
   };
 
   // Handle updating order request status (Admin)
-  const handleUpdateOrderStatus = async (id: string, nextStatus: 'disetujui' | 'ditolak') => {
+  const handleUpdateOrderStatus = async (id: string, nextStatus: 'disetujui' | 'ditolak' | 'ditolak_admin_utama') => {
     const notes = adminNoteInput[id] || '';
     let isUpdatedRemote = false;
 
@@ -3727,9 +3815,12 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                         <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-extrabold border ${
                           req.status === 'disetujui' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
                           req.status === 'ditolak' ? 'bg-red-50 text-red-800 border-red-200' :
+                          req.status === 'ditolak_admin_utama' ? 'bg-rose-50 text-rose-850 border-rose-200 font-extrabold' :
                           'bg-amber-50 text-amber-800 border-amber-200 animate-pulse'
                         }`}>
-                          {req.status === 'pending' ? '⌛ Pending' : req.status === 'disetujui' ? '✓ Disetujui' : '✗ Ditolak'}
+                          {req.status === 'pending' ? '⌛ Pending' : 
+                           req.status === 'disetujui' ? '✓ Disetujui' : 
+                           req.status === 'ditolak_admin_utama' ? '✗ Ditolak Admin Utama' : '✗ Ditolak'}
                         </span>
                       </div>
 
@@ -3749,25 +3840,32 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                       {/* Admin panel controls (Only visible for maghfurmunif@gmail.com and pending state) */}
                       {isAdmin && req.status === 'pending' && (
                         <div className="border-t border-neutral-100 pt-3 flex flex-col gap-2">
-                          <div className="flex gap-2 items-center">
+                          <div className="flex gap-2 items-center flex-wrap">
                             <input 
                               type="text"
                               value={adminNoteInput[req.id] || ''}
                               onChange={e => setAdminNoteInput({ ...adminNoteInput, [req.id]: e.target.value })}
                               placeholder="Masukkan catatan keputusan admin (cth: Di-order ke supplier, Dana disetujui)"
-                              className="text-xs border border-neutral-200 rounded-lg px-3 py-1.5 flex-1 bg-white focus:outline-emerald-700"
+                              className="text-xs border border-neutral-200 rounded-lg px-3 py-1.5 flex-1 bg-white focus:outline-emerald-700 min-w-[200px]"
                             />
                             <button
                               onClick={() => handleUpdateOrderStatus(req.id, 'disetujui')}
-                              className="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[10px] uppercase px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+                              className="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[10px] uppercase px-3 py-2 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                             >
                               <Check className="h-3.5 w-3.5" /> Setujui
                             </button>
                             <button
                               onClick={() => handleUpdateOrderStatus(req.id, 'ditolak')}
-                              className="bg-red-750 hover:bg-red-850 text-white font-extrabold text-[10px] uppercase px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
+                              className="bg-red-700 hover:bg-red-800 text-white font-extrabold text-[10px] uppercase px-3 py-2 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                             >
                               <X className="h-3.5 w-3.5" /> Tolak
+                            </button>
+                            <button
+                              onClick={() => handleUpdateOrderStatus(req.id, 'ditolak_admin_utama')}
+                              className="bg-rose-700 hover:bg-rose-800 text-white font-extrabold text-[10px] uppercase px-3 py-2 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Tolak sebagai Admin Utama"
+                            >
+                              <X className="h-3.5 w-3.5" /> Tolak (Admin Utama)
                             </button>
                           </div>
                         </div>
@@ -3785,7 +3883,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
       );
 
     case 6: { // Kedatangan Barang
-      const activeDate = selectedDate || '2026-06-16';
+      const activeDate = localKdDate || '2026-06-16';
       const itemsList = kedatanganMap[activeDate] || [];
       const filteredList = itemsList.filter(item => 
         item.name.toLowerCase().includes(kdSearchTerm.toLowerCase()) ||
@@ -3875,6 +3973,30 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
         }
       };
 
+      const exportKedatanganToCSV = (dateStr: string, items: KedatanganBarangItem[]) => {
+        const filename = `Laporan_Kedatangan_Barang_${dateStr}.csv`;
+        const headers = ['Nama Barang', 'Jumlah', 'Satuan (UoM)', 'Supplier', 'Hasil Pemeriksaan Fisik', 'Status Input Inventori', 'Spesifikasi'];
+        const rows = items.map(item => [
+          `"${item.name.replace(/"/g, '""')}"`,
+          item.qty,
+          item.uom,
+          `"${item.supplier.replace(/"/g, '""')}"`,
+          item.checker,
+          item.input,
+          `"${(item.specification || '').replace(/"/g, '""')}"`
+        ]);
+        
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
       return (
         <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-6">
           {/* Header */}
@@ -3885,30 +4007,31 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                 Penerimaan & Kedatangan Barang Logistik
               </h2>
               <p className="text-xs text-neutral-500 mt-1">
-                Pengecekan kesesuaian bumbu, sayur, daging, dan gas yang dikirim supplier SPPG untuk tanggal <span className="font-semibold text-emerald-800">{activeDate}</span>
+                Pengecekan kesesuaian bumbu, sayur, daging, dan gas yang dikirim supplier SPPG.
               </p>
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => {
-                  triggerSuccessMsg(`Berhasil merekam data pemeriksaan fisik tanggal ${activeDate} ke sistem database logistik SPPG!`);
+                  triggerSuccessMsg(`Berhasil merekam data pemeriksaan fisik tanggal ${activeDate} ke sistem database logistik SPPG dan mengunduh Excel!`);
+                  exportKedatanganToCSV(activeDate, itemsList);
                 }}
-                className="bg-emerald-700 hover:bg-emerald-850 text-white text-xs font-bold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs hover:shadow-xs active:scale-[0.98]"
+                className="bg-emerald-700 hover:bg-emerald-850 text-white text-xs font-bold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs hover:shadow-xs active:scale-[0.98] cursor-pointer"
               >
-                <Save className="h-4 w-4" /> Simpan Pemeriksaan
+                <Save className="h-4 w-4" /> Simpan & Ekspor Excel
               </button>
               
               <button
                 onClick={() => setShowSopPrintView(true)}
-                className="bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 text-xs font-bold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs active:scale-[0.98]"
+                className="bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 text-xs font-bold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs active:scale-[0.98] cursor-pointer"
               >
                 <Clipboard className="h-4 w-4 text-stone-600" /> Cetak / Print SOP
               </button>
 
               <button
                 onClick={() => setIsAddingKedatangan(!isAddingKedatangan)}
-                className="bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold px-3 py-2.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 {isAddingKedatangan ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} 
                 {isAddingKedatangan ? 'Batal' : 'Tambah Barang'}
@@ -3916,11 +4039,118 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
             </div>
           </div>
 
+          {/* Tab Navigation */}
+          <div className="flex border-b border-neutral-200">
+            <button
+              onClick={() => setKdTab('rekap')}
+              className={`px-4 py-2 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                kdTab === 'rekap' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              📊 Semua Hari (Rekap Kartu)
+            </button>
+            <button
+              onClick={() => setKdTab('detail')}
+              className={`px-4 py-2 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                kdTab === 'detail' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-neutral-500 hover:text-neutral-800'
+              }`}
+            >
+              📝 Detail Pemeriksaan Harian ({activeDate})
+            </button>
+          </div>
+
           {successMsg && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs flex items-center gap-2">
               <CheckCircle className="h-4 w-4 animate-bounce" /> {successMsg}
             </div>
           )}
+
+          {kdTab === 'rekap' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(() => {
+                const datesWithData = Array.from(new Set([
+                  ...Object.keys(kedatanganMap),
+                  '2026-06-16',
+                  '2026-06-17',
+                  '2026-06-18',
+                  '2026-06-19',
+                  '2026-06-20'
+                ])).sort().reverse();
+
+                return datesWithData.map(date => {
+                  const items = kedatanganMap[date] || [];
+                  const total = items.length;
+                  const lengkap = items.filter(i => i.checker === 'LENGKAP').length;
+                  const kurang = items.filter(i => i.checker === 'KURANG').length;
+                  const batal = items.filter(i => i.checker === 'BATAL').length;
+
+                  // Day label
+                  const daysInIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                  const parsedDate = new Date(date);
+                  const dayName = isNaN(parsedDate.getTime()) ? 'Hari' : daysInIndo[parsedDate.getDay()];
+
+                  return (
+                    <div key={date} className="bg-white border border-neutral-200 rounded-xl shadow-2xs hover:border-emerald-400 hover:shadow-xs transition-all p-5 flex flex-col justify-between space-y-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="bg-neutral-100 text-neutral-800 text-[10px] font-black px-2 py-0.5 rounded font-mono">
+                            {date}
+                          </span>
+                          <span className="text-xs font-black text-neutral-500">{dayName}</span>
+                        </div>
+                        <h3 className="text-sm font-bold text-neutral-800">
+                          Penerimaan Logistik SPPG
+                        </h3>
+                        <p className="text-[11px] text-neutral-500 line-clamp-2">
+                          {total > 0 
+                            ? `Menerima ${total} item logistik dari supplier (e.g. ${items.slice(0, 2).map(i => i.name).join(', ')}).`
+                            : 'Belum ada item logistik yang dicatat untuk hari ini.'}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1 text-center py-2 border-y border-neutral-100">
+                        <div className="bg-emerald-50 rounded p-1.5">
+                          <span className="text-[8px] text-emerald-700 block font-bold">LENGKAP</span>
+                          <span className="text-xs font-extrabold text-emerald-950 font-mono">{lengkap}</span>
+                        </div>
+                        <div className="bg-amber-50 rounded p-1.5">
+                          <span className="text-[8px] text-amber-700 block font-bold">KURANG</span>
+                          <span className="text-xs font-extrabold text-amber-950 font-mono">{kurang}</span>
+                        </div>
+                        <div className="bg-red-50 rounded p-1.5">
+                          <span className="text-[8px] text-red-700 block font-bold">BATAL</span>
+                          <span className="text-xs font-extrabold text-red-950 font-mono">{batal}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+                        <button
+                          onClick={() => {
+                            setLocalKdDate(date);
+                            setKdTab('detail');
+                          }}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg transition-colors flex-1 text-center cursor-pointer"
+                        >
+                          Buka Detail
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportKedatanganToCSV(date, items);
+                            triggerSuccessMsg(`Laporan logistik untuk ${date} berhasil diunduh!`);
+                          }}
+                          className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors border border-stone-200 cursor-pointer"
+                          title="Unduh Excel"
+                        >
+                          📥 Unduh Excel
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          ) : (
+            <div className="space-y-6">
 
           {/* Stats Summary Panel */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -4180,6 +4410,8 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               </table>
             </div>
           </div>
+          </div>
+          )}
 
           {/* Specification Modal */}
           {activeKdSpecItem && (
@@ -4799,14 +5031,36 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
         </div>
       );
 
-    case 12: // Stock Opname revamping
+    case 12: { // Stock Opname revamping
+      const exportStockOpnameToCSV = (dateStr: string, items: StockItem[]) => {
+        const filename = `Laporan_Stock_Opname_${dateStr}.csv`;
+        const headers = ['Kategori', 'Nama Bahan', 'Stok Awal', 'Barang Masuk', 'Stok Akhir', 'Satuan (UoM)', 'Tanggal Expired', 'Status Threshold'];
+        const rows = items.map(item => {
+          const stokAkhir = item.stokAkhir || 0;
+          let status = 'Aman';
+          if (stokAkhir <= 0) status = 'Habis';
+          else if (stokAkhir <= 10) status = 'Menipis';
+          return [
+            item.category,
+            item.name,
+            String(item.stokAwal),
+            String(item.barangMasuk),
+            String(stokAkhir),
+            item.uom,
+            item.expiredDate || '-',
+            status
+          ];
+        });
+        downloadCSV(filename, headers, rows);
+      };
+
       const filteredStockItems = activeStockList.filter(item => {
         const matchesCategory = selectedCategoryFilter === 'Semua' || item.category === selectedCategoryFilter;
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesCategory && matchesSearch;
       });
 
-      const handleUpdateStockItem = (id: string, field: 'stokAwal' | 'barangMasuk' | 'stokAkhir' | 'uom', value: any) => {
+      const handleUpdateStockItem = (id: string, field: 'stokAwal' | 'barangMasuk' | 'stokAkhir' | 'uom' | 'expiredDate', value: any) => {
         setStockMap(prev => {
           const currentList = prev[selectedStockDate] && prev[selectedStockDate].length > 0
             ? prev[selectedStockDate]
@@ -4834,7 +5088,8 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           stokAwal: parseFloat(newStockStokAwal) || 0,
           barangMasuk: parseFloat(newStockBarangMasuk) || 0,
           stokAkhir: parseFloat(newStockStokAkhir) || 0,
-          uom: newStockUom
+          uom: newStockUom,
+          expiredDate: newStockExpiredDate || ''
         };
 
         setStockMap(prev => {
@@ -4850,6 +5105,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
         setNewStockBarangMasuk('0');
         setNewStockStokAkhir('0');
         setNewStockUom('Kg');
+        setNewStockExpiredDate('');
         setIsAddingStockItem(false);
         triggerSuccessMsg(`Bahan "${newItem.name}" berhasil ditambahkan ke kategori ${newItem.category} pada tanggal ${selectedStockDate}!`);
       };
@@ -4892,7 +5148,8 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               return { 
                 ...nextItem, 
                 stokAwal: newStokAwal,
-                stokAkhir: newStokAkhir
+                stokAkhir: newStokAkhir,
+                expiredDate: itemToSave.expiredDate || nextItem.expiredDate || ''
               };
             }
             return nextItem;
@@ -4906,7 +5163,8 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               stokAwal: itemToSave.stokAkhir,
               barangMasuk: 0,
               stokAkhir: itemToSave.stokAkhir,
-              uom: itemToSave.uom
+              uom: itemToSave.uom,
+              expiredDate: itemToSave.expiredDate || ''
             });
           }
 
@@ -4917,7 +5175,9 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           };
         });
 
-        triggerSuccessMsg(`Stok "${itemToSave.name}" berhasil disimpan! Stok Akhir (${itemToSave.stokAkhir} ${itemToSave.uom}) otomatis disalin menjadi Stok Awal untuk esok hari (${nextDateStr}).`);
+        // Trigger CSV/Excel export on individual save
+        exportStockOpnameToCSV(selectedStockDate, activeStockList.map(it => it.id === itemToSave.id ? itemToSave : it));
+        triggerSuccessMsg(`Stok "${itemToSave.name}" berhasil disimpan & laporan Excel terunduh! Stok Akhir (${itemToSave.stokAkhir} ${itemToSave.uom}) otomatis disalin menjadi Stok Awal untuk esok hari (${nextDateStr}).`);
       };
 
       const handleSyncAllToNextDay = () => {
@@ -4945,7 +5205,8 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               updatedNextDayList[idx] = {
                 ...nextItem,
                 stokAwal: newStokAwal,
-                stokAkhir: newStokAkhir
+                stokAkhir: newStokAkhir,
+                expiredDate: todayItem.expiredDate || nextItem.expiredDate || ''
               };
             } else {
               updatedNextDayList.push({
@@ -4955,7 +5216,8 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                 stokAwal: todayItem.stokAkhir,
                 barangMasuk: 0,
                 stokAkhir: todayItem.stokAkhir,
-                uom: todayItem.uom
+                uom: todayItem.uom,
+                expiredDate: todayItem.expiredDate || ''
               });
             }
           });
@@ -4966,7 +5228,9 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           };
         });
 
-        triggerSuccessMsg(`Sukses menyimpan seluruh data! Stok Akhir per hari ini otomatis disalin menjadi Stok Awal untuk esok hari tanggal ${nextDateStr}.`);
+        // Trigger CSV/Excel export on batch save
+        exportStockOpnameToCSV(selectedStockDate, activeStockList);
+        triggerSuccessMsg(`Sukses menyimpan seluruh data & mengunduh laporan Excel! Stok Akhir per hari ini otomatis disalin menjadi Stok Awal untuk esok hari tanggal ${nextDateStr}.`);
       };
 
       return (
@@ -4993,14 +5257,19 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                 <Save className="h-4 w-4" /> Simpan & Salin ke Besok
               </button>
               <button
+                type="button"
                 onClick={() => setIsAddingStockItem(!isAddingStockItem)}
                 className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
               >
                 <Plus className="h-4 w-4" /> {isAddingStockItem ? 'Batal' : 'Tambah Bahan Baru'}
               </button>
               <button
-                onClick={() => triggerSuccessMsg("Seluruh data laporan Stock Opname berhasil diekspor ke format Excel!")}
-                className="border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold px-4 py-2 rounded-lg"
+                type="button"
+                onClick={() => {
+                  exportStockOpnameToCSV(selectedStockDate, activeStockList);
+                  triggerSuccessMsg("Seluruh data laporan Stock Opname berhasil diekspor ke format Excel!");
+                }}
+                className="border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer"
               >
                 Ekspor Excel
               </button>
@@ -5017,7 +5286,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           {isAddingStockItem && (
             <form onSubmit={handleCreateStockItem} className="bg-neutral-50 p-4 rounded-xl border border-neutral-250 space-y-4">
               <h3 className="text-xs font-bold font-mono text-emerald-900 uppercase tracking-wider">Formulir Tambah Bahan Baru</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Bahan</label>
                   <input
@@ -5080,6 +5349,15 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                     value={newStockStokAkhir}
                     onChange={e => setNewStockStokAkhir(e.target.value)}
                     className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Tanggal Expired</label>
+                  <input
+                    type="date"
+                    value={newStockExpiredDate}
+                    onChange={e => setNewStockExpiredDate(e.target.value)}
+                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white text-neutral-850"
                   />
                 </div>
               </div>
@@ -5196,13 +5474,15 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                   <th className="py-3 px-4 text-center w-24">Barang Masuk</th>
                   <th className="py-3 px-4 text-center w-24">Stok Akhir</th>
                   <th className="py-3 px-4 text-center w-24">UoM</th>
+                  <th className="py-3 px-4 text-center w-36">Tgl Expired</th>
+                  <th className="py-3 px-4 text-center w-32">Status</th>
                   <th className="py-3 px-4 text-center w-28">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {filteredStockItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-neutral-400 font-medium text-xs">
+                    <td colSpan={9} className="py-8 text-center text-neutral-400 font-medium text-xs">
                       Tidak ada data bahan yang sesuai filter
                     </td>
                   </tr>
@@ -5250,6 +5530,26 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                           className="w-20 text-center border border-neutral-200 rounded px-1.5 py-1 text-xs bg-white text-neutral-800"
                         />
                       </td>
+                      <td className="py-1 px-2 text-center">
+                        <input
+                          type="date"
+                          value={item.expiredDate || ''}
+                          onChange={e => handleUpdateStockItem(item.id, 'expiredDate', e.target.value)}
+                          className="text-xs border border-neutral-200 rounded px-1.5 py-1 bg-white text-neutral-800 shadow-2xs"
+                        />
+                      </td>
+                      <td className="py-1 px-2 text-center">
+                        {(() => {
+                          const stokAkhir = item.stokAkhir || 0;
+                          if (stokAkhir <= 0) {
+                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800 border border-red-200">Merah Habis</span>;
+                          } else if (stokAkhir <= 10) {
+                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200">Oranye Menipis</span>;
+                          } else {
+                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200">Hijau Aman</span>;
+                          }
+                        })()}
+                      </td>
                       <td className="py-2 px-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
@@ -5287,6 +5587,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           </div>
         </div>
       );
+    }
 
     case 13: // Request Bahan dan Alat
       return (
@@ -5648,6 +5949,61 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
         currentStatus = 'Baik';
         currentBg = 'bg-amber-100 text-amber-800';
       }
+
+      // Pie chart calculations for overall food waste composition
+      const totalMP = trashItems.reduce((acc, it) => acc + (it.sampahMP || 0), 0);
+      const totalLN = trashItems.reduce((acc, it) => acc + (it.sampahLN || 0), 0);
+      const totalLH = trashItems.reduce((acc, it) => acc + (it.sampahLH || 0), 0);
+      const totalSY = trashItems.reduce((acc, it) => acc + (it.sampahSY || 0), 0);
+      const totalBuah = trashItems.reduce((acc, it) => acc + (it.sampahBuah || 0), 0);
+      const grandTotalWaste = totalMP + totalLN + totalLH + totalSY + totalBuah;
+
+      const pieData = [
+        { label: 'Makanan Pokok', value: totalMP, color: '#0f766e' }, // teal-700
+        { label: 'Lauk Nabati', value: totalLN, color: '#f59e0b' },   // amber-500
+        { label: 'Lauk Hewani', value: totalLH, color: '#e11d48' },   // rose-600
+        { label: 'Sayur Hidangan', value: totalSY, color: '#10b981' }, // emerald-500
+        { label: 'Buah / Susu', value: totalBuah, color: '#3b82f6' }  // blue-500
+      ].filter(d => d.value > 0);
+
+      const getCoordinatesForPercent = (percent: number) => {
+        const angle = percent * 2 * Math.PI - Math.PI / 2;
+        const x = Math.cos(angle);
+        const y = Math.sin(angle);
+        return [x, y];
+      };
+
+      const getPieSlices = (data: { label: string; value: number; color: string }[]) => {
+        const total = data.reduce((sum, item) => sum + item.value, 0);
+        if (total === 0) return [];
+        
+        let accumulatedPercent = 0;
+        return data.map((slice) => {
+          const startPercent = accumulatedPercent;
+          accumulatedPercent += slice.value / total;
+          const endPercent = accumulatedPercent;
+          
+          const [startX, startY] = getCoordinatesForPercent(startPercent);
+          const [endX, endY] = getCoordinatesForPercent(endPercent);
+          
+          const largeArcFlag = slice.value / total > 0.5 ? 1 : 0;
+          
+          const pathData = [
+            `M 50 50`,
+            `L ${50 + 40 * startX} ${50 + 40 * startY}`,
+            `A 40 40 0 ${largeArcFlag} 1 ${50 + 40 * endX} ${50 + 40 * endY}`,
+            `Z`
+          ].join(' ');
+          
+          return {
+            pathData,
+            ...slice,
+            percent: ((slice.value / total) * 100).toFixed(1)
+          };
+        });
+      };
+
+      const slices = getPieSlices(pieData);
 
       return (
         <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-6">
@@ -6033,10 +6389,12 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
             </div>
           </div>
 
-          {/* Render layout matching view mode */}
-          {wasteViewMode === 'card' ? (
-            /* VISUAL DAILY CARDS (SANGAT MUDAH DIBACA PER HARI) */
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column (Content) */}
+            <div className="lg:col-span-2 space-y-4">
+              {wasteViewMode === 'card' ? (
+                /* SIMPLIFIED VISUAL DAILY CARDS */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {trashItems.length === 0 ? (
                 <div className="col-span-2 p-12 text-center border-2 border-dashed border-neutral-200 rounded-2xl text-neutral-400 font-medium font-sans">
                   Belum ada laporan sampah piring masakan yang ditambahkan.
@@ -6044,184 +6402,53 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               ) : (
                 trashItems.map(item => {
                   const stats = getKelayakanStats(item);
-                  const isExpanded = !!expandedLogs[item.id];
-                  
-                  // Total weights in kg
-                  const mpWeight = { kirim: (item.gramasiMP / 1000).toFixed(1), sisa: (item.sampahMP / 1000).toFixed(1) };
-                  const lnWeight = { kirim: (item.gramasiLN / 1000).toFixed(1), sisa: (item.sampahLN / 1000).toFixed(1) };
-                  const lhWeight = { kirim: (item.gramasiLH / 1000).toFixed(1), sisa: (item.sampahLH / 1000).toFixed(1) };
-                  const syWeight = { kirim: (item.gramasiSY / 1000).toFixed(1), sisa: (item.sampahSY / 1000).toFixed(1) };
-                  const bhWeight = { kirim: (item.gramasiBuah / 1000).toFixed(1), sisa: (item.sampahBuah / 1000).toFixed(1) };
-
                   return (
-                    <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl shadow-xs overflow-hidden flex flex-col hover:border-emerald-250 hover:shadow-xs transition-all duration-200">
-                      {/* Card Header: Tanggal & Indeks status */}
-                      <div className="bg-neutral-50/80 px-5 py-4 border-b border-neutral-150 flex flex-wrap items-center justify-between gap-3 font-sans">
-                        <div className="flex items-center gap-2.5">
-                          <div className="bg-white rounded-lg border border-neutral-200 shadow-2xs px-2.5 py-1 text-center min-w-[55px]">
-                            <span className="block text-[8px] font-black text-neutral-400 uppercase tracking-widest">{item.hari}</span>
-                            <span className="block text-sm font-black font-mono text-neutral-800 leading-none mt-0.5">{item.tanggal.substring(8)}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-neutral-400 font-mono block select-none">{item.tanggal}</span>
-                            <span className="text-xs font-black text-neutral-700 block">{item.hari}</span>
-                          </div>
+                    <div key={item.id} className="bg-white border border-neutral-200 rounded-xl shadow-2xs overflow-hidden flex flex-col hover:border-emerald-300 transition-all">
+                      <div className="bg-neutral-50 px-4 py-3 border-b border-neutral-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-neutral-200 text-neutral-800 text-[9px] font-bold px-2 py-0.5 rounded font-mono">{item.tanggal}</span>
+                          <span className="text-xs font-bold text-neutral-700">{item.hari}</span>
                         </div>
-
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wide border ${stats.bgStyle}`}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current"></span>
-                          {stats.statusText} • {stats.percent}% Terkonsumsi
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${stats.bgStyle}`}>
+                          {stats.statusText} ({stats.percent}%)
                         </span>
                       </div>
-
-                      {/* Main Card Body */}
-                      <div className="p-5 flex-1 space-y-4 font-sans">
+                      <div className="p-4 space-y-3 flex-1 text-xs">
                         <div>
-                          <span className="text-[9px] font-black tracking-wider text-emerald-800 uppercase block select-none">NAMA MENU DIKONSUMSI</span>
-                          <h3 className="text-base font-bold text-neutral-800 mt-1 leading-snug">
-                            {item.namaMenu}
-                          </h3>
+                          <span className="text-[9px] text-neutral-400 block font-bold uppercase">Menu</span>
+                          <span className="font-semibold text-neutral-800 text-xs">{item.namaMenu || 'Belum diisi'}</span>
                         </div>
-
-                        {/* Porsi & General Volume */}
-                        <div className="flex gap-4 border-t border-b border-neutral-105 py-3 text-xs text-neutral-600">
+                        <div className="grid grid-cols-2 gap-2 border-t border-neutral-100 pt-2 text-[11px] text-neutral-600">
                           <div>
-                            <span className="text-[9px] text-neutral-400 block uppercase font-bold">Total Porsi Masak:</span>
-                            <span className="text-neutral-800 font-bold block mt-0.5">
-                              {item.porsiBesar + item.porsiKecil} Porsi
-                            </span>
-                            <span className="text-[10px] text-neutral-500 font-mono">
-                              ({item.porsiBesar} Besar / {item.porsiKecil} Kecil)
-                            </span>
+                            <span className="text-[9px] text-neutral-400 block">Total Porsi</span>
+                            <span className="font-bold text-neutral-800">{item.porsiBesar + item.porsiKecil} Porsi</span>
+                            <span className="text-[9px] text-neutral-500 block">({item.porsiBesar} Bsr / {item.porsiKecil} Kcl)</span>
                           </div>
-                          <div className="border-l border-neutral-150 pl-4">
-                            <span className="text-[9px] text-neutral-400 block uppercase font-bold">Volume Tonase Pangan:</span>
-                            <span className="text-neutral-800 font-bold block mt-0.5">
-                              {(stats.totalKirim / 1000).toFixed(1)} Kg Dikirim
-                            </span>
-                            <span className="text-[10px] text-rose-700 font-mono font-semibold">
-                              {stats.totalSampah} Gram Sisa Piring
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Visual Segmented Progress Bar */}
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between text-[11px] font-semibold">
-                            <span className="text-emerald-805">Eaten: {stats.percent}%</span>
-                            <span className="text-neutral-450 text-rose-700">Wasted: {(100 - Number(stats.percent)).toFixed(1)}%</span>
-                          </div>
-                          <div className="h-2.5 w-full bg-neutral-100 rounded-full overflow-hidden flex shadow-inner border border-neutral-250">
-                            <div className="bg-emerald-500 h-full transition-all" style={{ width: `${stats.percent}%` }}></div>
-                            <div className="bg-rose-400 h-full transition-all flex-1"></div>
-                          </div>
-                        </div>
-
-                        {/* Collapsible details controller */}
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setExpandedLogs(prev => ({ ...prev, [item.id]: !isExpanded }))}
-                            className="w-full bg-neutral-50 hover:bg-neutral-100 text-neutral-705 py-2 px-3 rounded-lg text-xs font-bold border border-neutral-250 flex items-center justify-between transition-colors"
-                          >
-                            <span>{isExpanded ? 'Hide Detail Per Kategori Makanan' : 'Lihat Analisis Detail Per Kategori'}</span>
-                            <span className="text-[10px] font-bold font-mono px-2 py-0.5 bg-white border border-neutral-200 rounded">
-                              {isExpanded ? 'Tutup' : 'Buka'}
-                            </span>
-                          </button>
-
-                          {/* Expanded Details category grid */}
-                          {isExpanded && (
-                            <div className="mt-3 bg-neutral-50/50 rounded-xl p-4 border border-neutral-200 space-y-3.5 animate-fadeIn font-sans">
-                              <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block select-none">
-                                DEGRADASI SAMPAH PIRING PER KATEGORI (KG):
-                              </span>
-                              
-                              <div className="space-y-3">
-                                {/* Cat 1: Makanan Pokok */}
-                                <div className="space-y-1 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="font-bold text-neutral-700">1. Makanan Pokok (Nasi/Mie)</span>
-                                    <span className="font-mono text-neutral-500">{mpWeight.kirim}kg kirim • <span className="text-rose-700 font-semibold">{item.sampahMP}g sisa</span></span>
-                                  </div>
-                                  <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
-                                    <div className="bg-emerald-600 h-full" style={{ width: `${item.gramasiMP > 0 ? (((item.gramasiMP - item.sampahMP) / item.gramasiMP) * 100) : 100}%` }}></div>
-                                  </div>
-                                </div>
-
-                                {/* Cat 2: Lauk Nabati */}
-                                <div className="space-y-1 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="font-bold text-neutral-700">2. Lauk Nabati (Tahu/Tempe)</span>
-                                    <span className="font-mono text-neutral-500">{lnWeight.kirim}kg kirim • <span className="text-rose-700 font-semibold">{item.sampahLN}g sisa</span></span>
-                                  </div>
-                                  <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
-                                    <div className="bg-emerald-600 h-full" style={{ width: `${item.gramasiLN > 0 ? (((item.gramasiLN - item.sampahLN) / item.gramasiLN) * 100) : 100}%` }}></div>
-                                  </div>
-                                </div>
-
-                                {/* Cat 3: Lauk Hewani */}
-                                <div className="space-y-1 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="font-bold text-neutral-700">3. Lauk Hewani (Daging/Ayam)</span>
-                                    <span className="font-mono text-neutral-500">{lhWeight.kirim}kg kirim • <span className="text-rose-700 font-semibold">{item.sampahLH}g sisa</span></span>
-                                  </div>
-                                  <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
-                                    <div className="bg-emerald-600 h-full" style={{ width: `${item.gramasiLH > 0 ? (((item.gramasiLH - item.sampahLH) / item.gramasiLH) * 100) : 100}%` }}></div>
-                                  </div>
-                                </div>
-
-                                {/* Cat 4: Sayur */}
-                                <div className="space-y-1 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="font-bold text-neutral-700">4. Sayur Sop/Saut</span>
-                                    <span className="font-mono text-neutral-500">{syWeight.kirim}kg kirim • <span className="text-rose-700 font-semibold">{item.sampahSY}g sisa</span></span>
-                                  </div>
-                                  <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
-                                    <div className="bg-emerald-600 h-full" style={{ width: `${item.gramasiSY > 0 ? (((item.gramasiSY - item.sampahSY) / item.gramasiSY) * 100) : 100}%` }}></div>
-                                  </div>
-                                </div>
-
-                                {/* Cat 5: Buah */}
-                                <div className="space-y-1 text-xs">
-                                  <div className="flex justify-between">
-                                    <span className="font-bold text-neutral-700">5. Buah Pencuci Mulut</span>
-                                    <span className="font-mono text-neutral-500">{bhWeight.kirim}kg kirim • <span className="text-rose-700 font-semibold">{item.sampahBuah}g sisa</span></span>
-                                  </div>
-                                  <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
-                                    <div className="bg-emerald-600 h-full" style={{ width: `${item.gramasiBuah > 0 ? (((item.gramasiBuah - item.sampahBuah) / item.gramasiBuah) * 100) : 100}%` }}></div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Sisa Dapur Organik/Anorganik */}
-                        <div className="bg-neutral-50 p-4 border border-neutral-200 rounded-xl flex items-center justify-between text-xs">
                           <div>
-                            <span className="text-[10px] text-neutral-450 block font-bold">🗑️ SISA PRODUKSI DAPUR (Internal)</span>
-                            <div className="flex gap-4 mt-1.5">
-                              <div>
-                                <span className="text-[9px] text-neutral-500 block select-none">Sampah Organik:</span>
-                                <span className="text-emerald-800 font-extrabold font-mono text-sm">{item.sampahOrganik} Kg</span>
-                              </div>
-                              <div className="border-l border-neutral-200 pl-4">
-                                <span className="text-[9px] text-neutral-500 block select-none">Anorganik:</span>
-                                <span className="text-blue-800 font-extrabold font-mono text-sm">{item.sampahAnorganik} Kg</span>
-                              </div>
-                            </div>
+                            <span className="text-[9px] text-neutral-400 block">Volume Kirim</span>
+                            <span className="font-bold text-neutral-800">{(stats.totalKirim / 1000).toFixed(1)} Kg</span>
                           </div>
-                          
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveTrashItem(item.id)}
-                            className="bg-white hover:bg-rose-50 hover:text-rose-700 transition-colors p-2 text-neutral-500 rounded-lg border border-neutral-200 shadow-3xs"
-                            title="Hapus Catatan Sampah Hari Ini"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
                         </div>
+                        <div className="bg-rose-50/50 p-2.5 rounded-lg border border-rose-100 text-[11px] space-y-1">
+                          <span className="text-[9px] text-rose-800 font-bold block uppercase">Rincian Sisa Piring:</span>
+                          <div className="grid grid-cols-5 gap-1 text-center text-neutral-750 font-mono">
+                            <div><div className="text-[8px] text-neutral-450">MP</div><div className="font-semibold">{item.sampahMP}g</div></div>
+                            <div><div className="text-[8px] text-neutral-450">LN</div><div className="font-semibold">{item.sampahLN}g</div></div>
+                            <div><div className="text-[8px] text-neutral-450">LH</div><div className="font-semibold">{item.sampahLH}g</div></div>
+                            <div><div className="text-[8px] text-neutral-450">SY</div><div className="font-semibold">{item.sampahSY}g</div></div>
+                            <div><div className="text-[8px] text-neutral-450">BH</div><div className="font-semibold">{item.sampahBuah}g</div></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-neutral-50/50 px-4 py-2 border-t border-neutral-150 flex items-center justify-between text-[11px]">
+                        <span className="text-neutral-500">Sisa Dapur: {item.sampahOrganik}kg Org / {item.sampahAnorganik}kg Anorg</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTrashItem(item.id)}
+                          className="text-rose-600 hover:text-rose-900 font-semibold text-xs cursor-pointer"
+                        >
+                          Hapus
+                        </button>
                       </div>
                     </div>
                   );
@@ -6229,131 +6456,164 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               )}
             </div>
           ) : (
-            /* TABULAR DATA TAB VIEW (TRADITIONAL COMPLETE CHECKSHEET) */
-            <div className="overflow-x-auto border border-neutral-205 rounded-xl bg-white">
+            /* TABULAR DATA TAB VIEW */
+            <div className="overflow-x-auto border border-neutral-200 rounded-xl bg-white">
               <table className="w-full text-left border-collapse text-xs select-text">
                 <thead>
                   <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider select-none">
-                    <th className="py-3 px-3">Tanggal / Hari</th>
-                    <th className="py-3 px-3">Nama Menu Masakan</th>
-                    <th className="py-3 px-3 text-center bg-slate-50 border-x border-neutral-205">
-                      <div>PORSI</div>
-                      <div className="flex gap-2 justify-center text-[8px] text-neutral-450 mt-1 font-mono">
-                        <span>BSR</span><span>KCL</span><span>TOT</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 text-center">
-                      <div>GRAMASI PENGIRIMAN</div>
-                      <div className="flex gap-2 justify-center text-[7.5px] text-neutral-450 mt-1 font-mono">
-                        <span>MP</span><span>LN</span><span>LH</span><span>SY</span><span>BH</span><span className="font-bold text-neutral-700">TOT</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 text-center bg-rose-50/40">
-                      <div className="text-rose-800">GRAMASI SAMPAH (SISA)</div>
-                      <div className="flex gap-2 justify-center text-[7.5px] text-rose-550 mt-1 font-mono">
-                        <span>MP</span><span>LN</span><span>LH</span><span>SY</span><span>BH</span><span className="font-bold text-rose-800">TOT</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 text-center">
-                      <div>SISA PRODUKSI</div>
-                      <div className="flex gap-3 justify-center text-[8px] text-neutral-450 mt-1 font-mono">
-                        <span>ORG</span><span>ANORG</span>
-                      </div>
-                    </th>
-                    <th className="py-3 px-3 text-center">Analisis & Kelayakan</th>
-                    <th className="py-3 px-3 text-center w-12">Aksi</th>
+                    <th className="py-2.5 px-3">Tanggal / Hari</th>
+                    <th className="py-2.5 px-3">Nama Menu</th>
+                    <th className="py-2.5 px-3 text-center w-24">Porsi (B/K)</th>
+                    <th className="py-2.5 px-3 text-center w-28">Kirim (Kg)</th>
+                    <th className="py-2.5 px-3 text-center bg-rose-50/40 text-rose-800 w-28">Sisa (Kg)</th>
+                    <th className="py-2.5 px-3 text-center">Analisis</th>
+                    <th className="py-2.5 px-3 text-center w-10">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100 divide-x divide-neutral-100">
-                  {trashItems.map(item => {
-                    const stats = getKelayakanStats(item);
-                    return (
-                      <tr key={item.id} className="hover:bg-neutral-50/40 text-[11px] transition-colors leading-normal">
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          <div className="font-bold text-neutral-900">{item.tanggal}</div>
-                          <div className="text-neutral-400 text-[10px]">{item.hari}</div>
-                        </td>
-                        <td className="py-3 px-3 min-w-[200px] font-medium text-neutral-800 max-w-[220px] truncate" title={item.namaMenu}>
-                          {item.namaMenu}
-                        </td>
-                        <td className="py-3 px-2 text-center bg-slate-50/50 font-mono text-[10px]">
-                          <div className="flex gap-3 justify-center">
-                            <span className="text-neutral-600">{item.porsiBesar}</span>
-                            <span className="text-neutral-600">{item.porsiKecil}</span>
-                            <span className="font-extrabold text-neutral-900">{item.porsiBesar + item.porsiKecil}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-center font-mono text-[10px]">
-                          <div className="flex gap-2 justify-center text-neutral-500">
-                            <span>{item.gramasiMP}</span>
-                            <span>{item.gramasiLN}</span>
-                            <span>{item.gramasiLH}</span>
-                            <span>{item.gramasiSY}</span>
-                            <span>{item.gramasiBuah}</span>
-                            <span className="font-bold text-neutral-850">{(stats.totalKirim / 1000).toFixed(1)}kg</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-center bg-rose-50/20 font-mono text-[10px] text-rose-800">
-                          <div className="flex gap-2 justify-center">
-                            <span>{item.sampahMP}</span>
-                            <span>{item.sampahLN}</span>
-                            <span>{item.sampahLH}</span>
-                            <span>{item.sampahSY}</span>
-                            <span>{item.sampahBuah}</span>
-                            <span className="font-black text-rose-850">{(stats.totalSampah / 1000).toFixed(1)}kg</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-2 text-center font-mono">
-                          <div className="flex gap-3 justify-center">
-                            <span className="text-emerald-800 font-semibold">{item.sampahOrganik} Kg</span>
-                            <span className="text-blue-800 font-semibold">{item.sampahAnorganik} Kg</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wide border ${stats.bgStyle}`}>
+                <tbody className="divide-y divide-neutral-100">
+                  {trashItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-neutral-400 text-xs">
+                        Belum ada laporan sampah masakan.
+                      </td>
+                    </tr>
+                  ) : (
+                    trashItems.map(item => {
+                      const stats = getKelayakanStats(item);
+                      return (
+                        <tr key={item.id} className="hover:bg-neutral-50/40 text-[11px] transition-colors leading-normal">
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <div className="font-bold text-neutral-900">{item.tanggal}</div>
+                            <div className="text-neutral-400 text-[10px]">{item.hari}</div>
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-neutral-850 max-w-[150px] truncate" title={item.namaMenu}>
+                            {item.namaMenu}
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono">
+                            <div className="font-semibold text-neutral-800">{item.porsiBesar + item.porsiKecil}</div>
+                            <div className="text-[9px] text-neutral-400">({item.porsiBesar}/{item.porsiKecil})</div>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-mono">
+                            <span className="font-semibold text-neutral-800">{(stats.totalKirim / 1000).toFixed(1)}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center bg-rose-50/10 font-mono text-rose-800">
+                            <span className="font-bold">{(stats.totalSampah / 1000).toFixed(1)}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold border ${stats.bgStyle}`}>
                               {stats.statusText} ({stats.percent}%)
                             </span>
-                            <span className="text-[8.5px] text-neutral-400 font-medium scale-95 select-none text-center leading-tight max-w-[130px]">
-                              {stats.desc}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveTrashItem(item.id)}
-                            className="text-rose-600 hover:text-rose-900 transition-colors p-1"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTrashItem(item.id)}
+                              className="text-rose-600 hover:text-rose-900 p-1 cursor-pointer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           )}
+        </div>
 
-          <div className="bg-slate-50 border border-neutral-200 p-4 rounded-xl space-y-2">
-            <h4 className="text-xs font-bold text-neutral-800">Petunjuk Parameter & Rumus Perhitungan:</h4>
-            <ul className="list-disc list-inside text-[11px] text-neutral-500 space-y-1 pl-1">
-              <li>
-                <strong className="text-neutral-700">Total Porsi:</strong> Penjumlahan sederhana antara volume Porsi Besar dan Porsi Kecil.
-              </li>
-              <li>
-                <strong className="text-neutral-700">Indeks Konsumsi (%):</strong> Kalkulasi presentasi pangan yang dimakan siswa. Rumus: <code className="bg-neutral-200/60 px-1 py-0.2 rounded text-[10px] font-mono text-neutral-800">((Total Kirim - Total Sampah) / Total Kirim) * 100</code>.
-              </li>
-              <li>
-                <strong className="text-neutral-700">Sisa Produksi:</strong> Jumlah sisa buangan organik/anorganik dari dapur internal (sebelum piring siswa).
-              </li>
-            </ul>
+        {/* Right Column: Visual SVG Pie Chart */}
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-xs space-y-4">
+            <div className="border-b border-neutral-100 pb-2">
+              <h3 className="text-xs font-bold text-neutral-800 uppercase tracking-wider font-mono">Analisis Komposisi Sampah</h3>
+              <p className="text-[10px] text-neutral-500 mt-0.5 leading-snug">Proporsi sisa makanan piring siswa secara kumulatif</p>
+            </div>
+            
+            {slices.length === 0 ? (
+              <div className="py-12 text-center text-xs text-neutral-400 font-medium">
+                Belum ada data sampah untuk menampilkan grafik lingkaran.
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="flex justify-center py-2">
+                  <svg width="150" height="150" viewBox="0 0 100 100" className="drop-shadow-xs">
+                    {slices.map((slice, index) => (
+                      <path
+                        key={index}
+                        d={slice.pathData}
+                        fill={slice.color}
+                        className="transition-all duration-300 hover:opacity-90 cursor-pointer"
+                      >
+                        <title>{slice.label}: {slice.value.toLocaleString()} g ({slice.percent}%)</title>
+                      </path>
+                    ))}
+                  </svg>
+                </div>
+                
+                <div className="space-y-2 border-t border-neutral-100 pt-3">
+                  {slices.map((slice, index) => (
+                    <div key={index} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: slice.color }}></span>
+                        <span className="font-medium text-neutral-600 text-[11px]">{slice.label}</span>
+                      </div>
+                      <span className="font-bold font-mono text-neutral-800 text-[11px]">
+                        {slice.value.toLocaleString()} g ({slice.percent}%)
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between text-xs font-bold text-neutral-900 border-t border-dashed border-neutral-200 pt-2 mt-2">
+                    <span className="text-[11px]">Total Sisa Piring</span>
+                    <span className="font-mono text-[11px]">{(grandTotalWaste / 1000).toFixed(1)} Kg</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      );
+      </div>
+
+      <div className="bg-slate-50 border border-neutral-200 p-4 rounded-xl space-y-2">
+        <h4 className="text-xs font-bold text-neutral-800">Petunjuk Parameter & Rumus Perhitungan:</h4>
+        <ul className="list-disc list-inside text-[11px] text-neutral-500 space-y-1 pl-1">
+          <li>
+            <strong className="text-neutral-700">Total Porsi:</strong> Penjumlahan otomatis antara volume Porsi Besar dan Porsi Kecil yang ditarik dari Master Jumlah Porsi.
+          </li>
+          <li>
+            <strong className="text-neutral-700">Indeks Konsumsi (%):</strong> Kalkulasi presentasi pangan yang dimakan siswa. Rumus: <code className="bg-neutral-200/60 px-1 py-0.2 rounded text-[10px] font-mono text-neutral-800">((Total Kirim - Total Sampah) / Total Kirim) * 100</code>.
+          </li>
+          <li>
+            <strong className="text-neutral-700">Sisa Produksi:</strong> Jumlah sisa buangan organik/anorganik dari dapur internal (sebelum piring siswa).
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
 
     case 17: { // Stok Operasional
+      const exportStockOperasionalToCSV = (dateStr: string, items: StockItem[]) => {
+        const filename = `Laporan_Stok_Operasional_${dateStr}.csv`;
+        const headers = ['Kategori', 'Nama Barang', 'Stok Awal', 'Barang Masuk', 'Stok Akhir', 'Satuan (UoM)', 'Status Threshold'];
+        const rows = items.map(item => {
+          const stokAkhir = item.stokAkhir || 0;
+          let status = 'Aman';
+          if (stokAkhir <= 0) status = 'Habis';
+          else if (stokAkhir <= 10) status = 'Menipis';
+          return [
+            item.category,
+            item.name,
+            String(item.stokAwal),
+            String(item.barangMasuk),
+            String(stokAkhir),
+            item.uom,
+            status
+          ];
+        });
+        downloadCSV(filename, headers, rows);
+      };
+
       const OPERASIONAL_CATEGORIES = ['ATK', 'Kebersihan', 'Air', 'APD', 'Lain-Lain'];
       const activeOperasionalList = operasionalMap[selectedOperasionalDate] && operasionalMap[selectedOperasionalDate].length > 0
         ? operasionalMap[selectedOperasionalDate]
@@ -6475,7 +6735,9 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           };
         });
 
-        triggerSuccessMsg(`Stok "${itemToSave.name}" berhasil disimpan! Stok Akhir (${itemToSave.stokAkhir} ${itemToSave.uom}) otomatis disalin menjadi Stok Awal untuk esok hari (${nextDateStr}).`);
+        // Trigger CSV/Excel export on individual save
+        exportStockOperasionalToCSV(selectedOperasionalDate, activeOperasionalList.map(it => it.id === itemToSave.id ? itemToSave : it));
+        triggerSuccessMsg(`Stok "${itemToSave.name}" berhasil disimpan & laporan Excel terunduh! Stok Akhir (${itemToSave.stokAkhir} ${itemToSave.uom}) otomatis disalin menjadi Stok Awal untuk esok hari (${nextDateStr}).`);
       };
 
       const handleSyncAllOperasionalToNextDay = () => {
@@ -6524,7 +6786,9 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           };
         });
 
-        triggerSuccessMsg(`Sukses menyimpan seluruh data operasional! Stok Akhir per hari ini otomatis disalin menjadi Stok Awal untuk esok hari tanggal ${nextDateStr}.`);
+        // Trigger CSV/Excel export on batch save
+        exportStockOperasionalToCSV(selectedOperasionalDate, activeOperasionalList);
+        triggerSuccessMsg(`Sukses menyimpan seluruh data operasional & mengunduh laporan Excel! Stok Akhir per hari ini otomatis disalin menjadi Stok Awal untuk esok hari tanggal ${nextDateStr}.`);
       };
 
       return (
@@ -6559,8 +6823,11 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               </button>
               <button
                 type="button"
-                onClick={() => triggerSuccessMsg("Seluruh laporan Stok Operasional berhasil diekspor ke Excel!")}
-                className="border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold px-4 py-2 rounded-lg"
+                onClick={() => {
+                  exportStockOperasionalToCSV(selectedOperasionalDate, activeOperasionalList);
+                  triggerSuccessMsg("Seluruh laporan Stok Operasional berhasil diekspor ke Excel!");
+                }}
+                className="border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer"
               >
                 Ekspor Excel
               </button>
@@ -6754,13 +7021,14 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                   <th className="py-3 px-4 text-center w-24">Barang Masuk</th>
                   <th className="py-3 px-4 text-center w-24">Stok Akhir</th>
                   <th className="py-3 px-4 text-center w-24">UoM</th>
+                  <th className="py-3 px-4 text-center w-32">Status</th>
                   <th className="py-3 px-4 text-center w-28">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {filteredOperasionalItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-neutral-400 font-medium text-xs">
+                    <td colSpan={8} className="py-8 text-center text-neutral-400 font-medium text-xs">
                       Tidak ada barang operasional yang sesuai filter
                     </td>
                   </tr>
@@ -6807,6 +7075,18 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                           onChange={e => handleUpdateOperasionalItem(item.id, 'uom', e.target.value)}
                           className="w-20 text-center border border-neutral-200 rounded px-1.5 py-1 text-xs bg-white text-neutral-800"
                         />
+                      </td>
+                      <td className="py-1 px-2 text-center">
+                        {(() => {
+                          const stokAkhir = item.stokAkhir || 0;
+                          if (stokAkhir <= 0) {
+                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800 border border-red-200">Merah Habis</span>;
+                          } else if (stokAkhir <= 10) {
+                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200">Oranye Menipis</span>;
+                          } else {
+                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200">Hijau Aman</span>;
+                          }
+                        })()}
                       </td>
                       <td className="py-2 px-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
