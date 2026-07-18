@@ -12,7 +12,7 @@ import SignaturePad from './SignaturePad';
 import BASTView from './BASTView';
 import SuratJalanView from './SuratJalanView';
 import OrganoleptikView from './OrganoleptikView';
-import PortionMasterView from './PortionMasterView';
+import PortionMasterView, { PortionConfig } from './PortionMasterView';
 
 // Real schemas for SQL integration
 export interface SisaStokItem {
@@ -2679,6 +2679,41 @@ export default function MockModules({
     localStorage.setItem('sppg_rekap_sampah_v3', JSON.stringify(trashItems));
   }, [trashItems]);
 
+  // Saved Reports State for Stock Opname, Stok Operasional, and Kedatangan Barang
+  interface SavedReport {
+    id: string;
+    date: string;
+    module: 'stock' | 'operasional' | 'kedatangan';
+    timestamp: string;
+    fileName: string;
+    itemCount: number;
+    headers: string[];
+    rows: string[][];
+  }
+
+  const [savedReports, setSavedReports] = useState<SavedReport[]>(() => {
+    const raw = localStorage.getItem('sppg_saved_reports_excel_v1');
+    return raw ? JSON.parse(raw) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sppg_saved_reports_excel_v1', JSON.stringify(savedReports));
+  }, [savedReports]);
+
+  const addSavedReport = (date: string, module: 'stock' | 'operasional' | 'kedatangan', fileName: string, itemCount: number, headers: string[], rows: string[][]) => {
+    const newReport: SavedReport = {
+      id: `rep-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      date,
+      module,
+      timestamp: new Date().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      fileName,
+      itemCount,
+      headers,
+      rows
+    };
+    setSavedReports(prev => [newReport, ...prev]);
+  };
+
   const triggerSuccessMsg = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 4000);
@@ -3977,24 +4012,17 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
         const filename = `Laporan_Kedatangan_Barang_${dateStr}.csv`;
         const headers = ['Nama Barang', 'Jumlah', 'Satuan (UoM)', 'Supplier', 'Hasil Pemeriksaan Fisik', 'Status Input Inventori', 'Spesifikasi'];
         const rows = items.map(item => [
-          `"${item.name.replace(/"/g, '""')}"`,
-          item.qty,
+          item.name,
+          String(item.qty),
           item.uom,
-          `"${item.supplier.replace(/"/g, '""')}"`,
+          item.supplier,
           item.checker,
           item.input,
-          `"${(item.specification || '').replace(/"/g, '""')}"`
+          item.specification || ''
         ]);
         
-        const csvContent = "data:text/csv;charset=utf-8," 
-          + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        addSavedReport(dateStr, 'kedatangan', filename, items.length, headers, rows);
+        downloadCSV(filename, headers, rows);
       };
 
       return (
@@ -4066,89 +4094,143 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           )}
 
           {kdTab === 'rekap' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(() => {
-                const datesWithData = Array.from(new Set([
-                  ...Object.keys(kedatanganMap),
-                  '2026-06-16',
-                  '2026-06-17',
-                  '2026-06-18',
-                  '2026-06-19',
-                  '2026-06-20'
-                ])).sort().reverse();
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(() => {
+                  const datesWithData = Array.from(new Set([
+                    ...Object.keys(kedatanganMap),
+                    '2026-06-16',
+                    '2026-06-17',
+                    '2026-06-18',
+                    '2026-06-19',
+                    '2026-06-20'
+                  ])).sort().reverse();
 
-                return datesWithData.map(date => {
-                  const items = kedatanganMap[date] || [];
-                  const total = items.length;
-                  const lengkap = items.filter(i => i.checker === 'LENGKAP').length;
-                  const kurang = items.filter(i => i.checker === 'KURANG').length;
-                  const batal = items.filter(i => i.checker === 'BATAL').length;
+                  return datesWithData.map(date => {
+                    const items = kedatanganMap[date] || [];
+                    const total = items.length;
+                    const lengkap = items.filter(i => i.checker === 'LENGKAP').length;
+                    const kurang = items.filter(i => i.checker === 'KURANG').length;
+                    const batal = items.filter(i => i.checker === 'BATAL').length;
 
-                  // Day label
-                  const daysInIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-                  const parsedDate = new Date(date);
-                  const dayName = isNaN(parsedDate.getTime()) ? 'Hari' : daysInIndo[parsedDate.getDay()];
+                    // Day label
+                    const daysInIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                    const parsedDate = new Date(date);
+                    const dayName = isNaN(parsedDate.getTime()) ? 'Hari' : daysInIndo[parsedDate.getDay()];
 
-                  return (
-                    <div key={date} className="bg-white border border-neutral-200 rounded-xl shadow-2xs hover:border-emerald-400 hover:shadow-xs transition-all p-5 flex flex-col justify-between space-y-4">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="bg-neutral-100 text-neutral-800 text-[10px] font-black px-2 py-0.5 rounded font-mono">
-                            {date}
-                          </span>
-                          <span className="text-xs font-black text-neutral-500">{dayName}</span>
+                    return (
+                      <div key={date} className="bg-white border border-neutral-200 rounded-xl shadow-2xs hover:border-emerald-400 hover:shadow-xs transition-all p-5 flex flex-col justify-between space-y-4">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="bg-neutral-100 text-neutral-800 text-[10px] font-black px-2 py-0.5 rounded font-mono">
+                              {date}
+                            </span>
+                            <span className="text-xs font-black text-neutral-500">{dayName}</span>
+                          </div>
+                          <h3 className="text-sm font-bold text-neutral-800">
+                            Penerimaan Logistik SPPG
+                          </h3>
+                          <p className="text-[11px] text-neutral-500 line-clamp-2">
+                            {total > 0 
+                              ? `Menerima ${total} item logistik dari supplier (e.g. ${items.slice(0, 2).map(i => i.name).join(', ')}).`
+                              : 'Belum ada item logistik yang dicatat untuk hari ini.'}
+                          </p>
                         </div>
-                        <h3 className="text-sm font-bold text-neutral-800">
-                          Penerimaan Logistik SPPG
-                        </h3>
-                        <p className="text-[11px] text-neutral-500 line-clamp-2">
-                          {total > 0 
-                            ? `Menerima ${total} item logistik dari supplier (e.g. ${items.slice(0, 2).map(i => i.name).join(', ')}).`
-                            : 'Belum ada item logistik yang dicatat untuk hari ini.'}
-                        </p>
+
+                        <div className="grid grid-cols-3 gap-1 text-center py-2 border-y border-neutral-100">
+                          <div className="bg-emerald-50 rounded p-1.5">
+                            <span className="text-[8px] text-emerald-700 block font-bold">LENGKAP</span>
+                            <span className="text-xs font-extrabold text-emerald-950 font-mono">{lengkap}</span>
+                          </div>
+                          <div className="bg-amber-50 rounded p-1.5">
+                            <span className="text-[8px] text-amber-700 block font-bold">KURANG</span>
+                            <span className="text-xs font-extrabold text-amber-950 font-mono">{kurang}</span>
+                          </div>
+                          <div className="bg-red-50 rounded p-1.5">
+                            <span className="text-[8px] text-red-700 block font-bold">BATAL</span>
+                            <span className="text-xs font-extrabold text-red-950 font-mono">{batal}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+                          <button
+                            onClick={() => {
+                              setLocalKdDate(date);
+                              setKdTab('detail');
+                            }}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg transition-colors flex-1 text-center cursor-pointer"
+                          >
+                            Buka Detail
+                          </button>
+                          <button
+                            onClick={() => {
+                              exportKedatanganToCSV(date, items);
+                              triggerSuccessMsg(`Laporan logistik untuk ${date} berhasil diunduh!`);
+                            }}
+                            className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors border border-stone-200 cursor-pointer"
+                            title="Unduh Excel"
+                          >
+                            📥 Unduh Excel
+                          </button>
+                        </div>
                       </div>
+                    );
+                  });
+                })()}
+              </div>
 
-                      <div className="grid grid-cols-3 gap-1 text-center py-2 border-y border-neutral-100">
-                        <div className="bg-emerald-50 rounded p-1.5">
-                          <span className="text-[8px] text-emerald-700 block font-bold">LENGKAP</span>
-                          <span className="text-xs font-extrabold text-emerald-950 font-mono">{lengkap}</span>
-                        </div>
-                        <div className="bg-amber-50 rounded p-1.5">
-                          <span className="text-[8px] text-amber-700 block font-bold">KURANG</span>
-                          <span className="text-xs font-extrabold text-amber-950 font-mono">{kurang}</span>
-                        </div>
-                        <div className="bg-red-50 rounded p-1.5">
-                          <span className="text-[8px] text-red-700 block font-bold">BATAL</span>
-                          <span className="text-xs font-extrabold text-red-950 font-mono">{batal}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2 pt-1 text-xs">
-                        <button
-                          onClick={() => {
-                            setLocalKdDate(date);
-                            setKdTab('detail');
-                          }}
-                          className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3 py-1.5 rounded-lg transition-colors flex-1 text-center cursor-pointer"
-                        >
-                          Buka Detail
-                        </button>
-                        <button
-                          onClick={() => {
-                            exportKedatanganToCSV(date, items);
-                            triggerSuccessMsg(`Laporan logistik untuk ${date} berhasil diunduh!`);
-                          }}
-                          className="bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold px-2.5 py-1.5 rounded-lg transition-colors border border-stone-200 cursor-pointer"
-                          title="Unduh Excel"
-                        >
-                          📥 Unduh Excel
-                        </button>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
+              {/* Saved Reports Section for Kedatangan Barang */}
+              <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-2xs space-y-3 mt-6">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4.5 w-4.5 text-emerald-800" />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 font-mono">Daftar Laporan Kedatangan Barang Tersimpan</h3>
+                  </div>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-bold px-2.5 py-0.5 rounded-full">
+                    {savedReports.filter(r => r.module === 'kedatangan').length} File
+                  </span>
+                </div>
+                {savedReports.filter(r => r.module === 'kedatangan').length === 0 ? (
+                  <p className="text-[11px] text-neutral-450 italic py-4 text-center">Belum ada laporan Excel yang disimpan atau diunduh.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[11px] border-collapse">
+                      <thead>
+                        <tr className="bg-neutral-50 text-[9px] text-neutral-400 font-bold uppercase">
+                          <th className="p-2">Nama File Excel</th>
+                          <th className="p-2">Tanggal Kedatangan</th>
+                          <th className="p-2 text-center">Jumlah Item</th>
+                          <th className="p-2">Waktu Tersimpan</th>
+                          <th className="p-2 text-center">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {savedReports.filter(r => r.module === 'kedatangan').map(rep => (
+                          <tr key={rep.id} className="hover:bg-neutral-50/50">
+                            <td className="p-2 font-mono text-emerald-900 font-semibold">{rep.fileName}</td>
+                            <td className="p-2 font-bold text-neutral-700">{rep.date}</td>
+                            <td className="p-2 text-center font-semibold font-mono">{rep.itemCount}</td>
+                            <td className="p-2 text-neutral-500">{rep.timestamp}</td>
+                            <td className="p-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  downloadCSV(rep.fileName, rep.headers, rep.rows);
+                                  triggerSuccessMsg(`Laporan "${rep.fileName}" berhasil diunduh kembali!`);
+                                }}
+                                className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all"
+                              >
+                                📥 Download Excel
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             <div className="space-y-6">
 
@@ -5051,6 +5133,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
             status
           ];
         });
+        addSavedReport(dateStr, 'stock', filename, items.length, headers, rows);
         downloadCSV(filename, headers, rows);
       };
 
@@ -5585,6 +5668,59 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               </p>
             </div>
           </div>
+
+          {/* Saved Reports Section */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4.5 w-4.5 text-emerald-800" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 font-mono">Daftar Laporan Stock Opname Tersimpan</h3>
+              </div>
+              <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-bold px-2.5 py-0.5 rounded-full">
+                {savedReports.filter(r => r.module === 'stock').length} File
+              </span>
+            </div>
+            {savedReports.filter(r => r.module === 'stock').length === 0 ? (
+              <p className="text-[11px] text-neutral-450 italic py-4 text-center">Belum ada laporan Excel yang disimpan atau diunduh.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-neutral-50 text-[9px] text-neutral-400 font-bold uppercase">
+                      <th className="p-2">Nama File Excel</th>
+                      <th className="p-2">Tanggal Opname</th>
+                      <th className="p-2 text-center">Jumlah Item</th>
+                      <th className="p-2">Waktu Tersimpan</th>
+                      <th className="p-2 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {savedReports.filter(r => r.module === 'stock').map(rep => (
+                      <tr key={rep.id} className="hover:bg-neutral-50/50">
+                        <td className="p-2 font-mono text-emerald-900 font-semibold">{rep.fileName}</td>
+                        <td className="p-2 font-bold text-neutral-700">{rep.date}</td>
+                        <td className="p-2 text-center font-semibold font-mono">{rep.itemCount}</td>
+                        <td className="p-2 text-neutral-500">{rep.timestamp}</td>
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              downloadCSV(rep.fileName, rep.headers, rep.rows);
+                              triggerSuccessMsg(`Laporan "${rep.fileName}" berhasil diunduh kembali!`);
+                            }}
+                            className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all"
+                          >
+                            📥 Download Excel
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
         </div>
       );
     }
@@ -6611,6 +6747,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
             status
           ];
         });
+        addSavedReport(dateStr, 'operasional', filename, items.length, headers, rows);
         downloadCSV(filename, headers, rows);
       };
 
@@ -7114,6 +7251,59 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               </tbody>
             </table>
           </div>
+
+          {/* Saved Reports Section */}
+          <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4.5 w-4.5 text-emerald-800" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 font-mono">Daftar Laporan Stok Operasional Tersimpan</h3>
+              </div>
+              <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-bold px-2.5 py-0.5 rounded-full">
+                {savedReports.filter(r => r.module === 'operasional').length} File
+              </span>
+            </div>
+            {savedReports.filter(r => r.module === 'operasional').length === 0 ? (
+              <p className="text-[11px] text-neutral-450 italic py-4 text-center">Belum ada laporan Excel yang disimpan atau diunduh.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-neutral-50 text-[9px] text-neutral-400 font-bold uppercase">
+                      <th className="p-2">Nama File Excel</th>
+                      <th className="p-2">Tanggal Kontrol</th>
+                      <th className="p-2 text-center">Jumlah Item</th>
+                      <th className="p-2">Waktu Tersimpan</th>
+                      <th className="p-2 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {savedReports.filter(r => r.module === 'operasional').map(rep => (
+                      <tr key={rep.id} className="hover:bg-neutral-50/50">
+                        <td className="p-2 font-mono text-emerald-900 font-semibold">{rep.fileName}</td>
+                        <td className="p-2 font-bold text-neutral-700">{rep.date}</td>
+                        <td className="p-2 text-center font-semibold font-mono">{rep.itemCount}</td>
+                        <td className="p-2 text-neutral-500">{rep.timestamp}</td>
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              downloadCSV(rep.fileName, rep.headers, rep.rows);
+                              triggerSuccessMsg(`Laporan "${rep.fileName}" berhasil diunduh kembali!`);
+                            }}
+                            className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all"
+                          >
+                            📥 Download Excel
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
         </div>
       );
     }
