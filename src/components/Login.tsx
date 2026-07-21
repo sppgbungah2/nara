@@ -55,8 +55,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         // --- SECURE FALLBACK PREVIEW SYSTEM (Perfect for AI Studio environment) ---
         // Mimics a real query or successful login with the exact target email or presets
         setTimeout(() => {
-          if (normEmail.toLowerCase() === 'maghfurmunif@gmail.com') {
-            const profile = mapUserToProfile('d5454d9d-1d50-4baa-b5b9-f8693694db4a', 'maghfurmunif@gmail.com');
+          if (normEmail.toLowerCase() === 'maghfurmunif@gmail.com' || normEmail.toLowerCase() === 'punkysme@gmail.com') {
+            const profile = mapUserToProfile(
+              normEmail.toLowerCase() === 'punkysme@gmail.com' ? 'punkysme-mock-uid' : 'd5454d9d-1d50-4baa-b5b9-f8693694db4a',
+              normEmail.toLowerCase() === 'punkysme@gmail.com' ? 'punkysme@gmail.com' : 'maghfurmunif@gmail.com'
+            );
             setSuccessMsg(`Simulasi berhasil! Masuk sebagai Admin SPPG.`);
             onLoginSuccess(profile);
           } else if (normEmail.toLowerCase() === 'chef@sppg.com') {

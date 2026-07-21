@@ -55,6 +55,7 @@ export default function OrganoleptikView({
   };
 
   const restrictedLocation = loggedInUser?.email ? getPenerimaLocation(loggedInUser.email) : "";
+  const isAkunUtama = currentUserRole === UserRole.ADMIN || (loggedInUser?.email && ['punkysme@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
 
   // Keep activeDoc in sync with updated shippingDocs from parent state
   useEffect(() => {
@@ -66,13 +67,11 @@ export default function OrganoleptikView({
     }
   }, [shippingDocs]);
 
-  // Auto initialize and select for Penerima
+  // Auto select for Penerima if exists
   useEffect(() => {
     if (restrictedLocation) {
       const allOrlepForDate = shippingDocs.filter(d => d.type === 'organoleptik' && d.date === selectedDate);
-      if (allOrlepForDate.length === 0) {
-        handleInitializeOrganoleptik();
-      } else if (!activeDoc) {
+      if (allOrlepForDate.length > 0 && !activeDoc) {
         const matchingDoc = allOrlepForDate.find(d => d.orlepDesa === restrictedLocation);
         if (matchingDoc) {
           setActiveDoc(matchingDoc);
@@ -114,6 +113,19 @@ export default function OrganoleptikView({
 
   // Auto initialize Organoleptik for today - Creates 6 documents for each recipient
   const handleInitializeOrganoleptik = () => {
+    const existing = shippingDocs.filter(d => d.type === 'organoleptik' && d.date === selectedDate);
+    if (existing.length > 0) {
+      setErrorMsg('Berkas Uji Organoleptik untuk tanggal ini sudah diinisialisasi dan tidak dapat dibuat lagi.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+
+    if (!isAkunUtama) {
+      setErrorMsg('Hanya Akun Utama (Administrator) yang dapat menginisialisasi berkas Uji Organoleptik baru.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+
     const currentDayMenu = allDayMenus.find(m => m.date === selectedDate);
     const menuStr = currentDayMenu ? currentDayMenu.menuList.join(', ') : 'Nasi Krawu Bungah, Ayam Goreng Lengkuas, Tempe Bacem, Melon Segar';
     
@@ -774,16 +786,6 @@ export default function OrganoleptikView({
           </div>
           <p className="text-sm text-neutral-500">Lembar kendali kualitas rasa, kematangan tekstur makanan, serta kepatuhan thermal suhu kritis CCP hidangan dapur sebelum didistribusikan.</p>
         </div>
-
-        {dateDocs.length > 0 && (
-          <button
-            onClick={handleInitializeOrganoleptik}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Re-Inisialisasi Pengujian
-          </button>
-        )}
       </div>
 
       {successMsg && (
@@ -803,13 +805,15 @@ export default function OrganoleptikView({
               Lembar pengujian kelayakan rasa & thermal CCP belum diinisialisasi untuk tanggal {selectedDate}.
             </p>
           </div>
-          <button
-            onClick={handleInitializeOrganoleptik}
-            className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
-          >
-            <Plus className="h-4 w-4" />
-            + Inisialisasi Uji Organoleptik Hari Ini (6 Penerima)
-          </button>
+          {isAkunUtama && (
+            <button
+              onClick={handleInitializeOrganoleptik}
+              className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <Plus className="h-4 w-4" />
+              + Inisialisasi Uji Organoleptik Hari Ini (6 Penerima)
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-6">

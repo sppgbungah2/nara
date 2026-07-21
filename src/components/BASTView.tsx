@@ -56,7 +56,8 @@ export default function BASTView({
   };
 
   const restrictedLocation = loggedInUser?.email ? getPenerimaLocation(loggedInUser.email) : "";
-  const isAdminOrAslap = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.ASLAP || (loggedInUser?.email && ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
+  const isAdminOrAslap = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.ASLAP || (loggedInUser?.email && ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'punkysme@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
+  const isAkunUtama = currentUserRole === UserRole.ADMIN || (loggedInUser?.email && ['punkysme@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
 
   // Daily list of docs for selected date (for releasing check)
   const dateDocs = shippingDocs.filter(d => d.type === 'serah_terima' && d.date === selectedDate);
@@ -106,13 +107,11 @@ export default function BASTView({
     }
   }, [shippingDocs]);
 
-  // Auto initialize and select for Penerima
+  // Auto select for Penerima if exists
   useEffect(() => {
     if (restrictedLocation) {
       const allSerahTerimaForDate = shippingDocs.filter(d => d.type === 'serah_terima' && d.date === selectedDate);
-      if (allSerahTerimaForDate.length === 0) {
-        handleInitializeBAST();
-      } else if (!activeDoc) {
+      if (allSerahTerimaForDate.length > 0 && !activeDoc) {
         const matched = allSerahTerimaForDate.find(d => d.bastSekolah === restrictedLocation);
         if (matched) {
           setActiveDoc(matched);
@@ -164,6 +163,19 @@ export default function BASTView({
 
   // Auto initialize BAST for 6 locations
   const handleInitializeBAST = async () => {
+    const existing = shippingDocs.filter(d => d.type === 'serah_terima' && d.date === selectedDate);
+    if (existing.length > 0) {
+      setErrorMsg('Berkas BAST untuk tanggal ini sudah diinisialisasi dan tidak dapat dibuat lagi.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+
+    if (!isAkunUtama) {
+      setErrorMsg('Hanya Akun Utama (Administrator) yang dapat menginisialisasi berkas BAST baru.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+
     // 1. Fetch portions dynamically from Supabase or localStorage
     let portions: PortionConfig = { ...DEFAULT_PORTIONS };
     try {
@@ -711,16 +723,6 @@ export default function BASTView({
           </div>
           <p className="text-xs text-neutral-500">Pencatatan formalitas serah terima paket hidangan bergizi harian dari tim dapur kepada pihak lembaga sasaran.</p>
         </div>
-
-        {isAdminOrAslap && dateDocs.length > 0 && (
-          <button
-            onClick={handleInitializeBAST}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto md:ml-0"
-          >
-            <Plus className="h-4 w-4" />
-            Re-Inisialisasi BAST Hari Ini
-          </button>
-        )}
       </div>
 
       {successMsg && (
@@ -862,7 +864,7 @@ export default function BASTView({
               Berkas digital Berita Acara Serah Terima makanan untuk 6 lokasi sasaran belum diinisialisasi untuk tanggal {selectedDate}.
             </p>
           </div>
-          {isAdminOrAslap && (
+          {isAkunUtama && (
             <button
               onClick={handleInitializeBAST}
               className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"

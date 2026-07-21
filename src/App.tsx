@@ -3,7 +3,7 @@ import {
   ClipboardList, Package, Wrench, ShieldCheck, ShoppingCart, Truck, 
   Camera, Users, Calendar, FileText, CheckCircle2, Flame, RefreshCcw, 
   HelpCircle, ChevronRight, UserCircle, Bell, ArrowRight, ShieldAlert,
-  Menu, Info, Eye, Trash2
+  Menu, Info, Eye, Trash2, ClipboardCheck
 } from 'lucide-react';
 import { Division, UserRole, DayMenu, SOPDocument } from './types';
 import { PRESET_MENUS, DIVISION_CREATOR_MAP, generateInitialSOPsForDate } from './presetData';
@@ -209,6 +209,19 @@ export default function App() {
     }
   }, []);
 
+  // Sync day menus and sops to localStorage for persistent offline fallbacks
+  useEffect(() => {
+    if (dayMenus && dayMenus.length > 0) {
+      localStorage.setItem('sppg_day_menus', JSON.stringify(dayMenus));
+    }
+  }, [dayMenus]);
+
+  useEffect(() => {
+    if (sops && sops.length > 0) {
+      localStorage.setItem('sppg_sops', JSON.stringify(sops));
+    }
+  }, [sops]);
+
   // Bootstrap Supabase with baseline preset-menus and SOP checklists if empty
   const bootstrapSupabase = async () => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -316,13 +329,41 @@ export default function App() {
   useEffect(() => {
     async function loadAllFromSupabase() {
       const loadOfflineFallback = () => {
+        const savedMenus = localStorage.getItem('sppg_day_menus');
+        const savedSops = localStorage.getItem('sppg_sops');
+
+        if (savedMenus) {
+          try {
+            setDayMenus(JSON.parse(savedMenus));
+          } catch (e) {
+            console.error('Error parsing local day menus:', e);
+          }
+        } else {
+          // default days
+          const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
+          const tuesdayMenu = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'];
+          setDayMenus([
+            { date: '2026-06-15', menuList: mondayMenu, createdAt: new Date().toISOString(), createdBy: UserRole.ADMIN },
+            { date: '2026-06-16', menuList: tuesdayMenu, createdAt: new Date().toISOString(), createdBy: UserRole.ADMIN }
+          ]);
+        }
+
+        if (savedSops) {
+          try {
+            setSops(JSON.parse(savedSops));
+            return;
+          } catch (e) {
+            console.error('Error parsing local sops:', e);
+          }
+        }
+
         const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
         const seededSOPs: SOPDocument[] = [];
 
         Object.values(Division).forEach((div) => {
           const creatorInfo = DIVISION_CREATOR_MAP[div];
           const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
+                                creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
           
           const monSOP: SOPDocument = {
             id: `2026-06-15-${div}`,
@@ -731,7 +772,8 @@ export default function App() {
     { num: 19, name: 'Berita Acara Serah Terima', icon: FileText, category: 'Dokumentasi Pengiriman' },
     { num: 20, name: 'Surat Jalan', icon: Truck, category: 'Dokumentasi Pengiriman' },
     { num: 21, name: 'Organoleptik', icon: ClipboardList, category: 'Dokumentasi Pengiriman' },
-    { num: 14, name: 'Keluhan Relawan', icon: ShieldAlert, category: 'Sumber Daya Manusia' }
+    { num: 14, name: 'Keluhan Relawan', icon: ShieldAlert, category: 'Sumber Daya Manusia' },
+    { num: 9, name: 'Absensi Relawan', icon: ClipboardCheck, category: 'Sumber Daya Manusia', badge: 'PEKANAN' }
   ];
 
   const visibleMenus = !loggedInUser
@@ -742,7 +784,7 @@ export default function App() {
 
         // 1. ADMIN UTAMA
         if (
-          ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'].includes(email) ||
+          ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'punkysme@gmail.com', 'ketua@sppg.com'].includes(email) ||
           role === UserRole.ADMIN
         ) {
           return FEATURE_MENUS;

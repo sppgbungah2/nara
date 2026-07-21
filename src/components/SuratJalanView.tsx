@@ -56,7 +56,8 @@ export default function SuratJalanView({
   };
 
   const restrictedLocation = loggedInUser?.email ? getPenerimaLocation(loggedInUser.email) : "";
-  const isAdminOrAslap = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.ASLAP || (loggedInUser?.email && ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
+  const isAdminOrAslap = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.ASLAP || (loggedInUser?.email && ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'punkysme@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
+  const isAkunUtama = currentUserRole === UserRole.ADMIN || (loggedInUser?.email && ['punkysme@gmail.com', 'ketua@sppg.com'].includes(loggedInUser.email.toLowerCase().trim()));
 
   // Daily list of docs for selected date (for releasing check)
   const dateDocs = shippingDocs.filter(d => d.type === 'surat_jalan' && d.date === selectedDate);
@@ -105,13 +106,11 @@ export default function SuratJalanView({
     }
   }, [shippingDocs]);
 
-  // Auto initialize and select for Penerima
+  // Auto select for Penerima if exists
   useEffect(() => {
     if (restrictedLocation) {
       const allSuratJalanForDate = shippingDocs.filter(d => d.type === 'surat_jalan' && d.date === selectedDate);
-      if (allSuratJalanForDate.length === 0) {
-        handleInitializeSuratJalan();
-      } else if (!activeDoc) {
+      if (allSuratJalanForDate.length > 0 && !activeDoc) {
         const matched = allSuratJalanForDate.find(d => d.sjKepada === restrictedLocation);
         if (matched) {
           setActiveDoc(matched);
@@ -163,6 +162,19 @@ export default function SuratJalanView({
 
   // Auto initialize Surat Jalan for 6 locations
   const handleInitializeSuratJalan = async () => {
+    const existing = shippingDocs.filter(d => d.type === 'surat_jalan' && d.date === selectedDate);
+    if (existing.length > 0) {
+      setErrorMsg('Berkas Surat Jalan untuk tanggal ini sudah diinisialisasi dan tidak dapat dibuat lagi.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+
+    if (!isAkunUtama) {
+      setErrorMsg('Hanya Akun Utama (Administrator) yang dapat menginisialisasi berkas Surat Jalan baru.');
+      setTimeout(() => setErrorMsg(null), 4000);
+      return;
+    }
+
     // 1. Fetch portions dynamically from Supabase or localStorage
     let portions: PortionConfig = { ...DEFAULT_PORTIONS };
     try {
@@ -889,16 +901,6 @@ export default function SuratJalanView({
           </div>
           <p className="text-xs text-neutral-500">Lembar legalisasi perjalanan logistik dwi-harian, mencakup porsi koli boks hidangan, berat muatan, dan otorisasi tanda tangan.</p>
         </div>
-
-        {isAdminOrAslap && dateDocs.length > 0 && (
-          <button
-            onClick={handleInitializeSuratJalan}
-            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 transition-colors flex items-center gap-1.5 cursor-pointer ml-auto md:ml-0"
-          >
-            <Plus className="h-4 w-4" />
-            Re-Inisialisasi Surat Jalan Hari Ini
-          </button>
-        )}
       </div>
 
       {successMsg && (
@@ -1042,7 +1044,7 @@ export default function SuratJalanView({
               Berkas digital Surat Jalan pengiriman logistik untuk 6 lokasi sasaran belum diinisialisasi untuk tanggal {selectedDate}.
             </p>
           </div>
-          {isAdminOrAslap && (
+          {isAkunUtama && (
             <button
               onClick={handleInitializeSuratJalan}
               className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-6 py-3 rounded-xl text-center inline-flex items-center gap-2 cursor-pointer shadow-sm active:scale-[0.98] transition-transform"

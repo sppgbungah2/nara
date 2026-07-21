@@ -26,7 +26,7 @@ export default function SOPChecklistView({
   isCoordinator = false,
   loggedInUser = null
 }: SOPChecklistViewProps) {
-  const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || currentUserRole === UserRole.ADMIN;
+  const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || loggedInUser?.email === 'punkysme@gmail.com' || currentUserRole === UserRole.ADMIN;
   const [activeSignType, setActiveSignType] = useState<'supervisor' | 'coordinator' | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskCategory, setNewTaskCategory] = useState<'persiapan' | 'aktif' | 'penutup'>('aktif');

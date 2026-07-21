@@ -80,3 +80,16 @@ export const DRIVERS_LIST = [
   'Sholahuddin Nuraini',
   'Faliqul Habibi'
 ];
+
+export interface StockItem {
+  id: string;
+  category: string;
+  name: string;
+  stokAwal: number;
+  barangMasuk: number;
+  barangKeluar?: number;
+  stokAkhir: number;
+  uom: string;
+  expiredDate?: string;
+}
+

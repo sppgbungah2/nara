@@ -29,13 +29,13 @@ export interface UserProfile {
 export function mapUserToProfile(uid: string, email: string): UserProfile {
   const normEmail = email.toLowerCase().trim();
   
-  // Specific instruction: User maghfurmunif@gmail.com with UID d5454d9d-1d50-4baa-b5b9-f8693694db4a is Admin
-  if (normEmail === 'maghfurmunif@gmail.com' || uid === 'd5454d9d-1d50-4baa-b5b9-f8693694db4a') {
+  // Specific instruction: User maghfurmunif@gmail.com and punkysme@gmail.com are Admins
+  if (normEmail === 'maghfurmunif@gmail.com' || normEmail === 'punkysme@gmail.com' || uid === 'd5454d9d-1d50-4baa-b5b9-f8693694db4a') {
     return {
       id: uid,
-      email: 'maghfurmunif@gmail.com',
+      email: normEmail === 'punkysme@gmail.com' ? 'punkysme@gmail.com' : 'maghfurmunif@gmail.com',
       role: UserRole.ADMIN,
-      fullName: 'Ustadz Maghfur Munif (Admin Utama)'
+      fullName: normEmail === 'punkysme@gmail.com' ? 'Ahmad Fajrul Falah (Admin Utama)' : 'Ustadz Maghfur Munif (Admin Utama)'
     };
   }
 
