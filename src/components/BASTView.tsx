@@ -511,7 +511,7 @@ export default function BASTView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Penerima Pihak II:</span>
-                {isFieldReadOnly ? (
+                {isLocked ? (
                   <span className="text-xs font-extrabold text-neutral-850">{activeDoc.bastPenerima}</span>
                 ) : (
                   <input
@@ -555,7 +555,7 @@ export default function BASTView({
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-neutral-400 uppercase w-32 shrink-0">Jam Penyerahan:</span>
-                {isFieldReadOnly ? (
+                {isLocked ? (
                   <span className="text-xs font-bold text-neutral-800">{activeDoc.bastWaktu}</span>
                 ) : (
                   <input

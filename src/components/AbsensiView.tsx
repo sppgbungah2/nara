@@ -127,6 +127,37 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
   const [showAbsPrintView, setShowAbsPrintView] = useState(false);
   const [showWeeklyRecapView, setShowWeeklyRecapView] = useState(false);
   const [recapSearchQuery, setRecapSearchQuery] = useState('');
+  const [recapStartDate, setRecapStartDate] = useState(() => {
+    const date = new Date(activeDate);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // get Monday
+    const monday = new Date(date.setDate(diff));
+    return monday.toISOString().split('T')[0];
+  });
+  const [recapEndDate, setRecapEndDate] = useState(() => {
+    const date = new Date(activeDate);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // get Monday
+    const monday = new Date(date.setDate(diff));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return sunday.toISOString().split('T')[0];
+  });
+
+  useEffect(() => {
+    if (activeDate) {
+      const date = new Date(activeDate);
+      const day = date.getDay();
+      const diff = date.getDate() - day + (day === 0 ? -6 : 1); // get Monday
+      const monday = new Date(date.setDate(diff));
+      setRecapStartDate(monday.toISOString().split('T')[0]);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      setRecapEndDate(sunday.toISOString().split('T')[0]);
+    }
+  }, [activeDate]);
+
   const [activeSigRequest, setActiveSigRequest] = useState<{
     title: string;
     suggestedName: string;
@@ -914,34 +945,36 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
 
       {/* WEEKLY RECAP MODAL */}
       {showWeeklyRecapView && (() => {
-        // Calculate week range based on selectedDate
-        const getWeekDatesRange = (dateStr: string) => {
-          const date = new Date(dateStr);
-          const day = date.getDay(); 
-          const diff = date.getDate() - day + (day === 0 ? -6 : 1); // get Monday
-          const monday = new Date(date.setDate(diff));
-          
+        // Calculate days in the custom date range dynamically
+        const getDaysInRange = (startStr: string, endStr: string) => {
+          const start = new Date(startStr);
+          const end = new Date(endStr);
           const days: { dateStr: string; label: string }[] = [];
-          const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-          for (let i = 0; i < 7; i++) {
-            const nextDate = new Date(monday);
-            nextDate.setDate(monday.getDate() + i);
-            const yyyy = nextDate.getFullYear();
-            const mm = String(nextDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(nextDate.getDate()).padStart(2, '0');
+          const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+          
+          const current = new Date(start);
+          // Safety guard to prevent infinite loop
+          let guard = 0;
+          while (current <= end && guard < 366) {
+            guard++;
+            const yyyy = current.getFullYear();
+            const mm = String(current.getMonth() + 1).padStart(2, '0');
+            const dd = String(current.getDate()).padStart(2, '0');
+            const dateStr = `${yyyy}-${mm}-${dd}`;
             days.push({
-              dateStr: `${yyyy}-${mm}-${dd}`,
-              label: dayNames[i]
+              dateStr,
+              label: `${dayNames[current.getDay()]} (${dd}/${mm})`
             });
+            current.setDate(current.getDate() + 1);
           }
           return days;
         };
 
-        const weekDays = getWeekDatesRange(activeDate);
-        const startDayLabel = weekDays[0].dateStr.split('-').reverse().join('/');
-        const endDayLabel = weekDays[6].dateStr.split('-').reverse().join('/');
+        const weekDays = getDaysInRange(recapStartDate, recapEndDate);
+        const startDayLabel = recapStartDate.split('-').reverse().join('/');
+        const endDayLabel = recapEndDate.split('-').reverse().join('/');
 
-        // Aggregate data over the 7 days of the week
+        // Aggregate data over the selected range of days
         const aggregatedMap: Record<string, {
           name: string;
           role: string;
@@ -965,7 +998,7 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
           };
         });
 
-        // Populate over the 7 days of the week
+        // Populate over all days in the range
         weekDays.forEach(day => {
           const dayRecords = absensiMap[day.dateStr] || [];
           dayRecords.forEach(record => {
@@ -1009,7 +1042,7 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
             String(emp.alpa),
             emp.notes.length > 0 ? emp.notes.join(' | ') : 'Aktif penuh sesuai SOP'
           ]);
-          const filename = `REKAP_ABSENSI_MINGGUAN_${weekDays[0].dateStr}_SD_${weekDays[6].dateStr}.csv`;
+          const filename = `REKAP_ABSENSI_KUSTOM_${recapStartDate}_SD_${recapEndDate}.csv`;
           downloadCSV(filename, csvHeaders, csvRows);
         };
 
@@ -1022,8 +1055,8 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
                 <div className="flex items-center gap-2">
                   <FileSpreadsheet className="h-5 w-5" />
                   <div>
-                    <h3 className="font-black text-sm uppercase tracking-wider">Rekapitulasi Absensi Mingguan SPPG</h3>
-                    <p className="text-[10px] text-emerald-100 mt-0.5">Periode: {startDayLabel} s/d {endDayLabel}</p>
+                    <h3 className="font-black text-sm uppercase tracking-wider">Rekapitulasi Absensi Relawan SPPG</h3>
+                    <p className="text-[10px] text-emerald-100 mt-0.5">Periode: {startDayLabel} s/d {endDayLabel} ({weekDays.length} Hari)</p>
                   </div>
                 </div>
                 <button
@@ -1035,19 +1068,42 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
                 </button>
               </div>
 
-              {/* Search and Download Controls */}
-              <div className="p-4 bg-neutral-50 border-b border-neutral-200 flex flex-col sm:flex-row gap-3 items-center justify-between">
-                <div className="relative w-full sm:w-72">
+              {/* Date Range Picker and Search Controls */}
+              <div className="p-4 bg-neutral-50 border-b border-neutral-200 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                <div className="md:col-span-5 flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 grow bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Mulai:</span>
+                    <input
+                      type="date"
+                      value={recapStartDate}
+                      onChange={(e) => setRecapStartDate(e.target.value)}
+                      className="text-xs font-bold text-neutral-800 w-full focus:outline-none bg-transparent"
+                    />
+                  </div>
+                  <span className="text-xs text-neutral-400 font-bold select-none">s/d</span>
+                  <div className="flex items-center gap-1.5 grow bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Selesai:</span>
+                    <input
+                      type="date"
+                      value={recapEndDate}
+                      onChange={(e) => setRecapEndDate(e.target.value)}
+                      className="text-xs font-bold text-neutral-800 w-full focus:outline-none bg-transparent"
+                    />
+                  </div>
+                </div>
+                
+                <div className="md:col-span-4 relative">
                   <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-400" />
                   <input
                     type="text"
                     value={recapSearchQuery}
                     onChange={e => setRecapSearchQuery(e.target.value)}
                     placeholder="Cari relawan / posisi..."
-                    className="w-full text-xs pl-8 pr-3 py-1.5 border border-neutral-200 bg-white rounded-lg outline-hidden focus:ring-1 focus:ring-emerald-700"
+                    className="w-full text-xs pl-8 pr-3 py-2 border border-neutral-200 bg-white rounded-lg outline-hidden focus:ring-1 focus:ring-emerald-700"
                   />
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto shrink-0 justify-end">
+
+                <div className="md:col-span-3 flex justify-end">
                   <button
                     type="button"
                     onClick={handleDownloadRecapExcel}

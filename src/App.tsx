@@ -3,7 +3,7 @@ import {
   ClipboardList, Package, Wrench, ShieldCheck, ShoppingCart, Truck, 
   Camera, Users, Calendar, FileText, CheckCircle2, Flame, RefreshCcw, 
   HelpCircle, ChevronRight, UserCircle, Bell, ArrowRight, ShieldAlert,
-  Menu, Info, Eye, Trash2, ClipboardCheck
+  Menu, Info, Eye, Trash2, ClipboardCheck, LayoutDashboard
 } from 'lucide-react';
 import { Division, UserRole, DayMenu, SOPDocument } from './types';
 import { PRESET_MENUS, DIVISION_CREATOR_MAP, generateInitialSOPsForDate } from './presetData';
@@ -18,8 +18,8 @@ export default function App() {
   // User Authentication State
   const [loggedInUser, setLoggedInUser] = useState<UserProfile | null>(null);
 
-  // Sidebar Tabs (1-15)
-  const [activeTab, setActiveTab] = useState<number>(15); // Default to SOP
+  // Sidebar Tabs
+  const [activeTab, setActiveTab] = useState<number>(23); // Default to Admin Dashboard (non-admin will auto-redirect)
   
   // Dynamic SOP State
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -47,6 +47,7 @@ export default function App() {
 
   const getTabFromPage = (pageName: string): number => {
     const norm = pageName.toLowerCase().trim();
+    if (norm === 'dashboard-admin' || norm === 'dashboard') return 23;
     if (norm === 'sop') return 15;
     if (norm === 'keluhan') return 14;
     if (norm === 'order-alat' || norm === 'order_alat') return 4;
@@ -56,10 +57,11 @@ export default function App() {
     if (norm === 'surat-jalan') return 20;
     if (norm === 'organoleptik') return 21;
     if (norm === 'master-porsi' || norm === 'master_porsi') return 22;
-    return 15; // default to SOP
+    return 23; // default to Dashboard Admin
   };
 
   const getPageFromTab = (tabNum: number): string => {
+    if (tabNum === 23) return 'dashboard-admin';
     if (tabNum === 15) return 'sop';
     if (tabNum === 14) return 'keluhan';
     if (tabNum === 4) return 'order-alat';
@@ -757,6 +759,7 @@ export default function App() {
 
   // List of all capabilities
   const FEATURE_MENUS = [
+    { num: 23, name: 'Dashboard Admin Utama', icon: LayoutDashboard, category: 'Kontrol Utama', badge: 'BARU' },
     { num: 15, name: 'SOP Harian Digital', icon: CheckCircle2, category: 'Kontrol Kualitas', badge: 'UTAMA' },
     { num: 10, name: 'Menu Harian Gizi', icon: Calendar, category: 'Perencanaan' },
     { num: 22, name: 'Master Jumlah Porsi', icon: Users, category: 'Perencanaan' },
@@ -860,7 +863,12 @@ export default function App() {
           setCurrentUserRole(profile.role);
           setCurrentUsername(profile.fullName);
           const email = profile.email?.toLowerCase().trim() || '';
-          if (['ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'].includes(email)) {
+          if (
+            ['maghfur@qomaruddin.com', 'rifkah@qomaruddin.com', 'fajar@qomaruddin.com', 'sam@qomaruddin.com', 'maghfurmunif@gmail.com', 'punkysme@gmail.com', 'ketua@sppg.com'].includes(email) ||
+            profile.role === UserRole.ADMIN
+          ) {
+            setActiveTab(23);
+          } else if (['ma@qomaruddin.com', 'smk@qomaruddin.com', 'sma@qomaruddin.com', 'mts@qomaruddin.com', 'sukowati@qomaruddin.com', 'sidokumpul@qomaruddin.com'].includes(email)) {
             setActiveTab(19);
           } else if (profile.isCoordinator) {
             setActiveTab(15);
@@ -1053,7 +1061,7 @@ export default function App() {
         {/* Work Area scrollable wrap */}
         <div className="flex-1 p-4 md:p-6 overflow-y-auto">
           {activeTab !== 15 ? (
-            /* Render Mockups for 1 to 14 */
+            /* Render Mockups for 1 to 14 and 23 */
             <MockModules 
               moduleIndex={activeTab} 
               onSetMenu={syncMenuFromSchedule}
@@ -1064,6 +1072,9 @@ export default function App() {
               currentUserRole={currentUserRole}
               loggedInUser={loggedInUser}
               selectedDate={selectedDate}
+              sops={sops}
+              setSops={setSops}
+              onGoToTab={setActiveTab}
             />
           ) : activeSopDetail ? (
             /* Render Full-depth checklist printed form sheet */

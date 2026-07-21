@@ -16,6 +16,8 @@ import PortionMasterView, { PortionConfig } from './PortionMasterView';
 import AbsensiView from './AbsensiView';
 import IncomingGoodsView from './IncomingGoodsView';
 import StockOpnameView from './StockOpnameView';
+import StockOperasionalView from './StockOperasionalView';
+import DashboardAdminView from './DashboardAdminView';
 
 
 // Real schemas for SQL integration
@@ -63,6 +65,9 @@ interface MockModulesProps {
   currentUserRole?: UserRole;
   loggedInUser?: UserProfile | null;
   selectedDate?: string;
+  sops?: any[];
+  setSops?: any;
+  onGoToTab?: (tabNum: number) => void;
 }
 
 const DISTRIBUTION_LOCATIONS = [
@@ -2012,7 +2017,10 @@ export default function MockModules({
   onDeleteMenu,
   currentUserRole,
   loggedInUser,
-  selectedDate
+  selectedDate,
+  sops = [],
+  setSops,
+  onGoToTab
 }: MockModulesProps) {
   // Common states
   const [searchTerm, setSearchTerm] = useState('');
@@ -2591,16 +2599,6 @@ export default function MockModules({
   useEffect(() => {
     localStorage.setItem('sppg_stok_operasional_by_date_v1', JSON.stringify(operasionalMap));
   }, [operasionalMap]);
-
-  const [selectedOperasionalCategoryFilter, setSelectedOperasionalCategoryFilter] = useState('Semua');
-  const [operasionalSearchTerm, setOperasionalSearchTerm] = useState('');
-  const [newOperasionalName, setNewOperasionalName] = useState('');
-  const [newOperasionalCat, setNewOperasionalCat] = useState('ATK');
-  const [newOperasionalStokAwal, setNewOperasionalStokAwal] = useState('0');
-  const [newOperasionalBarangMasuk, setNewOperasionalBarangMasuk] = useState('0');
-  const [newOperasionalStokAkhir, setNewOperasionalStokAkhir] = useState('0');
-  const [newOperasionalUom, setNewOperasionalUom] = useState('Pcs');
-  const [isAddingOperasionalItem, setIsAddingOperasionalItem] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('sppg_stock_opname_by_date_v4', JSON.stringify(stockMap));
@@ -5252,582 +5250,19 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
   );
 
     case 17: { // Stok Operasional
-      const exportStockOperasionalToCSV = (dateStr: string, items: StockItem[]) => {
-        const filename = `Laporan_Stok_Operasional_${dateStr}.csv`;
-        const headers = ['Kategori', 'Nama Barang', 'Stok Awal', 'Barang Masuk', 'Stok Akhir', 'Satuan (UoM)', 'Status Threshold'];
-        const rows = items.map(item => {
-          const stokAkhir = item.stokAkhir || 0;
-          let status = 'Aman';
-          if (stokAkhir <= 0) status = 'Habis';
-          else if (stokAkhir <= 10) status = 'Menipis';
-          return [
-            item.category,
-            item.name,
-            String(item.stokAwal),
-            String(item.barangMasuk),
-            String(stokAkhir),
-            item.uom,
-            status
-          ];
-        });
-        addSavedReport(dateStr, 'operasional', filename, items.length, headers, rows);
-        downloadCSV(filename, headers, rows);
-      };
-
-      const OPERASIONAL_CATEGORIES = ['ATK', 'Kebersihan', 'Air', 'APD', 'Lain-Lain'];
-      const activeOperasionalList = operasionalMap[selectedOperasionalDate] && operasionalMap[selectedOperasionalDate].length > 0
-        ? operasionalMap[selectedOperasionalDate]
-        : defaultOperasionalTemplate;
-
-      const filteredOperasionalItems = activeOperasionalList.filter(item => {
-        const matchesCategory = selectedOperasionalCategoryFilter === 'Semua' || item.category === selectedOperasionalCategoryFilter;
-        const matchesSearch = item.name.toLowerCase().includes(operasionalSearchTerm.toLowerCase());
-        return matchesCategory && matchesSearch;
-      });
-
-      const handleUpdateOperasionalItem = (id: string, field: 'stokAwal' | 'barangMasuk' | 'stokAkhir' | 'uom', value: any) => {
-        setOperasionalMap(prev => {
-          const currentList = prev[selectedOperasionalDate] && prev[selectedOperasionalDate].length > 0
-            ? prev[selectedOperasionalDate]
-            : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-          
-          const updatedList = currentList.map((item: StockItem) => {
-            if (item.id === id) {
-              const numVal = (field === 'stokAwal' || field === 'barangMasuk' || field === 'stokAkhir') ? (parseFloat(value) || 0) : value;
-              return { ...item, [field]: numVal };
-            }
-            return item;
-          });
-          
-          return { ...prev, [selectedOperasionalDate]: updatedList };
-        });
-      };
-
-      const handleCreateOperasionalItem = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newOperasionalName.trim()) return;
-        const newItem: StockItem = {
-          id: 'op-' + Date.now(),
-          category: newOperasionalCat,
-          name: newOperasionalName,
-          stokAwal: parseFloat(newOperasionalStokAwal) || 0,
-          barangMasuk: parseFloat(newOperasionalBarangMasuk) || 0,
-          stokAkhir: parseFloat(newOperasionalStokAkhir) || 0,
-          uom: newOperasionalUom
-        };
-
-        setOperasionalMap(prev => {
-          const currentList = prev[selectedOperasionalDate] && prev[selectedOperasionalDate].length > 0
-            ? prev[selectedOperasionalDate]
-            : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-          
-          return { ...prev, [selectedOperasionalDate]: [...currentList, newItem] };
-        });
-
-        setNewOperasionalName('');
-        setNewOperasionalStokAwal('0');
-        setNewOperasionalBarangMasuk('0');
-        setNewOperasionalStokAkhir('0');
-        setNewOperasionalUom('Pcs');
-        setIsAddingOperasionalItem(false);
-        triggerSuccessMsg(`Barang Operasional "${newItem.name}" berhasil ditambahkan ke kategori ${newItem.category} pada tanggal ${selectedOperasionalDate}!`);
-      };
-
-      const handleRemoveOperasionalItem = (id: string, name?: string) => {
-        const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus barang "${name || 'ini'}" dari Stok Operasional tanggal ${selectedOperasionalDate}?`);
-        if (confirmed) {
-          setOperasionalMap(prev => {
-            const currentList = prev[selectedOperasionalDate] && prev[selectedOperasionalDate].length > 0
-              ? prev[selectedOperasionalDate]
-              : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-            const updatedList = currentList.filter((item: StockItem) => item.id !== id);
-            return { ...prev, [selectedOperasionalDate]: updatedList };
-          });
-          triggerSuccessMsg("Barang operasional berhasil dihapus.");
-        }
-      };
-
-      const handleSaveAndCarryOverOperasionalItem = (itemToSave: StockItem) => {
-        const currentDateObj = new Date(selectedOperasionalDate);
-        currentDateObj.setDate(currentDateObj.getDate() + 1);
-        const nextDateStr = currentDateObj.toISOString().split('T')[0];
-
-        setOperasionalMap(prev => {
-          const targetTodayList = prev[selectedOperasionalDate] && prev[selectedOperasionalDate].length > 0
-            ? prev[selectedOperasionalDate]
-            : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-
-          const nextDayList = prev[nextDateStr] && prev[nextDateStr].length > 0
-            ? JSON.parse(JSON.stringify(prev[nextDateStr]))
-            : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-
-          let matchFound = false;
-          const updatedNextDayList = nextDayList.map((nextItem: StockItem) => {
-            if (nextItem.id === itemToSave.id || nextItem.name.toLowerCase() === itemToSave.name.toLowerCase()) {
-              matchFound = true;
-              const newStokAwal = itemToSave.stokAkhir;
-              const newStokAkhir = newStokAwal + nextItem.barangMasuk;
-              return { 
-                ...nextItem, 
-                stokAwal: newStokAwal,
-                stokAkhir: newStokAkhir
-              };
-            }
-            return nextItem;
-          });
-
-          if (!matchFound) {
-            updatedNextDayList.push({
-              id: itemToSave.id,
-              category: itemToSave.category,
-              name: itemToSave.name,
-              stokAwal: itemToSave.stokAkhir,
-              barangMasuk: 0,
-              stokAkhir: itemToSave.stokAkhir,
-              uom: itemToSave.uom
-            });
-          }
-
-          return { 
-            ...prev, 
-            [selectedOperasionalDate]: targetTodayList,
-            [nextDateStr]: updatedNextDayList 
-          };
-        });
-
-        // Trigger CSV/Excel export on individual save
-        exportStockOperasionalToCSV(selectedOperasionalDate, activeOperasionalList.map(it => it.id === itemToSave.id ? itemToSave : it));
-        triggerSuccessMsg(`Stok "${itemToSave.name}" berhasil disimpan & laporan Excel terunduh! Stok Akhir (${itemToSave.stokAkhir} ${itemToSave.uom}) otomatis disalin menjadi Stok Awal untuk esok hari (${nextDateStr}).`);
-      };
-
-      const handleSyncAllOperasionalToNextDay = () => {
-        const currentDateObj = new Date(selectedOperasionalDate);
-        currentDateObj.setDate(currentDateObj.getDate() + 1);
-        const nextDateStr = currentDateObj.toISOString().split('T')[0];
-
-        setOperasionalMap(prev => {
-          const todayList = prev[selectedOperasionalDate] && prev[selectedOperasionalDate].length > 0
-            ? prev[selectedOperasionalDate]
-            : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-
-          const nextDayList = prev[nextDateStr] && prev[nextDateStr].length > 0
-            ? JSON.parse(JSON.stringify(prev[nextDateStr]))
-            : JSON.parse(JSON.stringify(defaultOperasionalTemplate));
-
-          const updatedNextDayList = [...nextDayList];
-
-          todayList.forEach((todayItem: StockItem) => {
-            const idx = updatedNextDayList.findIndex(nItem => nItem.id === todayItem.id || nItem.name.toLowerCase() === todayItem.name.toLowerCase());
-            if (idx !== -1) {
-              const nextItem = updatedNextDayList[idx];
-              const newStokAwal = todayItem.stokAkhir;
-              const newStokAkhir = newStokAwal + nextItem.barangMasuk;
-              updatedNextDayList[idx] = {
-                ...nextItem,
-                stokAwal: newStokAwal,
-                stokAkhir: newStokAkhir
-              };
-            } else {
-              updatedNextDayList.push({
-                id: todayItem.id,
-                category: todayItem.category,
-                name: todayItem.name,
-                stokAwal: todayItem.stokAkhir,
-                barangMasuk: 0,
-                stokAkhir: todayItem.stokAkhir,
-                uom: todayItem.uom
-              });
-            }
-          });
-
-          return {
-            ...prev,
-            [nextDateStr]: updatedNextDayList
-          };
-        });
-
-        // Trigger CSV/Excel export on batch save
-        exportStockOperasionalToCSV(selectedOperasionalDate, activeOperasionalList);
-        triggerSuccessMsg(`Sukses menyimpan seluruh data operasional & mengunduh laporan Excel! Stok Akhir per hari ini otomatis disalin menjadi Stok Awal untuk esok hari tanggal ${nextDateStr}.`);
-      };
-
       return (
-        <div className="bg-white p-6 rounded-2xl border border-neutral-100 shadow-xs space-y-6 animate-fadeIn">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <Archive className="h-6 w-6 text-emerald-700" />
-                <h2 className="text-xl font-bold font-sans text-neutral-800">
-                  Stok Operasional Mandiri (ATK, APD, Kebersihan, Air, & Lain-Lain)
-                </h2>
-              </div>
-              <p className="text-xs text-neutral-500 mt-1">
-                Lacak perlengkapan non-food pondok pesantren gizi secara akurat dan real-time per hari ketersediaan.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleSyncAllOperasionalToNextDay}
-                className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Simpan seluruh Stok Akhir operasional hari ini dan salin ke Stok Awal esok hari"
-              >
-                <Save className="h-4 w-4" /> Simpan & Salin ke Besok
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAddingOperasionalItem(!isAddingOperasionalItem)}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
-              >
-                <Plus className="h-4 w-4" /> {isAddingOperasionalItem ? 'Batal' : 'Tambah Barang'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  exportStockOperasionalToCSV(selectedOperasionalDate, activeOperasionalList);
-                  triggerSuccessMsg("Seluruh laporan Stok Operasional berhasil diekspor ke Excel!");
-                }}
-                className="border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer"
-              >
-                Ekspor Excel
-              </button>
-            </div>
-          </div>
-
-          {successMsg && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs flex items-center gap-2 animate-fadeIn">
-              <CheckCircle className="h-4 w-4 shrink-0" /> {successMsg}
-            </div>
-          )}
-
-          {/* Form Create Operasional Item */}
-          {isAddingOperasionalItem && (
-            <form onSubmit={handleCreateOperasionalItem} className="bg-neutral-50 p-4 rounded-xl border border-neutral-250 space-y-4">
-              <h3 className="text-xs font-bold font-mono text-emerald-950 uppercase tracking-wider">Formulir Tambah Barang Operasional Baru</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Nama Barang</label>
-                  <input
-                    type="text"
-                    required
-                    value={newOperasionalName}
-                    onChange={e => setNewOperasionalName(e.target.value)}
-                    placeholder="Contoh: Sabun Mama Lemon"
-                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Kategori</label>
-                  <select
-                    value={newOperasionalCat}
-                    onChange={e => setNewOperasionalCat(e.target.value)}
-                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
-                  >
-                    {OPERASIONAL_CATEGORIES.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">UoM (Satuan)</label>
-                  <input
-                    type="text"
-                    required
-                    value={newOperasionalUom}
-                    onChange={e => setNewOperasionalUom(e.target.value)}
-                    placeholder="Contoh: Jerigen, Pcs, Box, Galon"
-                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Stok Awal</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newOperasionalStokAwal}
-                    onChange={e => setNewOperasionalStokAwal(e.target.value)}
-                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Barang Masuk</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newOperasionalBarangMasuk}
-                    onChange={e => setNewOperasionalBarangMasuk(e.target.value)}
-                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Stok Akhir / Riil</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newOperasionalStokAkhir}
-                    onChange={e => setNewOperasionalStokAkhir(e.target.value)}
-                    className="w-full text-xs border border-neutral-200 rounded px-2.5 py-1.5 bg-white"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingOperasionalItem(false)}
-                  className="px-3 py-1.5 border border-neutral-300 text-neutral-700 text-xs rounded font-medium"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-emerald-800 text-white rounded text-xs font-bold"
-                >
-                  Simpan Barang
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Daily Date Selector */}
-          <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded border border-emerald-250 uppercase tracking-wider font-mono">
-                📅 STOK OPERASIONAL HARIAN
-              </span>
-              <p className="text-xs text-neutral-600 font-medium">
-                Pembaruan stok harian. Pilih tanggal kontrol di bawah:
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const d = new Date(selectedOperasionalDate);
-                  d.setDate(d.getDate() - 1);
-                  setSelectedOperasionalDate(d.toISOString().split('T')[0]);
-                }}
-                className="bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold flex items-center justify-center transition-all"
-              >
-                ← Kemarin
-              </button>
-              
-              <input
-                type="date"
-                value={selectedOperasionalDate}
-                onChange={e => setSelectedOperasionalDate(e.target.value)}
-                className="text-xs font-bold font-mono border border-neutral-300 rounded-lg px-2.5 py-1.5 bg-white text-neutral-800 focus:ring-emerald-500 shadow-2xs"
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  const d = new Date(selectedOperasionalDate);
-                  d.setDate(d.getDate() + 1);
-                  setSelectedOperasionalDate(d.toISOString().split('T')[0]);
-                }}
-                className="bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold flex items-center justify-center transition-all"
-              >
-                Esok →
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedOperasionalDate('2026-06-17')}
-                className="bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg px-3 py-1.5 text-xs font-bold transition-all"
-              >
-                Hari Ini
-              </button>
-            </div>
-          </div>
-
-          {/* Table Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 bg-neutral-50 p-3 rounded-xl border border-neutral-100">
-            <div className="w-full sm:w-1/3">
-              <label className="block text-[9px] font-bold text-neutral-400 uppercase mb-1 select-none">Filter Kategori</label>
-              <select
-                value={selectedOperasionalCategoryFilter}
-                onChange={e => setSelectedOperasionalCategoryFilter(e.target.value)}
-                className="w-full text-xs border border-neutral-200 rounded-lg px-2.5 py-1.5 bg-white font-medium"
-              >
-                <option value="Semua">Semua Kategori</option>
-                {OPERASIONAL_CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-            <div className="w-full sm:w-2/3">
-              <label className="block text-[9px] font-bold text-neutral-400 uppercase mb-1 select-none">Cari Nama Barang</label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-                <input
-                  type="text"
-                  placeholder="Ketik kata kunci pencarian barang operasional..."
-                  value={operasionalSearchTerm}
-                  onChange={e => setOperasionalSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* List Table */}
-          <div className="overflow-x-auto border border-neutral-200 rounded-xl">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider select-none">
-                  <th className="py-3 px-4">Kategori</th>
-                  <th className="py-3 px-4">Nama Barang</th>
-                  <th className="py-3 px-4 text-center w-24">Stok Awal</th>
-                  <th className="py-3 px-4 text-center w-24">Barang Masuk</th>
-                  <th className="py-3 px-4 text-center w-24">Stok Akhir</th>
-                  <th className="py-3 px-4 text-center w-24">UoM</th>
-                  <th className="py-3 px-4 text-center w-32">Status</th>
-                  <th className="py-3 px-4 text-center w-28">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {filteredOperasionalItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-neutral-400 font-medium text-xs">
-                      Tidak ada barang operasional yang sesuai filter
-                    </td>
-                  </tr>
-                ) : (
-                  filteredOperasionalItems.map(item => (
-                    <tr key={item.id} className="hover:bg-neutral-50/50 transition-colors text-xs">
-                      <td className="py-2.5 px-4">
-                        <span className="bg-slate-100 text-slate-800 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm border border-slate-200/60 font-mono">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 font-semibold text-neutral-800">{item.name}</td>
-                      <td className="py-1 px-2 text-center">
-                        <input
-                          type="number"
-                          step="any"
-                          value={item.stokAwal}
-                          onChange={e => handleUpdateOperasionalItem(item.id, 'stokAwal', e.target.value)}
-                          className="w-20 text-center font-mono border border-neutral-200 rounded px-1.5 py-1 text-xs bg-white text-neutral-800 shadow-2xs"
-                        />
-                      </td>
-                      <td className="py-1 px-2 text-center">
-                        <input
-                          type="number"
-                          step="any"
-                          value={item.barangMasuk}
-                          onChange={e => handleUpdateOperasionalItem(item.id, 'barangMasuk', e.target.value)}
-                          className="w-20 text-center font-mono border border-neutral-200 rounded px-1.5 py-1 text-xs bg-white text-neutral-800 shadow-2xs"
-                        />
-                      </td>
-                      <td className="py-1 px-2 text-center">
-                        <input
-                          type="number"
-                          step="any"
-                          value={item.stokAkhir}
-                          onChange={e => handleUpdateOperasionalItem(item.id, 'stokAkhir', e.target.value)}
-                          className="w-20 text-center font-mono border border-neutral-200 rounded px-1.5 py-1 text-xs bg-white text-neutral-800 shadow-2xs"
-                        />
-                      </td>
-                      <td className="py-1 px-2 text-center">
-                        <input
-                          type="text"
-                          value={item.uom}
-                          onChange={e => handleUpdateOperasionalItem(item.id, 'uom', e.target.value)}
-                          className="w-20 text-center border border-neutral-200 rounded px-1.5 py-1 text-xs bg-white text-neutral-800"
-                        />
-                      </td>
-                      <td className="py-1 px-2 text-center">
-                        {(() => {
-                          const stokAkhir = item.stokAkhir || 0;
-                          if (stokAkhir <= 0) {
-                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800 border border-red-200">Merah Habis</span>;
-                          } else if (stokAkhir <= 10) {
-                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200">Oranye Menipis</span>;
-                          } else {
-                            return <span className="inline-block px-2.5 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200">Hijau Aman</span>;
-                          }
-                        })()}
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleSaveAndCarryOverOperasionalItem(item)}
-                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 p-1.5 rounded border border-emerald-200 transition-all flex items-center justify-center cursor-pointer"
-                            title="Simpan & Salin Stok Akhir ke Esok Hari"
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveOperasionalItem(item.id, item.name)}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 p-1.5 rounded border border-rose-200 transition-all flex items-center justify-center cursor-pointer"
-                            title="Hapus barang"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Saved Reports Section */}
-          <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4.5 w-4.5 text-emerald-800" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-neutral-800 font-mono">Daftar Laporan Stok Operasional Tersimpan</h3>
-              </div>
-              <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-bold px-2.5 py-0.5 rounded-full">
-                {savedReports.filter(r => r.module === 'operasional').length} File
-              </span>
-            </div>
-            {savedReports.filter(r => r.module === 'operasional').length === 0 ? (
-              <p className="text-[11px] text-neutral-450 italic py-4 text-center">Belum ada laporan Excel yang disimpan atau diunduh.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[11px] border-collapse">
-                  <thead>
-                    <tr className="bg-neutral-50 text-[9px] text-neutral-400 font-bold uppercase">
-                      <th className="p-2">Nama File Excel</th>
-                      <th className="p-2">Tanggal Kontrol</th>
-                      <th className="p-2 text-center">Jumlah Item</th>
-                      <th className="p-2">Waktu Tersimpan</th>
-                      <th className="p-2 text-center">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {savedReports.filter(r => r.module === 'operasional').map(rep => (
-                      <tr key={rep.id} className="hover:bg-neutral-50/50">
-                        <td className="p-2 font-mono text-emerald-900 font-semibold">{rep.fileName}</td>
-                        <td className="p-2 font-bold text-neutral-700">{rep.date}</td>
-                        <td className="p-2 text-center font-semibold font-mono">{rep.itemCount}</td>
-                        <td className="p-2 text-neutral-500">{rep.timestamp}</td>
-                        <td className="p-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              downloadCSV(rep.fileName, rep.headers, rep.rows);
-                              triggerSuccessMsg(`Laporan "${rep.fileName}" berhasil diunduh kembali!`);
-                            }}
-                            className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all"
-                          >
-                            📥 Download Excel
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-        </div>
+        <StockOperasionalView
+          selectedDate={selectedOperasionalDate}
+          isInitialFetchDone={isInitialFetchDone}
+          operasionalMap={operasionalMap}
+          setOperasionalMap={setOperasionalMap}
+          kedatanganMap={kedatanganMap}
+          savedReports={savedReports}
+          addSavedReport={addSavedReport}
+          triggerSuccessMsg={triggerSuccessMsg}
+          successMsg={successMsg}
+          isSupabaseConfigured={isSupabaseConfigured}
+        />
       );
     }
 
@@ -5890,6 +5325,26 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
       return (
         <PortionMasterView
           selectedDate={selectedDate || '2026-06-16'}
+        />
+      );
+    }
+
+    case 23: {
+      return (
+        <DashboardAdminView
+          selectedDate={selectedDate || '2026-06-16'}
+          allDayMenus={allDayMenus}
+          sops={sops}
+          setSops={setSops}
+          onSaveMenu={onSaveMenu}
+          onGenerateSOPs={onGenerateSOPs}
+          onGoToTab={onGoToTab}
+          shippingDocs={shippingDocs}
+          setShippingDocs={setRawShippingDocs}
+          orderRequests={orderRequests}
+          setOrderRequests={setOrderRequests}
+          keluhanList={keluhanList}
+          setKeluhanList={setKeluhanList}
         />
       );
     }

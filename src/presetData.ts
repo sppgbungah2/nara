@@ -49,21 +49,120 @@ export const DIVISION_CREATOR_MAP: Record<Division, { role: UserRole; label: str
 export function getDefaultTasksForDivision(division: Division, menuList: string[]): TaskItem[] {
   const tasks: TaskItem[] = [];
 
-  // 1. ADD PREPARATION CATEGORY (GENERAL)
-  tasks.push(
-    { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-4`, text: 'Memastikan Koordinator telah mengecek bahan-bahan yang dibutuhkan dan menerapkan sistem First In First Out (FIFO) serta sistem First Expired First Out (FEFO).', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-5`, text: 'Menerima bahan baku dengan teliti serta mengecek kualitas dan kuantitas bahan baku yang diterima secara seksama', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-6`, text: 'Menyortir kelayakan buah sesuai dengan standar kualitas yang ditetapkan', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-7`, text: 'Segera melaporkan apabila terdapat kekurangan atau ketidaklayakan buah dan bahan baku', completed: false, category: 'persiapan' },
-    { id: `${division}-prep-8`, text: 'Memakai Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) dalam proses mempersiapkan bahan-bahan', completed: false, category: 'persiapan' }
-  );
-
-  // 2. ADD MAIN ACTIVE TASKS (SPECIFIC)
   switch (division) {
+    case Division.CUCI:
+      // Tim Cuci
+      tasks.push(
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-4`, text: 'Memakai Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) dalam proses pencucian.', completed: false, category: 'persiapan' },
+
+        // Aktif
+        { id: `${division}-act-1`, text: 'Buang dan pisahkan seluruh sisa makanan dari ompreng ke dalam kantong plastik (trash bag) yang berbeda: makanan pokok, lauk hewani, lauk nabati, sayur, buah, dst. Jangan menyisakan limbah padat di dalam.', completed: false, category: 'aktif' },
+        { id: `${division}-act-2`, text: 'Timbang dan catat sisa makanan masing-masing: makanan pokok, lauk hewani, lauk nabati, sayur, buah, dst.', completed: false, category: 'aktif' },
+        { id: `${division}-act-3`, text: 'Bilas ompreng dengan air mengalir guna merontokkan bumbu, minyak, dan sisa makanan kasar yang menempel.', completed: false, category: 'aktif' },
+        { id: `${division}-act-4`, text: 'Cuci seluruh permukaan ompreng (dalam, luar, celah / sekat) menggunakan spons dan cairan sabun. Gunakan sabut jika ada noda membandel.', completed: false, category: 'aktif' },
+        { id: `${division}-act-5`, text: 'Bilas ompreng hingga benar-benar bersih dari busa sabun di bawah air mengalir. Pastikan ompreng tidak licin / masih berlemak.', completed: false, category: 'aktif' },
+        { id: `${division}-act-6`, text: 'Sterilkan ompreng dengan cara merendam ompreng dengan air panas pada suhu minimal 80°C selama 1-2 menit atau masukkan ke dalam kabinet sterilizer dengan siklus suhu tinggi.', completed: false, category: 'aktif' },
+        { id: `${division}-act-7`, text: 'Tiriskan ompreng pada rak peniris bertingkat secara terbalik / miring di area bersih yang memiliki sirkulasi udara baik. Jika menggunakan lap, pastikan kain lap steril dan ganti secara berkala.', completed: false, category: 'aktif' },
+        { id: `${division}-act-8`, text: 'Sebelum disimpan, pastikan ompreng tidak berbau sabun/amis, tidak ada bercak air/minyak, dan tidak ada bau langu.', completed: false, category: 'aktif' },
+        { id: `${division}-act-9`, text: 'Simpan ompreng yang sudah benar-benar kering.', completed: false, category: 'aktif' },
+        { id: `${division}-act-10`, text: 'Dilarang menumpuk ompreng yang masih dalam kondisi basah atau lembab, karena akan memicu munculnya bau apek, jamur, dan bakteri.', completed: false, category: 'aktif' },
+
+        // Penutup
+        { id: `${division}-close-1`, text: 'Membersihkan seluruh peralatan kerja (mencuci dan mengeringkan alat seperti lap, keranjang, troli, dan peralatan lainnya hingga benar-benar bersih dan kering).', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Membersihkan seluruh area kerja Tim Cuci (termasuk halaman, wastafel, lantai, dan bak cuci) segera setelah menyelesaikan pekerjaan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan yang telah dipakai ke tempat penyimpanan semula.', completed: false, category: 'penutup' },
+        { id: `${division}-close-4`, text: 'Koordinator memastikan seluruh dapur dalam keadaan bersih dan aman (kompor/gas mati, kran air tertutup).', completed: false, category: 'penutup' },
+        { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang.', completed: false, category: 'penutup' }
+      );
+      break;
+
+    case Division.PEMORSIAN:
+      // Tim Pemorsian
+      tasks.push(
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Menghadiri pekerjaan sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-4`, text: 'Mensterilkan permukaan meja kerja dengan cairan sanitasi yang sesuai sebelum memulai operasional.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-5`, text: 'Memeriksa dan memastikan bahwa seluruh ompreng benar-benar kering, bersih, serta bebas dari segala bentuk sisa makanan atau kotoran.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-6`, text: 'Memporsikan makanan dengan menerapkan sistem First In First Out (FIFO).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-7`, text: 'Memakai Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) dalam proses memporsikan makanan.', completed: false, category: 'persiapan' },
+
+        // Aktif
+        { id: `${division}-act-1`, text: 'Melakukan pengambilan sampel timbangan secara acak (sampling) untuk memastikan berat porsi seragam, di bawah pengawasan langsung dari Pengawas Gizi.', completed: false, category: 'aktif' },
+        { id: `${division}-act-2`, text: 'Memastikan seluruh komponen makanan (kondimen) lengkap dan tidak ada yang terlewat sebelum kemasan ditutup.', completed: false, category: 'aktif' },
+        { id: `${division}-act-3`, text: 'Melakukan proses serah terima ompreng kepada Tim Pengiriman (delivery) dengan wajib menerapkan sistem First In First Out (FIFO).', completed: false, category: 'aktif' },
+        { id: `${division}-act-4`, text: 'Menghitung total box ompreng yang siap didistribusikan dan melaporkan ke Pengawas Gizi.', completed: false, category: 'aktif' },
+
+        // Penutup
+        { id: `${division}-close-1`, text: 'Membersihkan segera seluruh peralatan kerja (mencuci dan mengeringkan alat seperti baskom, lengser, keranjang, troli, dan peralatan lainnya hingga benar-benar kering).', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Membersihkan seluruh area kerja tim pemorsian (termasuk meja, lantai, rak, dan bak cuci) segera setelah menyelesaikan pekerjaan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan yang telah dibersihkan ke tempat penyimpanan semula.', completed: false, category: 'penutup' },
+        { id: `${division}-close-4`, text: 'Koordinator memastikan seluruh area pemorsian dalam keadaan bersih serta mematikan seluruh fasilitas elektronik seperti kipas angin dan AC setelah operasional selesai.', completed: false, category: 'penutup' },
+        { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang.', completed: false, category: 'penutup' }
+      );
+      break;
+
+    case Division.MASAK:
+      // Tim Pengolahan (Masak)
+      tasks.push(
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Menghadiri pekerjaan sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-4`, text: 'Memastikan Koordinator telah mengecek bahan-bahan yang dibutuhkan dan menerapkan sistem First In First Out (FIFO) serta sistem First Expired First Out (FEFO).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-5`, text: 'Memakai Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) dalam proses pengolahan bahan makanan.', completed: false, category: 'persiapan' }
+      );
+
+      // Aktif (Dynamic based on menus)
+      tasks.push(
+        { id: `${division}-act-1`, text: `Merebus kuah kaldu utama atau menanak dan mengukus nasi putih sejumlah porsi gizi santri (Menu: ${menuList.join(', ')}).`, completed: false, category: 'aktif' }
+      );
+      if (menuList.some(m => m.toLowerCase().includes('ayam'))) {
+        tasks.push(
+          { id: `${division}-act-2`, text: 'Menggoreng atau menumis protein ayam hingga matang merata di suhu minimal 75°C.', completed: false, category: 'aktif' }
+        );
+      }
+      if (menuList.some(m => m.toLowerCase().includes('tempe') || m.toLowerCase().includes('tahu'))) {
+        tasks.push(
+          { id: `${division}-act-3`, text: 'Melakukan marinasi tempe/tahu dengan bumbu ketumbar bawang lalu goreng deep-fry hingga kuning keemasan.', completed: false, category: 'aktif' }
+        );
+      }
+      tasks.push(
+        { id: `${division}-act-4`, text: 'Memasak lauk pelengkap tumis sayuran (durasi tidak overcooked agar vitamin terjaga).', completed: false, category: 'aktif' },
+        { id: `${division}-act-5`, text: 'Membuat sambal serundeng atau sambal goreng penyetan khas, cicipi kesesuaian rasa gizi.', completed: false, category: 'aktif' },
+        { id: `${division}-act-6`, text: 'Melakukan pengetesan organoleptik (Rasa, Bau, Tekstur) sebelum masakan dipindahkan ke tempat pemorsian.', completed: false, category: 'aktif' }
+      );
+
+      // Penutup
+      tasks.push(
+        { id: `${division}-close-1`, text: 'Membersihkan seluruh peralatan kerja (mencuci dan mengeringkan alat seperti baskom, lengser, keranjang, troli, dan peralatan lainnya hingga benar-benar kering).', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Membersihkan seluruh area kerja Tim Pengolahan (termasuk meja, kompor, steamer, lantai, rak, dan bak cuci) segera setelah menyelesaikan pekerjaan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan yang telah dibersihkan ke tempat penyimpanan semula.', completed: false, category: 'penutup' },
+        { id: `${division}-close-4`, text: 'Koordinator memastikan seluruh dapur dalam keadaan bersih dan aman (kompor/gas mati, kran air tertutup).', completed: false, category: 'penutup' },
+        { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang.', completed: false, category: 'penutup' }
+      );
+      break;
+
     case Division.STOCKING:
+      // Tim Persiapan (Stocking)
+      tasks.push(
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-4`, text: 'Memastikan Koordinator telah mengecek bahan-bahan yang dibutuhkan dan menerapkan sistem First In First Out (FIFO) serta sistem First Expired First Out (FEFO).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-5`, text: 'Menerima bahan baku dengan teliti serta mengecek kualitas dan kuantitas bahan baku yang diterima secara seksama.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-6`, text: 'Menyortir kelayakan buah sesuai dengan standar kualitas yang ditetapkan.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-7`, text: 'Segera melaporkan apabila terdapat kekurangan atau ketidaklayakan buah dan bahan baku.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-8`, text: 'Memakai Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) dalam proses mempersiapkan bahan-bahan.', completed: false, category: 'persiapan' }
+      );
+
+      // Aktif
       tasks.push(
         { id: `${division}-act-1`, text: `Menerima dan memeriksa kesegaran serta kelayakan bahan menu: ${menuList.join(', ')}.`, completed: false, category: 'aktif' }
       );
@@ -82,91 +181,97 @@ export function getDefaultTasksForDivision(division: Division, menuList: string[
         { id: `${division}-act-5`, text: 'Memblender bumbu halus dasar (merah/putih/kuning) sesuai takaran gramasi timbangan gizi.', completed: false, category: 'aktif' },
         { id: `${division}-act-6`, text: 'Menyiapkan bahan pelengkap pendukung (seperti krupuk, timun iris, atau buah pisang) di wadah bersih.', completed: false, category: 'aktif' }
       );
-      break;
 
-    case Division.MASAK:
+      // Penutup
       tasks.push(
-        { id: `${division}-act-1`, text: `Merebus kuah kaldu utama atau menanak dan mengukus nasi putih sejumlah porsi gizi santri.`, completed: false, category: 'aktif' }
-      );
-      if (menuList.some(m => m.toLowerCase().includes('ayam'))) {
-        tasks.push(
-          { id: `${division}-act-2`, text: 'Menggoreng atau menumis protein ayam hingga matang merata di suhu minimal 75°C.', completed: false, category: 'aktif' }
-        );
-      }
-      if (menuList.some(m => m.toLowerCase().includes('tempe') || m.toLowerCase().includes('tahu'))) {
-        tasks.push(
-          { id: `${division}-act-3`, text: 'Melakukan marinasi tempe/tahu dengan bumbu ketumbar bawang lalu goreng deep-fry hingga kuning keemasan.', completed: false, category: 'aktif' }
-        );
-      }
-      tasks.push(
-        { id: `${division}-act-4`, text: 'Memasak lauk pelengkap tumis sayuran (durasi tidak overcooked agar vitamin terjaga).', completed: false, category: 'aktif' },
-        { id: `${division}-act-5`, text: 'Membuat sambal serundeng atau sambal goreng penyetan khas, cicipi kesesuaian rasa gizi.', completed: false, category: 'aktif' },
-        { id: `${division}-act-6`, text: 'Melakukan pengetesan organoleptik (Rasa, Bau, Tekstur) sebelum masakan dipindahkan ke tempat pemorsian.', completed: false, category: 'aktif' }
-      );
-      break;
-
-    case Division.PEMORSIAN:
-      tasks.push(
-        { id: `${division}-act-1`, text: `Menata box ompreng bersih di sepanjang rel meja penyajian (assembly line).`, completed: false, category: 'aktif' },
-        { id: `${division}-act-2`, text: 'Mengisi porsi nasi putih menggunakan takaran mangkuk standar gizi santri (sekitar 150-180g).', completed: false, category: 'aktif' },
-        { id: `${division}-act-3`, text: 'Meletakkan lauk utama protein ayam dan lauk nabati tempe di sekat ompreng masing-masing.', completed: false, category: 'aktif' },
-        { id: `${division}-act-4`, text: 'Menambahkan sayuran pendukung dengan porsi kuah terpisah agar sayur tidak layu.', completed: false, category: 'aktif' },
-        { id: `${division}-act-5`, text: 'Memastikan buah pisang/semangka bersih dan krupuk sudah dibungkus plastik rapat diletakkan di atas penutup.', completed: false, category: 'aktif' },
-        { id: `${division}-act-6`, text: 'Melakukan sampling timbang acak untuk memastikan berat porsi seragam bagi santri putra dan putri.', completed: false, category: 'aktif' },
-        { id: `${division}-act-7`, text: 'Menghitung total box ompreng yang siap didistribusikan dan melaporkan ke koordinator gizi.', completed: false, category: 'aktif' }
-      );
-      break;
-
-    case Division.DRIVER:
-      tasks.push(
-        { id: `${division}-act-1`, text: 'Memanaskan mesin kendaraan operasional dapur dan memeriksa tekanan ban serta bensin.', completed: false, category: 'aktif' },
-        { id: `${division}-act-2`, text: 'Menata dan menumpuk box ompreng makanan secara rapi ke dalam kontainer tertutup milik truk/pickup.', completed: false, category: 'aktif' },
-        { id: `${division}-act-3`, text: 'Mengunci pintu kontainer box dan memasang sabuk pengaman pengait agar tidak terjatuh saat bergerak.', completed: false, category: 'aktif' },
-        { id: `${division}-act-4`, text: 'Mengantar makanan ke titik distribusi (Asrama Putra, Asrama Putri, Gedung SPPG) tepat waktu.', completed: false, category: 'aktif' },
-        { id: `${division}-act-5`, text: 'Membantu koordinator asrama melakukan bongkar muatan ompreng makan dengan hati-hati.', completed: false, category: 'aktif' },
-        { id: `${division}-act-6`, text: 'Mengumpulkan kembali ompreng-ompreng kotor sisa distribusi hari sebelumnya untuk dibawa balik ke dapur.', completed: false, category: 'aktif' }
-      );
-      break;
-
-    case Division.CUCI:
-      tasks.push(
-        { id: `${division}-act-1`, text: 'Memisahkan sisa-sisa makanan dari ompreng kotor ke dalam tong sampah organik khusus.', completed: false, category: 'aktif' },
-        { id: `${division}-act-2`, text: 'Merendam ompreng ber lemak di dalam bak air hangat bercampur sabun cair pembersih lemak tinggi.', completed: false, category: 'aktif' },
-        { id: `${division}-act-3`, text: 'Menggosok permukaan dalam dan luar ompreng menggunakan spons kawat lembut untuk sisa nasi mengerak.', completed: false, category: 'aktif' },
-        { id: `${division}-act-4`, text: 'Membilas ompreng di bawah air mengalir bertekanan tinggi hingga kesat dan bebas bau amis.', completed: false, category: 'aktif' },
-        { id: `${division}-act-5`, text: 'Mencuci peralatan besar dapur (kuali raksasa, baskom, pisang/pisau) dengan klorin/antiseptik sanitasi.', completed: false, category: 'aktif' },
-        { id: `${division}-act-6`, text: 'Menata peralatan yang sudah dibilas di rak pengering dengan posisi menelungkup agar air tuntas.', completed: false, category: 'aktif' }
-      );
-      break;
-
-    case Division.KEBERSIHAN:
-      tasks.push(
-        { id: `${division}-act-1`, text: 'Menyapu seluruh bagian lantai dapur utama, ruang bahan kering, dan ruang pemorsian.', completed: false, category: 'aktif' },
-        { id: `${division}-act-2`, text: 'Mengepel lantai menggunakan cairan karbol disinfektan untuk mematikan kuman dan menghilangkan licin minyak.', completed: false, category: 'aktif' },
-        { id: `${division}-act-3`, text: 'Mengelap meja persiapan, meja pemorsian, dan dinding keramik kompor dari cipratan minyak / kuah.', completed: false, category: 'aktif' },
-        { id: `${division}-act-4`, text: 'Membuang sampah gizi dari seluruh ruangan dapur ke Tempat Pembuangan Sampah (TPS) Akhir Ponpes.', completed: false, category: 'aktif' },
-        { id: `${division}-act-5`, text: 'Membersihkan saringan air got (floor drain) dapur dari sumbatan lemak sisa pencucian piring.', completed: false, category: 'aktif' }
+        { id: `${division}-close-1`, text: 'Membersihkan seluruh peralatan kerja (mencuci dan mengeringkan alat seperti baskom, lengser, keranjang, troli, dan peralatan lainnya hingga benar-benar kering).', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Membersihkan seluruh area kerja Tim Persiapan (termasuk meja, lantai, rak, dan bak cuci) segera setelah menyelesaikan pekerjaan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan yang telah dibersihkan ke tempat penyimpanan semula.', completed: false, category: 'penutup' },
+        { id: `${division}-close-4`, text: 'Koordinator memastikan seluruh dapur dalam keadaan bersih dan aman (kompor/gas mati, kran air tertutup).', completed: false, category: 'penutup' },
+        { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang.', completed: false, category: 'penutup' }
       );
       break;
 
     case Division.KEAMANAN:
+      // Tim Keamanan
       tasks.push(
-        { id: `${division}-act-1`, text: 'Memeriksa kebersihan dan kelayakan instalasi pipa gas elpiji 50kg, mencium apakah ada indikasi kebocoran.', completed: false, category: 'aktif' },
-        { id: `${division}-act-2`, text: 'Mengawasi pintu bongkar barang gudang agar tidak ada pihak luar yang masuk tanpa izin logistik.', completed: false, category: 'aktif' },
-        { id: `${division}-act-3`, text: 'Memastikan Alat Pemadam Api Ringan (APAR) di area dapur tidak kadaluarsa dan gampang dijangkau.', completed: false, category: 'aktif' },
-        { id: `${division}-act-4`, text: 'Patroli berkala mengelilingi pintu genset dan panel listrik utama pengatur daya pendingin cold storage.', completed: false, category: 'aktif' }
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+
+        // Aktif
+        { id: `${division}-act-1`, text: 'Memeriksa kebersihan dan kelayakan instalasi pipa gas elpiji 50 kg, mencium apakah ada indikasi kebocoran.', completed: false, category: 'aktif' },
+        { id: `${division}-act-2`, text: 'Memastikan Alat Pemadam Api Ringan (APAR) di area dapur tidak kadaluarsa dan gampang dijangkau.', completed: false, category: 'aktif' },
+        { id: `${division}-act-3`, text: 'Patroli berkala mengelilingi pintu genset dan panel listrik utama pengatur daya pendingin cold storage.', completed: false, category: 'aktif' },
+        { id: `${division}-act-4`, text: 'Security wajib bersiaga di pintu masuk/akses utama area produksi selama jam operasional yang ditentukan.', completed: false, category: 'aktif' },
+        { id: `${division}-act-5`, text: 'Security wajib melakukan pemeriksaan dan tegas melarang masuk individu yang tidak berkepentingan, karyawan yang tidak memiliki jadwal (off-duty), dan individu yang menunjukkan gejala sakit menular (seperti batuk, demam, flu, dll).', completed: false, category: 'aktif' },
+        { id: `${division}-act-6`, text: 'Security wajib mengarahkan tamu untuk mengisi Buku Tamu / Visitor Log secara lengkap (Nama, instansi, keperluan, jam masuk, tanda tangan) serta memeriksa kartu identitas untuk ditukar dengan Visitor Badge.', completed: false, category: 'aktif' },
+        { id: `${division}-act-7`, text: 'Security wajib memastikan setiap tamu yang telah mendapatkan izin masuk untuk mengenakan APD khusus tamu sesuai regulasi K3 yang berlaku (seperti safety shoes/shoe cover, masker, dan hairnet) dan dilarang keras meloloskan tamu ke area produksi jika APD belum terpasang dengan lengkap dan benar.', completed: false, category: 'aktif' },
+        { id: `${division}-act-8`, text: 'Jika ada tamu mendadak, Security wajib menghubungi Kepala terlebih dahulu untuk meminta konfirmasi izin masuk.', completed: false, category: 'aktif' },
+        { id: `${division}-act-9`, text: 'Lakukan pemeriksaan tas/barang bawaan tamu saat masuk dan keluar area produksi untuk mencegah kontaminasi atau kehilangan aset.', completed: false, category: 'aktif' },
+        { id: `${division}-act-10`, text: 'Lakukan patroli/pengecekan berkala pada sistem penguncian pintu untuk menghindari adanya pintu yang diganjal atau terbuka tanpa pengawasan.', completed: false, category: 'aktif' },
+        { id: `${division}-act-11`, text: 'Lakukan pemeriksaan tas/barang bawaan karyawan saat masuk dan keluar area produksi untuk mencegah kontaminasi atau kehilangan aset.', completed: false, category: 'aktif' },
+
+        // Penutup
+        { id: `${division}-close-1`, text: 'Memastikan seluruh sistem pendingin dan sirkulasi udara (AC, kipas angin, dan blower) telah dimatikan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Memastikan seluruh lampu ruangan dapur telah dipadamkan sebelum meninggalkan area.', completed: false, category: 'penutup' },
+        { id: `${division}-close-3`, text: 'Melakukan serah terima tugas (handover) kepada petugas shift berikutnya.', completed: false, category: 'penutup' },
+        { id: `${division}-close-4`, text: 'Memastikan seluruh akses keluar masuk terkunci sebelum meninggalkan pekerjaan.', completed: false, category: 'penutup' }
+      );
+      break;
+
+    case Division.DRIVER:
+      // Tim Driver
+      tasks.push(
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Menghadiri pekerjaan sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja yang dipimpin oleh Koordinator.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-4`, text: 'Panaskan mesin mobil terlebih dahulu sebelum beroperasi, serta pastikan kondisi fisik kendaraan dalam keadaan bersih, kering, dan bebas dari bau menyengat maupun kontaminasi bahan kimia.', completed: false, category: 'persiapan' },
+
+        // Aktif
+        { id: `${division}-act-1`, text: 'Kendarai kendaraan dengan kecepatan aman yang terkendali serta hindari guncangan keras guna menjaga keamanan muatan dan kenyamanan berkendara.', completed: false, category: 'aktif' },
+        { id: `${division}-act-2`, text: 'Wajib mengenakan pakaian yang sopan, rapi, serta menggunakan sepatu tertutup selama menjalankan tugas.', completed: false, category: 'aktif' },
+        { id: `${division}-act-3`, text: 'Gunakan Alat Pelindung Diri (APD) secara lengkap (masker, hairnet, dan sarung tangan) sebelum memasuki ruang pemorsian untuk mengangkut ompreng.', completed: false, category: 'aktif' },
+        { id: `${division}-act-4`, text: 'Angkut ompreng yang telah diikat rapi dengan tali dari Tim Pemorsian, lalu masukkan dan tata dengan aman ke dalam mobil pengangkut.', completed: false, category: 'aktif' },
+        { id: `${division}-act-5`, text: 'Hitung kembali secara teliti jumlah paket makanan bergizi yang dimuat ke dalam kendaraan guna memastikan kesesuaian data.', completed: false, category: 'aktif' },
+        { id: `${division}-act-6`, text: 'Pastikan driver membawa surat jalan resmi sebelum melakukan keberangkatan.', completed: false, category: 'aktif' },
+        { id: `${division}-act-7`, text: 'Berangkat menuju titik lokasi (sekolah dan desa) yang telah ditentukan dengan rute dan kecepatan aman.', completed: false, category: 'aktif' },
+        { id: `${division}-act-8`, text: 'Serahkan ompreng kepada pihak sekolah dan desa, lakukan penghitungan bersama, lalu catat jumlah aktualnya pada surat jalan sebagai bukti serah terima.', completed: false, category: 'aktif' },
+        { id: `${division}-act-9`, text: 'Terima dan kumpulkan kembali ompreng kosong dari sekolah dan desa, lakukan penghitungan, lalu catat jumlahnya pada surat jalan.', completed: false, category: 'aktif' },
+        { id: `${division}-act-10`, text: 'Kembali ke dapur pusat untuk menyerahkan seluruh ompreng kosong kepada Tim Pencucian guna proses sanitasi berikutnya.', completed: false, category: 'aktif' },
+
+        // Penutup
+        { id: `${division}-close-1`, text: 'Membersihkan mobil pengangkut setelah selesai melaksanakan pekerjaan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Bersihkan dan rapikan kembali area kerja/bongkar muat alat penunjang kerja yang telah digunakan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-3`, text: 'Cuci dan bersihkan kendaraan (baik bagian luar maupun kabin/bagasi dalam) secara menyeluruh dari sisa kotoran atau sampah, sehingga kendaraan kembali dalam kondisi higienis dan siap digunakan untuk operasional berikutnya.', completed: false, category: 'penutup' },
+        { id: `${division}-close-4`, text: 'Koordinator mengecek kembali kebersihan dan keamanan kendaraan.', completed: false, category: 'penutup' },
+        { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang.', completed: false, category: 'penutup' }
+      );
+      break;
+
+    case Division.KEBERSIHAN:
+      // Tim Kebersihan
+      tasks.push(
+        // Persiapan
+        { id: `${division}-prep-1`, text: 'Hadir tepat waktu sesuai dengan jadwal yang telah ditentukan dan melakukan absensi.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-2`, text: 'Mengikuti doa bersama dan briefing sebelum bekerja.', completed: false, category: 'persiapan' },
+        { id: `${division}-prep-3`, text: 'Melakukan sanitasi perorangan secara disiplin (memastikan tubuh tidak dalam kondisi sakit menular, mencuci tangan, menjaga kuku tetap pendek dan bersih, serta terbebas dari bau asap rokok).', completed: false, category: 'persiapan' },
+
+        // Aktif
+        { id: `${division}-act-1`, text: 'Menyapu seluruh bagian lantai dapur utama, ruang bahan kering, dan ruang pemorsian.', completed: false, category: 'aktif' },
+        { id: `${division}-act-2`, text: 'Mengepel lantai menggunakan cairan karbol desinfektan untuk mematikan kuman dan menghilangkan licin minyak.', completed: false, category: 'aktif' },
+        { id: `${division}-act-3`, text: 'Mengelap meja persiapan, meja pemorsian, dan dinding keramik kompor dari cipratan minyak / kuah.', completed: false, category: 'aktif' },
+        { id: `${division}-act-4`, text: 'Membuang sampah gizi dari seluruh ruangan dapur ke Tempat Pembuangan Sampah (TPS) Akhir Ponpes.', completed: false, category: 'aktif' },
+        { id: `${division}-act-5`, text: 'Membersihkan saringan air got (floor drain) dapur dari sumbatan lemak sisa pencucian piring.', completed: false, category: 'aktif' },
+
+        // Penutup
+        { id: `${division}-close-1`, text: 'Memastikan seluruh kran air tertutup rapat dan mesin pompa air dalam keadaan mati.', completed: false, category: 'penutup' },
+        { id: `${division}-close-2`, text: 'Melakukan serah terima tugas (handover) kepada petugas shift berikutnya.', completed: false, category: 'penutup' }
       );
       break;
   }
-
-  // 3. ADD CLOSING CATEGORY (CLEANUP)
-  tasks.push(
-    { id: `${division}-close-1`, text: 'Membersihkan seluruh peralatan kerja (mencuci dan mengeringkan alat seperti baskom, lengser, keranjang, troli, dan peralatan lainnya hingga benar-benar kering)', completed: false, category: 'penutup' },
-    { id: `${division}-close-2`, text: 'Membersihkan seluruh area kerja Tim Persiapan(termasuk meja, lantai, rak, dan bak cuci) segera setelah menyelesaikan pekerjaan', completed: false, category: 'penutup' },
-    { id: `${division}-close-3`, text: 'Mengembalikan seluruh peralatan yang telah dibersihkan ke tempat penyimpanan semula', completed: false, category: 'penutup' },
-    { id: `${division}-close-4`, text: 'Koordinator memastikan seluruh dapur dalam keadaan bersih dan aman (kompor/gas mati, kran air tertutup).', completed: false, category: 'penutup' },
-    { id: `${division}-close-5`, text: 'Mengikuti doa bersama yang dipimpin oleh Koordinator sebelum mengakhiri kerja dan melakukan absen pulang', completed: false, category: 'penutup' }
-  );
 
   return tasks;
 }
