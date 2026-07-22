@@ -21,13 +21,41 @@
     font-family: 'Times New Roman', Times, serif !important;
   }
 
-  /* Hide everything including headers, sidebars, buttons and modals */
-  nav, sidebar, aside, button, .no-print, #role-bar, #nav-sidebar, .modal-actions, .fixed, .tab-buttons {
+  /* Hide navigation, sidebars, and non-printable controls, but allow print overlays */
+  nav, sidebar, aside, button, .no-print, #role-bar, #nav-sidebar, .modal-actions, .tab-buttons {
     display: none !important;
     height: 0 !important;
     width: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  /* Override .fixed for printable overlays */
+  .fixed {
+    display: none !important;
+  }
+
+  #daily-report-print-overlay,
+  #stock-opname-print-overlay,
+  #stock-operasional-print-overlay,
+  .print-overlay-container {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: white !important;
+    z-index: 99999 !important;
+    overflow: visible !important;
+  }
+
+  /* Force images (logos) to remain visible during print */
+  img {
+    display: inline-block !important;
+    max-width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* Expand print-container to occupy full page */

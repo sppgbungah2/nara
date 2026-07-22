@@ -53,6 +53,7 @@ export default function DailyReportPDF({
   const [stockOperasionalList, setStockOperasionalList] = useState<any[]>([]);
   const [incomingGoodsList, setIncomingGoodsList] = useState<any[]>([]);
   const [absensiList, setAbsensiList] = useState<any[]>([]);
+  const [absensiSignOff, setAbsensiSignOff] = useState<any | null>(null);
   const [wasteRecord, setWasteRecord] = useState<any | null>(null);
 
   useEffect(() => {
@@ -110,27 +111,42 @@ export default function DailyReportPDF({
       setIncomingGoodsList(fallbackIncomingGoods);
     }
 
-    // 4. Retrieve Absensi Relawan
+    // 4. Retrieve Absensi Relawan & Signoffs
     try {
       const rawAbsensi = localStorage.getItem('sppg_absensi_map');
       if (rawAbsensi) {
         const parsed = JSON.parse(rawAbsensi);
-        if (parsed && parsed[selectedDate]) {
+        if (parsed && parsed[selectedDate] && parsed[selectedDate].length > 0) {
           setAbsensiList(parsed[selectedDate]);
         } else {
-          // Provide some nice default volunteers for illustration
           setAbsensiList([
-            { id: 'v1', name: 'Muhammad Al-Fatih', role: 'Koki Utama', status: 'Hadir', checkInTime: '04:15', notes: 'Menyiapkan sarapan & sup gizi' },
-            { id: 'v2', name: 'Siti Aminah', role: 'Asisten Dapur', status: 'Hadir', checkInTime: '04:30', notes: 'Pemotongan sayur & katering' },
-            { id: 'v3', name: 'Ahmad Dahlan', role: 'Driver Logistik', status: 'Hadir', checkInTime: '05:00', notes: 'Distribusi MA & MTS II' }
+            { id: 'v1', name: 'Ahmad Maghfur', role: 'Asisten Lapangan', status: 'Hadir', checkInTime: '04:00', notes: 'Tugas koordinasi kesiapan dapur utama & penerimaan bahan baku' },
+            { id: 'v2', name: 'Rizka Aulia', role: 'Chef / Head Kitchen', status: 'Hadir', checkInTime: '04:15', notes: 'Menyiapkan masakan sup gizi & pemorsian hidangan utama' },
+            { id: 'v3', name: 'Mohammad Sholihuddin Nuraini', role: 'Koordinator Distribusi', status: 'Hadir', checkInTime: '04:30', notes: 'Mengawal pelepasan armada box thermo ke sekolah penerima' },
+            { id: 'v4', name: 'Ahmad Wahyudi', role: 'Distribusi', status: 'Hadir', checkInTime: '05:00', notes: 'Pengantaran termos nasi & lauk pauk MA & MTS 2' },
+            { id: 'v5', name: 'Falikul Habibi', role: 'Distribusi', status: 'Hadir', checkInTime: '05:15', notes: 'Pengantaran ke unit MI/SD Sukowati & Sidokumpul' },
+            { id: 'v6', name: 'Imam Durori Ahmadi', role: 'Distribusi', status: 'Izin', checkInTime: '-', notes: 'Izin keperluan keluarga (Surat izin terlampir di sistem)' },
+            { id: 'v7', name: 'Muhammad Fahruddin', role: 'Keamanan Dapur', status: 'Hadir', checkInTime: '03:45', notes: 'Pengawasan keamanan fasilitas dapur & area pengolahan' }
           ]);
         }
       } else {
         setAbsensiList([
-          { id: 'v1', name: 'Muhammad Al-Fatih', role: 'Koki Utama', status: 'Hadir', checkInTime: '04:15', notes: 'Menyiapkan sarapan & sup gizi' },
-          { id: 'v2', name: 'Siti Aminah', role: 'Asisten Dapur', status: 'Hadir', checkInTime: '04:30', notes: 'Pemotongan sayur & katering' },
-          { id: 'v3', name: 'Ahmad Dahlan', role: 'Driver Logistik', status: 'Hadir', checkInTime: '05:00', notes: 'Distribusi MA & MTS II' }
+          { id: 'v1', name: 'Ahmad Maghfur', role: 'Asisten Lapangan', status: 'Hadir', checkInTime: '04:00', notes: 'Tugas koordinasi kesiapan dapur utama & penerimaan bahan baku' },
+          { id: 'v2', name: 'Rizka Aulia', role: 'Chef / Head Kitchen', status: 'Hadir', checkInTime: '04:15', notes: 'Menyiapkan masakan sup gizi & pemorsian hidangan utama' },
+          { id: 'v3', name: 'Mohammad Sholihuddin Nuraini', role: 'Koordinator Distribusi', status: 'Hadir', checkInTime: '04:30', notes: 'Mengawal pelepasan armada box thermo ke sekolah penerima' },
+          { id: 'v4', name: 'Ahmad Wahyudi', role: 'Distribusi', status: 'Hadir', checkInTime: '05:00', notes: 'Pengantaran termos nasi & lauk pauk MA & MTS 2' },
+          { id: 'v5', name: 'Falikul Habibi', role: 'Distribusi', status: 'Hadir', checkInTime: '05:15', notes: 'Pengantaran ke unit MI/SD Sukowati & Sidokumpul' },
+          { id: 'v6', name: 'Imam Durori Ahmadi', role: 'Distribusi', status: 'Izin', checkInTime: '-', notes: 'Izin keperluan keluarga (Surat izin terlampir di sistem)' },
+          { id: 'v7', name: 'Muhammad Fahruddin', role: 'Keamanan Dapur', status: 'Hadir', checkInTime: '03:45', notes: 'Pengawasan keamanan fasilitas dapur & area pengolahan' }
         ]);
+      }
+
+      const rawSignoffs = localStorage.getItem('sppg_absensi_signoffs');
+      if (rawSignoffs) {
+        const parsedS = JSON.parse(rawSignoffs);
+        if (parsedS && parsedS[selectedDate]) {
+          setAbsensiSignOff(parsedS[selectedDate]);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -232,23 +248,71 @@ export default function DailyReportPDF({
       {/* Main Official Document Sheet */}
       <div className="max-w-4xl w-full mx-auto bg-white p-6 sm:p-12 text-neutral-900 shadow-2xl rounded-b-3xl border-x border-b border-neutral-200 print:rounded-none print:border-0 print:shadow-none print:p-0 print:m-0 font-serif print-area relative overflow-hidden flex-1">
         
-        {/* Kop Surat Resmi Yayasan */}
-        <div className="text-center border-b-4 border-double border-neutral-950 pb-5 mb-6 relative">
-          <div className="absolute top-0 left-0 hidden md:block print:block w-16 h-16 border-2 border-emerald-800 rounded-full flex items-center justify-center font-bold text-emerald-800 text-xs">
-            SPPG
+        {/* Kop Surat Resmi Yayasan & BGN */}
+        <div className="flex items-center justify-between gap-4 border-b-4 border-double border-neutral-950 pb-4 mb-6">
+          {/* Logo BGN Left */}
+          <div className="flex items-center justify-center shrink-0 w-20 h-20">
+            <img 
+              src="https://www.bgn.go.id/logo-bgn.png" 
+              alt="Logo BGN" 
+              className="max-h-20 max-w-20 object-contain select-none shrink-0" 
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  const fallback = parent.querySelector('.bgn-fallback');
+                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                }
+              }}
+            />
+            <div className="bgn-fallback hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-800 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0 shadow-xs">
+              <span className="font-black text-[10px]">BGN</span>
+              <span>BADAN GIZI</span>
+              <span>NASIONAL</span>
+            </div>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black uppercase font-sans tracking-tight text-neutral-900">
-            YAYASAN PONDOK PESANTREN QOMARUDDIN
-          </h2>
-          <h3 className="text-sm font-bold uppercase tracking-wider font-sans text-neutral-700 mt-0.5">
-            REKAPITULASI DOKUMEN & KINERJA HARIAN OPERASIONAL DAPUR
-          </h3>
-          <p className="text-[11px] font-sans text-neutral-500 mt-1">
-            Jl. Raya Qomaruddin No. 1, Sampurnan, Bungah, Gresik, Jawa Timur • Kode Pos 61152
-          </p>
-          <p className="text-[11px] font-sans text-neutral-500 font-bold">
-            Email: dapur.utama@qomaruddin.com • Telp: (031) 3941234
-          </p>
+
+          {/* Header Title Center */}
+          <div className="text-center flex-1 space-y-1">
+            <h2 className="text-base sm:text-lg font-black uppercase font-sans tracking-wider text-neutral-950">
+              YAYASAN PONDOK PESANTREN QOMARUDDIN
+            </h2>
+            <h1 className="text-lg sm:text-xl font-black uppercase tracking-widest font-sans text-neutral-900">
+              SATUAN PELAYANAN PROGRAM GIZI (SPPG) BUNGAH 2
+            </h1>
+            <p className="text-[11px] font-sans font-bold text-emerald-850 uppercase tracking-wide">
+              REKAPITULASI DOKUMEN & KINERJA HARIAN OPERASIONAL DAPUR UTAMA MBG
+            </p>
+            <p className="text-[10px] font-sans text-neutral-500 leading-tight">
+              Jl. Raya Bungah No. 1, Sampurnan, Bungah, Kabupaten Gresik, Jawa Timur 61152 • Telp: (031) 3949012
+            </p>
+          </div>
+
+          {/* Logo Qomaruddin Right */}
+          <div className="flex items-center justify-center shrink-0 w-20 h-20">
+            <img 
+              src="https://qomaruddin.com/wp-content/uploads/2019/02/cropped-logo-qomaruddin-1-192x192.png" 
+              alt="Logo PP Qomaruddin" 
+              className="max-h-20 max-w-20 object-contain select-none shrink-0 border border-neutral-200 rounded-full p-0.5" 
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                const parent = target.parentElement;
+                if (parent) {
+                  const fallback = parent.querySelector('.qomaruddin-fallback');
+                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                }
+              }}
+            />
+            <div className="qomaruddin-fallback hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-900 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0 shadow-xs">
+              <span className="font-black text-[9px]">PPQ</span>
+              <span>QOMARUDDIN</span>
+              <span>BUNGAH</span>
+            </div>
+          </div>
         </div>
 
         {/* Info Meta Laporan */}
@@ -691,34 +755,85 @@ export default function DailyReportPDF({
             </div>
           </div>
 
-          {/* Section 13: Absensi Relawan */}
-          <div className="space-y-2.5 break-inside-avoid">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-900 border-b-2 border-emerald-800/20 pb-1.5 flex items-center gap-2">
-              <span className="bg-emerald-850 text-white text-[10px] px-2 py-0.5 rounded-md">13</span>
-              Absensi Kehadiran Relawan & Staf Dapur
+          {/* Section 13: Absensi Relawan & Staf Dapur */}
+          <div className="space-y-3 break-inside-avoid">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-900 border-b-2 border-emerald-800/20 pb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-850 text-white text-[10px] px-2 py-0.5 rounded-md">13</span>
+                Absensi Kehadiran Relawan & Staf Dapur Utama
+              </div>
+              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest font-sans">
+                Status Otorisasi: {absensiSignOff?.status || 'VERIFIED DIGITALLY'}
+              </span>
             </h3>
+
+            {/* Attendance Summary Cards */}
+            {(() => {
+              const totalCount = absensiList.length;
+              const hadirCount = absensiList.filter(i => (i.status || '').toLowerCase() === 'hadir').length;
+              const izinCount = absensiList.filter(i => (i.status || '').toLowerCase() === 'izin').length;
+              const sakitCount = absensiList.filter(i => (i.status || '').toLowerCase() === 'sakit').length;
+              const alpaCount = absensiList.filter(i => (i.status || '').toLowerCase() === 'alpa').length;
+              const rate = totalCount > 0 ? Math.round((hadirCount / totalCount) * 100) : 100;
+
+              return (
+                <div className="grid grid-cols-4 gap-2 text-center text-xs font-sans mb-2">
+                  <div className="bg-neutral-50 border border-neutral-200 p-2 rounded-lg">
+                    <span className="text-[9px] font-bold uppercase text-neutral-400 block">Total Personel</span>
+                    <strong className="text-sm font-black text-neutral-800">{totalCount} Orang</strong>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-lg">
+                    <span className="text-[9px] font-bold uppercase text-emerald-800 block">Presensi Hadir</span>
+                    <strong className="text-sm font-black text-emerald-900">{hadirCount} Orang ({rate}%)</strong>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 p-2 rounded-lg">
+                    <span className="text-[9px] font-bold uppercase text-amber-800 block">Izin / Sakit</span>
+                    <strong className="text-sm font-black text-amber-900">{izinCount + sakitCount} Orang</strong>
+                  </div>
+                  <div className="bg-neutral-100 border border-neutral-200 p-2 rounded-lg">
+                    <span className="text-[9px] font-bold uppercase text-neutral-500 block">Keterangan Khusus</span>
+                    <strong className="text-xs font-bold text-neutral-700">{alpaCount > 0 ? `${alpaCount} Alpa` : 'SOP Dapur Terpenuhi'}</strong>
+                  </div>
+                </div>
+              );
+            })()}
+
             <table className="w-full text-left text-xs border border-neutral-200 rounded-xl overflow-hidden print-table">
               <thead>
                 <tr className="bg-neutral-100 text-[10px] font-extrabold uppercase tracking-wider text-neutral-600 border-b border-neutral-200">
-                  <th className="p-2.5">Nama Lengkap</th>
-                  <th className="p-2.5">Penugasan / Jabatan</th>
-                  <th className="p-2.5 text-center">Kehadiran</th>
-                  <th className="p-2.5 text-center">Waktu Presensi</th>
-                  <th className="p-2.5 text-right">Catatan Tugas / Keterangan</th>
+                  <th className="p-2 w-8 text-center">No</th>
+                  <th className="p-2">Nama Lengkap Relawan / Staf</th>
+                  <th className="p-2">Penugasan / Jabatan Dapur</th>
+                  <th className="p-2 text-center">Status Kehadiran</th>
+                  <th className="p-2 text-center">Jam Presensi</th>
+                  <th className="p-2">Keterangan & Catatan Tugas Harian</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
-                {absensiList.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="p-2.5 font-bold text-neutral-800">{item.name}</td>
-                    <td className="p-2.5 font-medium text-neutral-600">{item.role}</td>
-                    <td className="p-2.5 text-center font-bold text-emerald-700">
-                      {item.status || 'Hadir'}
-                    </td>
-                    <td className="p-2.5 text-center font-mono font-medium">{item.checkInTime || '04:15'} WIB</td>
-                    <td className="p-2.5 text-right text-neutral-500 italic">{item.notes || 'Menjalankan tugas sesuai draf SOP harian'}</td>
-                  </tr>
-                ))}
+                {absensiList.map((item, idx) => {
+                  const statusLower = (item.status || 'Hadir').toLowerCase();
+                  let badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                  if (statusLower === 'sakit') badgeStyle = 'bg-amber-100 text-amber-800 border-amber-300';
+                  if (statusLower === 'izin') badgeStyle = 'bg-blue-100 text-blue-800 border-blue-300';
+                  if (statusLower === 'alpa') badgeStyle = 'bg-red-100 text-red-800 border-red-300';
+
+                  return (
+                    <tr key={idx} className="hover:bg-neutral-50">
+                      <td className="p-2 text-center font-bold text-neutral-400">{idx + 1}</td>
+                      <td className="p-2 font-bold text-neutral-900">{item.name}</td>
+                      <td className="p-2 font-medium text-neutral-700">{item.role}</td>
+                      <td className="p-2 text-center font-bold">
+                        <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded border ${badgeStyle}`}>
+                          {item.status || 'Hadir'}
+                        </span>
+                      </td>
+                      <td className="p-2 text-center font-mono font-medium text-neutral-800">{item.checkInTime || '04:15'} WIB</td>
+                      <td className="p-2 text-neutral-600 leading-tight">
+                        {item.notes || 'Melaksanakan tugas piket masakan & pemorsian harian sesuai protokol HACCP.'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

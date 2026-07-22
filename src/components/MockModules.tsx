@@ -3641,47 +3641,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
                   : 'Ajukan pengadaan bahan bakar gas LPG, sabun cuci piring jumbo, desinfektan, dsb.'}
               </p>
             </div>
-            
-            {isAdmin && (
-              <button 
-                onClick={() => setShowSqlPanel(!showSqlPanel)}
-                className="bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
-              >
-                <Code className="h-4 w-4" /> {showSqlPanel ? 'Sembunyikan SQL' : 'Lihat Skema SQL'}
-              </button>
-            )}
           </div>
-
-          {/* Admin SQL Console Section */}
-          {isAdmin && showSqlPanel && (
-            <div className="border border-neutral-200 rounded-xl bg-neutral-900 text-neutral-200 p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-                <div className="flex items-center gap-2">
-                  <Code className="h-4 w-4 text-emerald-400" />
-                  <span className="font-mono text-xs font-bold text-neutral-200">SQL DDL Schema & Query Analysis (Supabase)</span>
-                </div>
-                <button
-                  onClick={copyToClipboard}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
-                >
-                  <Clipboard className="h-3 w-3" />
-                  {copiedSql ? 'Disalin!' : 'Salin Query'}
-                </button>
-              </div>
-              <p className="text-[11px] text-neutral-400">
-                Gunakan query berikut untuk mengonfigurasi tabel relasi pemesanan, stok sisa, dan keluhan relawan di dashboard Supabase Anda:
-              </p>
-              <pre className="text-[10px] font-mono whitespace-pre-wrap bg-neutral-950 p-3 rounded-lg max-h-48 overflow-y-auto text-emerald-400 border border-neutral-800">
-                {postgres_sql_scripts}
-              </pre>
-              <div className="bg-emerald-950/45 border border-emerald-900/50 rounded-lg p-2.5 text-[11px] text-emerald-300 flex items-start gap-2">
-                <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>
-                  Admin <strong>maghfurmunif@gmail.com</strong> dikonfigurasi otomatis sebagai pengambil keputusan persetujuan. Anda dapat langsung menguji persetujuan order dan melacaknya di tabel ini.
-                </span>
-              </div>
-            </div>
-          )}
 
           {successMsg && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs flex items-center gap-2">
@@ -4307,38 +4267,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
               </div>
               <p className="text-xs text-neutral-500 mt-1">Katalog keluhan dari Ustadz Pembimbing, asrama, aslap, atau relawan untuk corrective action SOP Dapur.</p>
             </div>
-
-            {isAdmin && (
-              <button 
-                onClick={() => setShowSqlPanel(!showSqlPanel)}
-                className="bg-neutral-800 hover:bg-neutral-900 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
-              >
-                <Code className="h-4 w-4" /> {showSqlPanel ? 'Sembunyikan SQL' : 'Lihat Skema SQL'}
-              </button>
-            )}
           </div>
-
-          {/* Admin SQL Console Section */}
-          {isAdmin && showSqlPanel && (
-            <div className="border border-neutral-200 rounded-xl bg-neutral-900 text-neutral-200 p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-                <div className="flex items-center gap-2">
-                  <Code className="h-4 w-4 text-emerald-400" />
-                  <span className="font-mono text-xs font-bold text-neutral-200">SQL DDL Schema & Query Analysis (Supabase)</span>
-                </div>
-                <button
-                  onClick={copyToClipboard}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
-                >
-                  <Clipboard className="h-3 w-3" />
-                  {copiedSql ? 'Disalin!' : 'Salin Query'}
-                </button>
-              </div>
-              <pre className="text-[10px] font-mono whitespace-pre-wrap bg-neutral-950 p-3 rounded-lg max-h-48 overflow-y-auto text-emerald-400 border border-neutral-800">
-                {postgres_sql_scripts}
-              </pre>
-            </div>
-          )}
 
           {successMsg && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs flex items-center gap-2">

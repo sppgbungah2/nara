@@ -933,12 +933,12 @@ export default function StockOperasionalView({
 
       {/* PRINT VIEW FACSIMILE MODAL */}
       {showPrintView && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto no-print animate-fade-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in" id="stock-operasional-print-overlay">
           <div className="bg-white rounded-3xl shadow-2xl border border-neutral-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="bg-neutral-50 px-6 py-4 border-b border-neutral-200 flex justify-between items-center shrink-0">
+            <div className="bg-neutral-50 px-6 py-4 border-b border-neutral-200 flex justify-between items-center shrink-0 no-print">
               <div className="flex items-center gap-2 text-neutral-800">
                 <Printer className="h-5 w-5 text-neutral-600" />
-                <h3 className="font-extrabold text-sm uppercase tracking-wider">Pratinjau Cetak Lembar Stok Operasional (A4)</h3>
+                <h3 className="font-extrabold text-sm uppercase tracking-wider">Ekspor PDF Lembar Stok Operasional Dapur</h3>
               </div>
               <button
                 onClick={() => setShowPrintView(false)}
@@ -949,13 +949,71 @@ export default function StockOperasionalView({
             </div>
 
             <div className="overflow-y-auto grow p-8 bg-neutral-100/50 flex justify-center">
-              <div className="bg-white p-12 w-[21cm] min-h-[29.7cm] shadow-md border border-neutral-200 text-neutral-800 relative text-xs font-serif leading-relaxed" id="printable-stock-operasional">
+              <div className="bg-white p-12 w-[21cm] min-h-[29.7cm] shadow-md border border-neutral-200 text-neutral-800 relative text-xs font-serif leading-relaxed print-area" id="printable-stock-operasional">
                 
-                {/* Header Kop Surat */}
-                <div className="text-center border-b-4 border-double border-black pb-4 mb-6">
-                  <h1 className="text-lg font-black font-sans uppercase tracking-widest text-black">BERKAS INVENTARIS OPERASIONAL DAPUR</h1>
-                  <h2 className="text-md font-bold font-sans uppercase text-emerald-850">SEKOLAH PERSIAPAN PENGABDIAN GURU (SPPG)</h2>
-                  <p className="text-[9px] font-sans text-neutral-500 italic mt-1">Jl. KH. Qomaruddin No.01, Sampurnan, Bungah, Kabupaten Gresik, Jawa Timur 61152</p>
+                {/* Header Kop Surat Resmi Yayasan & BGN */}
+                <div className="border-b-4 border-double border-black pb-4 mb-6 flex items-center justify-between gap-4">
+                  {/* Logo BGN Left */}
+                  <div className="flex items-center justify-center shrink-0 w-16 h-16 md:w-20 md:h-20">
+                    <img 
+                      src="https://www.bgn.go.id/logo-bgn.png" 
+                      alt="Logo BGN" 
+                      className="max-h-20 max-w-20 object-contain select-none shrink-0" 
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const fallback = parent.querySelector('.bgn-fallback-sop');
+                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                    <div className="bgn-fallback-sop hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-800 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0">
+                      <span className="font-black text-[10px]">BGN</span>
+                      <span>BADAN GIZI</span>
+                    </div>
+                  </div>
+
+                  {/* Header Title Center */}
+                  <div className="text-center flex-1 space-y-0.5">
+                    <h2 className="text-base sm:text-lg font-black font-sans uppercase tracking-wider text-black">
+                      YAYASAN PONDOK PESANTREN QOMARUDDIN
+                    </h2>
+                    <h1 className="text-sm sm:text-base font-black font-sans uppercase text-emerald-850 tracking-wide">
+                      SATUAN PELAYANAN PROGRAM GIZI (SPPG) BUNGAH 2
+                    </h1>
+                    <p className="text-[10px] font-sans font-bold text-neutral-800 uppercase">
+                      INVENTARIS & STOK OPERASIONAL NON-BAHAN PANGAN DAPUR MBG
+                    </p>
+                    <p className="text-[9px] font-sans text-neutral-500 italic">
+                      Jl. Raya Bungah No. 1, Sampurnan, Bungah, Kabupaten Gresik, Jawa Timur 61152 • Telp: (031) 3949012
+                    </p>
+                  </div>
+
+                  {/* Logo Qomaruddin Right */}
+                  <div className="flex items-center justify-center shrink-0 w-16 h-16 md:w-20 md:h-20">
+                    <img 
+                      src="https://qomaruddin.com/wp-content/uploads/2019/02/cropped-logo-qomaruddin-1-192x192.png" 
+                      alt="Logo PP Qomaruddin" 
+                      className="max-h-20 max-w-20 object-contain select-none shrink-0 border border-neutral-200 rounded-full p-0.5" 
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const fallback = parent.querySelector('.qom-fallback-sop');
+                          if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                        }
+                      }}
+                    />
+                    <div className="qom-fallback-sop hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-900 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0">
+                      <span className="font-black text-[9px]">PPQ</span>
+                      <span>QOMARUDDIN</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Metadata */}

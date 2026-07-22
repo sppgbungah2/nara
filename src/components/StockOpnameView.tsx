@@ -903,15 +903,15 @@ export default function StockOpnameView({
 
       {/* PDF Print Facsimile Modal */}
       {showPrintView && (
-        <div className="fixed inset-0 bg-neutral-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-neutral-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto" id="stock-opname-print-overlay">
           <div className="bg-white rounded-2xl max-w-4xl w-full border border-neutral-200 shadow-2xl overflow-hidden my-8">
             {/* Modal Toolbar */}
             <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between no-print">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-5 w-5 text-emerald-450" />
                 <div>
-                  <h3 className="font-bold text-sm">Lembar Cetak Laporan Stock Opname</h3>
-                  <p className="text-[10px] text-neutral-450">Pilih "Save as PDF" di dialog print untuk menyimpan file PDF berkualitas tinggi.</p>
+                  <h3 className="font-bold text-sm">Lembar Ekspor PDF Laporan Stock Opname Dapur</h3>
+                  <p className="text-[10px] text-neutral-450">Pilih "Save as PDF" di dialog print untuk menyimpan dokumen resmi bertanda tangan digital.</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -919,7 +919,7 @@ export default function StockOpnameView({
                   onClick={() => window.print()}
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-850 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  <Printer className="h-3.5 w-3.5" /> Cetak Sekarang (Print / PDF)
+                  <Printer className="h-3.5 w-3.5" /> Ekspor / Cetak Sekarang (PDF)
                 </button>
                 <button
                   onClick={() => setShowPrintView(false)}
@@ -931,17 +931,66 @@ export default function StockOpnameView({
             </div>
 
             {/* Printable Area */}
-            <div className="p-8 md:p-12 bg-white space-y-6 text-black" id="printable-sop-sheet">
-              {/* Kop Surat */}
-              <div className="border-b-4 border-double border-neutral-900 pb-4 flex items-center justify-between">
-                <div className="text-left space-y-1">
-                  <h1 className="text-xl font-extrabold tracking-wider text-neutral-900">YAYASAN PONDOK PESANTREN QOMARUDDIN</h1>
-                  <h2 className="text-sm font-bold text-neutral-800">DAPUR BERSAMA MBG - SPPG BUNGAH 2</h2>
-                  <p className="text-[10px] text-neutral-500 font-mono">Jl. Raya Bungah No.1, Bungah, Gresik, Jawa Timur</p>
+            <div className="p-8 md:p-12 bg-white space-y-6 text-black print-area" id="printable-sop-sheet">
+              {/* Kop Surat Resmi Yayasan & BGN */}
+              <div className="border-b-4 border-double border-neutral-900 pb-4 flex items-center justify-between gap-4">
+                {/* Logo BGN Left */}
+                <div className="flex items-center justify-center shrink-0 w-16 h-16 md:w-20 md:h-20">
+                  <img 
+                    src="https://www.bgn.go.id/logo-bgn.png" 
+                    alt="Logo BGN" 
+                    className="max-h-20 max-w-20 object-contain select-none shrink-0" 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        const fallback = parent.querySelector('.bgn-fallback-so');
+                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <div className="bgn-fallback-so hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-800 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0">
+                    <span className="font-black text-[10px]">BGN</span>
+                    <span>BADAN GIZI</span>
+                  </div>
                 </div>
-                <div className="text-right border border-neutral-300 p-2 rounded-lg bg-neutral-50">
-                  <p className="text-[9px] font-bold text-neutral-400 uppercase">KODE DOKUMEN</p>
-                  <p className="text-xs font-black text-neutral-800 font-mono">SO/LOG/MBG-{localStockDate.replace(/-/g, '')}</p>
+
+                {/* Center Title */}
+                <div className="text-center flex-1 space-y-0.5">
+                  <h1 className="text-base sm:text-lg font-extrabold tracking-wider text-neutral-950 uppercase">
+                    YAYASAN PONDOK PESANTREN QOMARUDDIN
+                  </h1>
+                  <h2 className="text-xs sm:text-sm font-black text-neutral-900 uppercase">
+                    SATUAN PELAYANAN PROGRAM GIZI (SPPG) BUNGAH 2
+                  </h2>
+                  <p className="text-[10px] text-neutral-500 font-sans">
+                    Jl. Raya Bungah No.1, Bungah, Gresik, Jawa Timur • Telp: (031) 3949012
+                  </p>
+                </div>
+
+                {/* Logo Qomaruddin Right */}
+                <div className="flex items-center justify-center shrink-0 w-16 h-16 md:w-20 md:h-20">
+                  <img 
+                    src="https://qomaruddin.com/wp-content/uploads/2019/02/cropped-logo-qomaruddin-1-192x192.png" 
+                    alt="Logo PP Qomaruddin" 
+                    className="max-h-20 max-w-20 object-contain select-none shrink-0 border border-neutral-200 rounded-full p-0.5" 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        const fallback = parent.querySelector('.qom-fallback-so');
+                        if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                      }
+                    }}
+                  />
+                  <div className="qom-fallback-so hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-900 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0">
+                    <span className="font-black text-[9px]">PPQ</span>
+                    <span>QOMARUDDIN</span>
+                  </div>
                 </div>
               </div>
 
