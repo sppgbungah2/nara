@@ -249,13 +249,13 @@ export default function DailyReportPDF({
       <div className="max-w-4xl w-full mx-auto bg-white p-6 sm:p-12 text-neutral-900 shadow-2xl rounded-b-3xl border-x border-b border-neutral-200 print:rounded-none print:border-0 print:shadow-none print:p-0 print:m-0 font-serif print-area relative overflow-hidden flex-1">
         
         {/* Kop Surat Resmi Yayasan & BGN */}
-        <div className="flex items-center justify-between gap-4 border-b-4 border-double border-neutral-950 pb-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 border-b-4 border-double border-neutral-950 pb-4 mb-6 text-center sm:text-left">
           {/* Logo BGN Left */}
-          <div className="flex items-center justify-center shrink-0 w-20 h-20">
+          <div className="flex items-center justify-center shrink-0 w-16 h-16 sm:w-20 sm:h-20">
             <img 
               src="https://www.bgn.go.id/logo-bgn.png" 
               alt="Logo BGN" 
-              className="max-h-20 max-w-20 object-contain select-none shrink-0" 
+              className="max-h-16 sm:max-h-20 max-w-16 sm:max-w-20 object-contain select-none shrink-0" 
               referrerPolicy="no-referrer"
               onError={(e) => {
                 const target = e.currentTarget;
@@ -267,7 +267,7 @@ export default function DailyReportPDF({
                 }
               }}
             />
-            <div className="bgn-fallback hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-800 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0 shadow-xs">
+            <div className="bgn-fallback hidden h-14 w-14 sm:h-16 sm:w-16 rounded-full border-2 border-emerald-900 bg-emerald-800 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0 shadow-xs">
               <span className="font-black text-[10px]">BGN</span>
               <span>BADAN GIZI</span>
               <span>NASIONAL</span>
@@ -276,26 +276,26 @@ export default function DailyReportPDF({
 
           {/* Header Title Center */}
           <div className="text-center flex-1 space-y-1">
-            <h2 className="text-base sm:text-lg font-black uppercase font-sans tracking-wider text-neutral-950">
+            <h2 className="text-xs sm:text-sm md:text-base font-black uppercase font-sans tracking-wider text-neutral-950 leading-tight">
               YAYASAN PONDOK PESANTREN QOMARUDDIN
             </h2>
-            <h1 className="text-lg sm:text-xl font-black uppercase tracking-widest font-sans text-neutral-900">
+            <h1 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-widest font-sans text-neutral-900 leading-tight">
               SATUAN PELAYANAN PROGRAM GIZI (SPPG) BUNGAH 2
             </h1>
-            <p className="text-[11px] font-sans font-bold text-emerald-850 uppercase tracking-wide">
+            <p className="text-[10px] sm:text-xs font-sans font-extrabold text-emerald-850 uppercase tracking-wide leading-snug">
               REKAPITULASI DOKUMEN & KINERJA HARIAN OPERASIONAL DAPUR UTAMA MBG
             </p>
-            <p className="text-[10px] font-sans text-neutral-500 leading-tight">
+            <p className="text-[9px] sm:text-[10px] font-sans text-neutral-500 leading-tight">
               Jl. Raya Bungah No. 1, Sampurnan, Bungah, Kabupaten Gresik, Jawa Timur 61152 • Telp: (031) 3949012
             </p>
           </div>
 
           {/* Logo Qomaruddin Right */}
-          <div className="flex items-center justify-center shrink-0 w-20 h-20">
+          <div className="flex items-center justify-center shrink-0 w-16 h-16 sm:w-20 sm:h-20">
             <img 
               src="/logo.png" 
               alt="Logo PP Qomaruddin" 
-              className="max-h-20 max-w-20 object-contain select-none shrink-0 p-0.5" 
+              className="max-h-16 sm:max-h-20 max-w-16 sm:max-w-20 object-contain select-none shrink-0 p-0.5" 
               referrerPolicy="no-referrer"
               onError={(e) => {
                 const target = e.currentTarget;
@@ -307,7 +307,7 @@ export default function DailyReportPDF({
                 }
               }}
             />
-            <div className="qomaruddin-fallback hidden h-16 w-16 rounded-full border-2 border-emerald-900 bg-emerald-900 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0 shadow-xs">
+            <div className="qomaruddin-fallback hidden h-14 w-14 sm:h-16 sm:w-16 rounded-full border-2 border-emerald-900 bg-emerald-900 text-white flex-col items-center justify-center text-center p-1 font-bold text-[8px] uppercase tracking-tighter shrink-0 shadow-xs">
               <span className="font-black text-[9px]">PPQ</span>
               <span>QOMARUDDIN</span>
               <span>BUNGAH</span>
@@ -316,16 +316,16 @@ export default function DailyReportPDF({
         </div>
 
         {/* Info Meta Laporan */}
-        <div className="grid grid-cols-2 bg-neutral-50 p-4 rounded-xl border border-neutral-200 mb-6 font-sans text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-neutral-50 p-4 rounded-xl border border-neutral-200 mb-6 font-sans text-xs">
           <div className="space-y-1">
-            <div><span className="text-neutral-400 font-medium">Tanggal Operasional:</span> <strong className="text-neutral-900">{selectedDate}</strong></div>
-            <div><span className="text-neutral-400 font-medium">No. Dokumen Rekap:</span> <strong className="text-neutral-800">SPPG/DPR-LKH/{selectedDate.replace(/-/g, '')}/IX</strong></div>
-            <div><span className="text-neutral-400 font-medium">Sistem Klasifikasi:</span> <strong className="text-neutral-800">Standard HACCP & Gizi Terpadu</strong></div>
+            <div><span className="text-neutral-500 font-medium">Tanggal Operasional:</span> <strong className="text-neutral-900">{selectedDate}</strong></div>
+            <div><span className="text-neutral-500 font-medium">No. Dokumen Rekap:</span> <strong className="text-neutral-800">SPPG/DPR-LKH/{selectedDate.replace(/-/g, '')}/IX</strong></div>
+            <div><span className="text-neutral-500 font-medium">Sistem Klasifikasi:</span> <strong className="text-neutral-800">Standard HACCP & Gizi Terpadu</strong></div>
           </div>
-          <div className="space-y-1 text-right">
-            <div><span className="text-neutral-400 font-medium">Waktu Unduh:</span> <strong className="text-neutral-800">{new Date().toLocaleString('id-ID')} WIB</strong></div>
-            <div><span className="text-neutral-400 font-medium">Status Otentikasi:</span> <strong className="text-emerald-700 font-bold">✓ ADMINISTRATOR UTAMA VERIFIED</strong></div>
-            <div><span className="text-neutral-400 font-medium">Wilayah Distribusi:</span> <strong className="text-neutral-800">Gresik Utara</strong></div>
+          <div className="space-y-1 sm:text-right">
+            <div><span className="text-neutral-500 font-medium">Waktu Unduh:</span> <strong className="text-neutral-800">{new Date().toLocaleString('id-ID')} WIB</strong></div>
+            <div><span className="text-neutral-500 font-medium">Status Otentikasi:</span> <strong className="text-emerald-700 font-bold">✓ ADMINISTRATOR UTAMA VERIFIED</strong></div>
+            <div><span className="text-neutral-500 font-medium">Wilayah Distribusi:</span> <strong className="text-neutral-800">Gresik Utara</strong></div>
           </div>
         </div>
 
@@ -339,15 +339,15 @@ export default function DailyReportPDF({
               Perencanaan Menu Harian Gizi
             </h3>
             {currentMenu ? (
-              <div className="grid grid-cols-5 gap-2 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
                 {currentMenu.menuList.map((item, idx) => {
                   const categories = ['Makanan Pokok', 'Lauk Utama', 'Lauk Nabati', 'Sayur Gizi', 'Pencuci Mulut / Buah'];
                   return (
-                    <div key={idx} className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-1">
+                    <div key={idx} className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-1 flex flex-col justify-between">
                       <span className="block text-[8px] font-extrabold text-emerald-800 uppercase tracking-widest">
                         {categories[idx] || `Item ${idx + 1}`}
                       </span>
-                      <strong className="text-neutral-850 font-bold text-xs">{item}</strong>
+                      <strong className="text-neutral-850 font-bold text-xs leading-snug break-words">{item}</strong>
                     </div>
                   );
                 })}
@@ -561,7 +561,7 @@ export default function DailyReportPDF({
               <span className="bg-emerald-850 text-white text-[10px] px-2 py-0.5 rounded-md">06</span>
               Rekap Sampah Makanan (Waste Control)
             </h3>
-            <div className="grid grid-cols-3 gap-4 bg-neutral-50 p-4 border border-neutral-200 rounded-xl text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-neutral-50 p-4 border border-neutral-200 rounded-xl text-xs">
               <div className="space-y-1 p-3 bg-white rounded-lg border border-neutral-100 shadow-3xs">
                 <span className="text-[10px] font-extrabold text-neutral-400 block uppercase">Sisa Piring Santri</span>
                 <strong className="text-sm font-black text-rose-600 font-mono">{wasteRecord?.totalWastePlateKg || '2.5'} Kg</strong>
@@ -613,9 +613,9 @@ export default function DailyReportPDF({
                           {item.category === 'alat' ? 'Alat Dapur' : 'Operasional'}
                         </span>
                       </td>
-                      <td className="p-2.5 font-bold text-neutral-800">{item.item_name}</td>
+                      <td className="p-2.5 font-bold text-neutral-800 break-words">{item.item_name}</td>
                       <td className="p-2.5 text-center font-mono font-bold">{item.qty}</td>
-                      <td className="p-2.5 text-neutral-600 truncate max-w-[150px]">{item.reason}</td>
+                      <td className="p-2.5 text-neutral-600 break-words">{item.reason}</td>
                       <td className="p-2.5 text-center font-bold">
                         <span className={
                           item.status === 'disetujui' ? 'text-emerald-700' : 
@@ -624,7 +624,7 @@ export default function DailyReportPDF({
                           {item.status.toUpperCase()}
                         </span>
                       </td>
-                      <td className="p-2.5 text-right text-neutral-500 italic max-w-[150px] truncate">{item.notes || '-'}</td>
+                      <td className="p-2.5 text-right text-neutral-500 italic break-words">{item.notes || '-'}</td>
                     </tr>
                   ))
                 ) : (
@@ -727,22 +727,22 @@ export default function DailyReportPDF({
               <span className="bg-emerald-850 text-white text-[10px] px-2 py-0.5 rounded-md">12</span>
               Uji Sensori Organoleptik & HACCP Food Safety
             </h3>
-            <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl grid grid-cols-2 gap-4 text-xs">
+            <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="space-y-2">
                 <span className="block text-[10px] font-extrabold uppercase tracking-widest text-emerald-800">Hasil Rata-Rata Uji Sensori (Skala 1-5)</span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-3xl font-black text-neutral-900">{averageOrlepScore}</span>
                   <span className="text-lg font-bold text-neutral-400">/ 5.0</span>
-                  <span className="text-emerald-700 font-bold ml-2">✓ Lulus Standar Organoleptik</span>
+                  <span className="text-emerald-700 font-bold sm:ml-2">✓ Lulus Standar Organoleptik</span>
                 </div>
                 <p className="text-[10px] text-neutral-500 italic leading-relaxed">
                   * Panelis mengonfirmasi masakan memiliki rasa gurih yang pas, warna alami menarik, aroma sedap harum, dan tekstur kematangan sayur/daging yang empuk.
                 </p>
               </div>
 
-              <div className="space-y-2 border-l border-emerald-200/50 pl-4">
+              <div className="space-y-2 sm:border-l sm:border-emerald-200/50 sm:pl-4 border-t sm:border-t-0 border-emerald-200/50 pt-3 sm:pt-0">
                 <span className="block text-[10px] font-extrabold uppercase tracking-widest text-emerald-800">Suhu Penyajian Makanan (HACCP Check)</span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-2xl font-black text-neutral-900">{orlepDoc?.organoleptikSuhu || orlepDoc?.orlepSuhu || '68'}°C</span>
                   <span className="bg-emerald-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md">
                     SAFE (&gt;60°C)
@@ -757,7 +757,7 @@ export default function DailyReportPDF({
 
           {/* Section 13: Absensi Relawan & Staf Dapur */}
           <div className="space-y-3 break-inside-avoid">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-900 border-b-2 border-emerald-800/20 pb-1.5 flex items-center justify-between">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-emerald-900 border-b-2 border-emerald-800/20 pb-1.5 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="bg-emerald-850 text-white text-[10px] px-2 py-0.5 rounded-md">13</span>
                 Absensi Kehadiran Relawan & Staf Dapur Utama
@@ -777,7 +777,7 @@ export default function DailyReportPDF({
               const rate = totalCount > 0 ? Math.round((hadirCount / totalCount) * 100) : 100;
 
               return (
-                <div className="grid grid-cols-4 gap-2 text-center text-xs font-sans mb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-sans mb-2">
                   <div className="bg-neutral-50 border border-neutral-200 p-2 rounded-lg">
                     <span className="text-[9px] font-bold uppercase text-neutral-400 block">Total Personel</span>
                     <strong className="text-sm font-black text-neutral-800">{totalCount} Orang</strong>
@@ -883,39 +883,44 @@ export default function DailyReportPDF({
         </div>
 
         {/* Kolom Tanda Tangan Resmi Yayasan */}
-        <div className="grid grid-cols-3 gap-8 text-center text-xs font-sans mt-12 pt-8 border-t border-neutral-300 break-inside-avoid">
-          <div className="space-y-16">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 text-center text-xs font-sans mt-12 pt-8 border-t border-neutral-300 break-inside-avoid">
+          {/* Aslap */}
+          <div className="flex flex-col justify-between h-36">
             <div>
               <p className="text-neutral-500 uppercase tracking-wider text-[9px] font-bold">Asisten Lapangan (Aslap)</p>
               <p className="font-extrabold text-neutral-800">SPPG Bungah 2</p>
             </div>
             <div className="space-y-1">
-              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-800">Ahmad Maghfur</strong>
-              <span className="text-[10px] text-neutral-400 block font-mono">Aslap Lapangan</span>
+              <strong className="block border-b border-neutral-400 pb-1 mx-4 sm:mx-6 text-neutral-800">Ahmad Maghfur</strong>
+              <span className="text-[10px] text-neutral-500 block font-mono">Aslap Lapangan</span>
             </div>
           </div>
 
-          <div className="space-y-16">
+          {/* Ketua SPPG */}
+          <div className="flex flex-col justify-between h-36">
             <div>
               <p className="text-neutral-500 uppercase tracking-wider text-[9px] font-bold">Ketua SPPG</p>
               <p className="font-extrabold text-neutral-800">SPPG Bungah 2</p>
             </div>
             <div className="space-y-1">
-              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-800">M. Fajrul Falah</strong>
-              <span className="text-[10px] text-neutral-400 block font-mono">Ketua SPPG</span>
+              <strong className="block border-b border-neutral-400 pb-1 mx-4 sm:mx-6 text-neutral-800">M. Fajrul Falah</strong>
+              <span className="text-[10px] text-neutral-500 block font-mono">Ketua SPPG</span>
             </div>
           </div>
 
-          <div className="space-y-16">
+          {/* Mitra Yayasan */}
+          <div className="flex flex-col justify-between h-36">
             <div>
               <p className="text-emerald-700 uppercase tracking-wider text-[9px] font-extrabold">Mitra Yayasan</p>
               <p className="font-extrabold text-neutral-900">Perwakilan Mitra</p>
             </div>
-            <div className="space-y-1 relative">
-              <div className="absolute -top-12 left-1/2 -translate-x-1/2 border-2 border-dashed border-emerald-600 text-emerald-600 rounded-lg px-2 py-0.5 text-[8px] font-mono tracking-widest font-black uppercase select-none rotate-6 opacity-75">
-                VERIFIED BY SYSTEM
-              </div>
-              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-900">M. Syamsud Dluha</strong>
+            <div className="my-auto">
+              <span className="inline-block border-2 border-dashed border-emerald-600 text-emerald-600 rounded-lg px-2.5 py-0.5 text-[8px] font-mono tracking-widest font-black uppercase select-none rotate-2 opacity-90">
+                ✓ VERIFIED BY SYSTEM
+              </span>
+            </div>
+            <div className="space-y-1">
+              <strong className="block border-b border-neutral-400 pb-1 mx-4 sm:mx-6 text-neutral-900">M. Syamsud Dluha</strong>
               <span className="text-[10px] text-neutral-500 block font-mono">Mitra Yayasan</span>
             </div>
           </div>
