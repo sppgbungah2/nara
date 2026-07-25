@@ -511,7 +511,7 @@ export default function DashboardAdminView({
                 <td className="p-4">
                   <div className="font-bold text-neutral-800">{totalPortions} Porsi</div>
                   <div className="text-[10px] text-neutral-400">
-                    {isCustomPortion ? 'Kustomisasi porsi operasional hari ini' : 'Berdasarkan database default (799 Porsi)'}
+                    {isCustomPortion ? 'Kustomisasi porsi operasional hari ini' : `Berdasarkan database master (${totalPortions} Porsi)`}
                   </div>
                 </td>
                 <td className="p-4 text-center">

@@ -293,9 +293,9 @@ export default function DailyReportPDF({
           {/* Logo Qomaruddin Right */}
           <div className="flex items-center justify-center shrink-0 w-20 h-20">
             <img 
-              src="https://qomaruddin.com/wp-content/uploads/2019/02/cropped-logo-qomaruddin-1-192x192.png" 
+              src="/logo.png" 
               alt="Logo PP Qomaruddin" 
-              className="max-h-20 max-w-20 object-contain select-none shrink-0 border border-neutral-200 rounded-full p-0.5" 
+              className="max-h-20 max-w-20 object-contain select-none shrink-0 p-0.5" 
               referrerPolicy="no-referrer"
               onError={(e) => {
                 const target = e.currentTarget;
@@ -886,37 +886,37 @@ export default function DailyReportPDF({
         <div className="grid grid-cols-3 gap-8 text-center text-xs font-sans mt-12 pt-8 border-t border-neutral-300 break-inside-avoid">
           <div className="space-y-16">
             <div>
-              <p className="text-neutral-400 uppercase tracking-wider text-[9px] font-bold">Dibuat Oleh,</p>
-              <p className="font-extrabold text-neutral-800">Koordinator Operasional</p>
+              <p className="text-neutral-500 uppercase tracking-wider text-[9px] font-bold">Asisten Lapangan (Aslap)</p>
+              <p className="font-extrabold text-neutral-800">SPPG Bungah 2</p>
             </div>
             <div className="space-y-1">
-              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-800">Bpk. Achmad Syarif</strong>
-              <span className="text-[10px] text-neutral-400 block font-mono">ID Relawan: SPPG-120</span>
+              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-800">Ahmad Maghfur</strong>
+              <span className="text-[10px] text-neutral-400 block font-mono">Aslap Lapangan</span>
             </div>
           </div>
 
           <div className="space-y-16">
             <div>
-              <p className="text-neutral-400 uppercase tracking-wider text-[9px] font-bold">Diverifikasi Oleh,</p>
-              <p className="font-extrabold text-neutral-800">Supervisor Gizi & Dapur</p>
+              <p className="text-neutral-500 uppercase tracking-wider text-[9px] font-bold">Ketua SPPG</p>
+              <p className="font-extrabold text-neutral-800">SPPG Bungah 2</p>
             </div>
             <div className="space-y-1">
-              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-800">Ibu Nur Laili, S.Gz</strong>
-              <span className="text-[10px] text-neutral-400 block font-mono">NIPY. 2016.92.110</span>
+              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-800">M. Fajrul Falah</strong>
+              <span className="text-[10px] text-neutral-400 block font-mono">Ketua SPPG</span>
             </div>
           </div>
 
           <div className="space-y-16">
             <div>
-              <p className="text-emerald-700 uppercase tracking-wider text-[9px] font-extrabold">Disetujui Oleh (Approved By),</p>
-              <p className="font-extrabold text-neutral-900">Administrator Utama</p>
+              <p className="text-emerald-700 uppercase tracking-wider text-[9px] font-extrabold">Mitra Yayasan</p>
+              <p className="font-extrabold text-neutral-900">Perwakilan Mitra</p>
             </div>
             <div className="space-y-1 relative">
               <div className="absolute -top-12 left-1/2 -translate-x-1/2 border-2 border-dashed border-emerald-600 text-emerald-600 rounded-lg px-2 py-0.5 text-[8px] font-mono tracking-widest font-black uppercase select-none rotate-6 opacity-75">
                 VERIFIED BY SYSTEM
               </div>
-              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-900">Dewan Pengurus Qomaruddin</strong>
-              <span className="text-[10px] text-neutral-500 block font-mono">SEC-ID: {selectedDate.replace(/-/g, '')}-ADMIN-MAIN</span>
+              <strong className="block border-b border-neutral-400 pb-1 mx-6 text-neutral-900">M. Syamsud Dluha</strong>
+              <span className="text-[10px] text-neutral-500 block font-mono">Mitra Yayasan</span>
             </div>
           </div>
         </div>

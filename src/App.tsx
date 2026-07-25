@@ -823,8 +823,8 @@ export default function App() {
 
         // 5. DRIVER
         if (email === 'driver@qomaruddin.com') {
-          // SOP Harian, Menu Harian Gizi, Order Alat/Operasional, BAST, Surat Jalan, Keluhan
-          return FEATURE_MENUS.filter(menu => [15, 10, 4, 5, 19, 20, 14].includes(menu.num));
+          // SOP Harian, Menu Harian Gizi, Order Alat/Operasional, BAST, Surat Jalan, Keluhan, Dokumentasi Pengiriman Ompreng
+          return FEATURE_MENUS.filter(menu => [15, 10, 4, 5, 18, 19, 20, 21, 14].includes(menu.num));
         }
 
         // Legacy/Default Fallbacks based on mapped roles

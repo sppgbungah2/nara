@@ -436,7 +436,7 @@ export default function SuratJalanView({
   // If viewing a document in full-depth
   if (activeDoc) {
     const isLocked = activeDoc.status === 'Selesai';
-    const isFieldReadOnly = isLocked || currentUserRole === UserRole.DRIVER || currentUserRole === UserRole.PENERIMA;
+    const isFieldReadOnly = isLocked || currentUserRole === UserRole.PENERIMA;
     return (
       <div className="space-y-6 animate-fade-in" id="sj-printed-view">
         {/* Sticky Action Toolbar */}

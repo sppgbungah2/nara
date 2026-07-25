@@ -2515,10 +2515,10 @@ export default function MockModules({
 
     // 3. Map Master Portions
     const DEFAULT_PORTIONS_LOCAL = {
-      MA: { guru: 15, siswa: 120 },
-      "MTS II": { guru: 12, siswa: 110 },
-      SMK: { guru: 18, siswa: 135 },
-      SMA: { guru: 14, siswa: 115 },
+      MA: { guru: 48, siswa: 207 },
+      "MTS II": { guru: 45, siswa: 518 },
+      SMK: { guru: 55, siswa: 567 },
+      SMA: { guru: 50, siswa: 861 },
       Sukowati: { besar: 80, kecil: 40 },
       Sidokumpul: { besar: 95, kecil: 45 }
     };
