@@ -68,7 +68,7 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
     loadAllPortions();
   }, [activeDate]);
 
-  // Load portions for the specific active date
+  // Load portions for the specific active date with global template fallback
   const loadPortions = async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -86,12 +86,17 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
         } else if (data && data.portions) {
           setPortions(data.portions as PortionConfig);
         } else {
-          // No record exists for this date, try local or defaults
-          const localSaved = localStorage.getItem(`sppg_portions_${activeDate}`);
-          if (localSaved) {
-            setPortions(JSON.parse(localSaved));
+          // No record exists for this specific date, try master template in cloud
+          const { data: tplData } = await supabase
+            .from('master_porsi')
+            .select('*')
+            .eq('date', 'DEFAULT_TEMPLATE')
+            .maybeSingle();
+
+          if (tplData && tplData.portions) {
+            setPortions(tplData.portions as PortionConfig);
           } else {
-            setPortions({ ...DEFAULT_PORTIONS });
+            loadFromLocal();
           }
         }
       } else {
@@ -111,12 +116,24 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
     if (saved) {
       try {
         setPortions(JSON.parse(saved));
+        return;
       } catch (e) {
-        setPortions({ ...DEFAULT_PORTIONS });
+        console.error('Error parsing local portions:', e);
       }
-    } else {
-      setPortions({ ...DEFAULT_PORTIONS });
     }
+
+    // Try global master default template set by admin
+    const globalDefault = localStorage.getItem('sppg_global_master_portions');
+    if (globalDefault) {
+      try {
+        setPortions(JSON.parse(globalDefault));
+        return;
+      } catch (e) {
+        console.error('Error parsing global master portions:', e);
+      }
+    }
+
+    setPortions({ ...DEFAULT_PORTIONS });
   };
 
   // Load all portions saved in the database & local storage to render the deck cards list
@@ -201,9 +218,10 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
     setErrorMsg(null);
     setSuccessMsg(null);
     
-    // Save to local storage cache
+    // Save to local storage cache for active date AND as global master template
     const key = `sppg_portions_${activeDate}`;
     localStorage.setItem(key, JSON.stringify(portions));
+    localStorage.setItem('sppg_global_master_portions', JSON.stringify(portions));
 
     try {
       if (isSupabaseConfigured && supabase) {
@@ -214,9 +232,16 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
           created_at: new Date().toISOString()
         };
 
+        const templatePayload = {
+          date: 'DEFAULT_TEMPLATE',
+          portions: portions,
+          created_by: 'admin@qomaruddin.com',
+          created_at: new Date().toISOString()
+        };
+
         const { error } = await supabase
           .from('master_porsi')
-          .upsert(payload);
+          .upsert([payload, templatePayload]);
 
         if (error) {
           throw error;
@@ -225,14 +250,15 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
         // Fire storage or window event to let other open views sync
         window.dispatchEvent(new Event('portionsUpdated'));
 
-        setSuccessMsg(`Berhasil menyimpan master porsi untuk tanggal ${activeDate}!`);
+        setSuccessMsg(`Berhasil menyimpan & menetapkan master porsi permanen untuk tanggal ${activeDate} dan seluruh hari mendatang!`);
       } else {
-        setSuccessMsg(`Berhasil menyimpan secara lokal untuk tanggal ${activeDate} (Offline mode).`);
+        window.dispatchEvent(new Event('portionsUpdated'));
+        setSuccessMsg(`Berhasil menyimpan & menetapkan master porsi permanen secara lokal (Offline mode).`);
       }
       
       // Reload both list and current selection
       await loadAllPortions();
-      setTimeout(() => setSuccessMsg(null), 3000);
+      setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err: any) {
       console.warn("Could not save master_porsi to Supabase:", err);
       setErrorMsg("Gagal menyimpan ke cloud: " + (err.message || err));

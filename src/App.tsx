@@ -45,6 +45,41 @@ export default function App() {
   // Mobile navigation drawer toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Utility functions for Slug Parsing and Formatting (e.g. 27-7-2026 <-> 2026-07-27)
+  const parseDateFromSlug = (slug: string): string | null => {
+    if (!slug) return null;
+    const s = slug.trim();
+    // YYYY-MM-DD or YYYY-M-D
+    const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+      const y = isoMatch[1];
+      const m = isoMatch[2].padStart(2, '0');
+      const d = isoMatch[3].padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    // DD-MM-YYYY or D-M-YYYY
+    const idMatch = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (idMatch) {
+      const d = idMatch[1].padStart(2, '0');
+      const m = idMatch[2].padStart(2, '0');
+      const y = idMatch[3];
+      return `${y}-${m}-${d}`;
+    }
+    return null;
+  };
+
+  const formatDateToSlug = (dateStr: string): string => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      const y = parts[0];
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      return `${d}-${m}-${y}`; // Output example: 27-7-2026
+    }
+    return dateStr;
+  };
+
   const getTabFromPage = (pageName: string): number => {
     const norm = pageName.toLowerCase().trim();
     if (norm === 'dashboard-admin' || norm === 'dashboard') return 23;
@@ -53,8 +88,8 @@ export default function App() {
     if (norm === 'order-alat' || norm === 'order_alat') return 4;
     if (norm === 'order-operasional' || norm === 'order_operasional') return 5;
     if (norm === 'pengiriman-ompreng') return 18;
-    if (norm === 'serah-terima') return 19;
-    if (norm === 'surat-jalan') return 20;
+    if (norm === 'serah-terima' || norm === 'bast') return 19;
+    if (norm === 'surat-jalan' || norm === 'sj') return 20;
     if (norm === 'organoleptik') return 21;
     if (norm === 'master-porsi' || norm === 'master_porsi') return 22;
     return 23; // default to Dashboard Admin
@@ -74,7 +109,7 @@ export default function App() {
     return '';
   };
 
-  // Listen for route changes (standard clean pathname routing)
+  // Listen for route changes (standard clean pathname routing with date slug support)
   useEffect(() => {
     const handleRouteChange = () => {
       // Clean up legacy hash paths if present by rewriting them to standard paths
@@ -86,12 +121,25 @@ export default function App() {
       const path = window.location.pathname;
       if (!path || path === '/') return;
       
-      const parts = path.split('/').filter(Boolean); // e.g. ["admin", "sop"]
-      if (parts.length >= 1) {
-        // Find which page we are on (usually index 1, e.g. /admin/sop)
-        const page = parts[1] || 'sop';
-        const tab = getTabFromPage(page);
-        setActiveTab(tab);
+      const parts = path.split('/').filter(Boolean); // e.g. ["admin", "sop", "27-7-2026"] or ["user", "ma", "surat-jalan", "27-7-2026"]
+      
+      // 1. Check for Date Slug
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const parsedDate = parseDateFromSlug(parts[i]);
+        if (parsedDate) {
+          setSelectedDate(parsedDate);
+          break;
+        }
+      }
+
+      // 2. Check for Page Slug
+      for (let i = 0; i < parts.length; i++) {
+        const pageCandidate = parts[i].toLowerCase().trim();
+        const tab = getTabFromPage(pageCandidate);
+        if (tab !== 23 || pageCandidate === 'dashboard-admin' || pageCandidate === 'dashboard') {
+          setActiveTab(tab);
+          break;
+        }
       }
     };
 
@@ -101,39 +149,47 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleRouteChange);
   }, []);
 
-  // Update browser URL path when tab changes
+  // Update browser URL path when activeTab or selectedDate changes
   useEffect(() => {
     if (!loggedInUser) return;
     
-    let prefix = 'user';
-    if (loggedInUser.isCoordinator && loggedInUser.coordinatorDivision) {
-      // Map division to short prefix
-      const div = loggedInUser.coordinatorDivision;
-      if (div === Division.STOCKING) prefix = 'stocking';
-      else if (div === Division.MASAK) prefix = 'masak';
-      else if (div === Division.DRIVER) prefix = 'driver';
-      else if (div === Division.CUCI) prefix = 'cuci';
-      else if (div === Division.KEBERSIHAN) prefix = 'kebersihan';
-      else if (div === Division.KEAMANAN) prefix = 'keamanan';
-    } else {
-      // For Admin, Chef, Ahli Gizi, Aslap, map their role as prefix
-      const role = loggedInUser.role;
-      if (role === UserRole.CHEF) prefix = 'chef';
-      else if (role === UserRole.AHLI_GIZI) prefix = 'gizi';
-      else if (role === UserRole.ASLAP) prefix = 'aslap';
-      else if (role === UserRole.ADMIN) prefix = 'admin';
-      else if (role === UserRole.AKUNTAN) prefix = 'akuntan';
-      else if (role === UserRole.DRIVER) prefix = 'driver';
+    let prefix = 'admin';
+    let subEntity = '';
+
+    const email = loggedInUser.email?.toLowerCase().trim() || '';
+    if (email.includes('ma@qomaruddin.com')) { prefix = 'user'; subEntity = 'ma'; }
+    else if (email.includes('smk@qomaruddin.com')) { prefix = 'user'; subEntity = 'smk'; }
+    else if (email.includes('sma@qomaruddin.com')) { prefix = 'user'; subEntity = 'sma'; }
+    else if (email.includes('mts@qomaruddin.com')) { prefix = 'user'; subEntity = 'mts'; }
+    else if (email.includes('sukowati@qomaruddin.com')) { prefix = 'user'; subEntity = 'sukowati'; }
+    else if (email.includes('sidokumpul@qomaruddin.com')) { prefix = 'user'; subEntity = 'sidokumpul'; }
+    else if (loggedInUser.role === UserRole.DRIVER) { prefix = 'driver'; }
+    else if (loggedInUser.role === UserRole.CHEF) { prefix = 'chef'; }
+    else if (loggedInUser.role === UserRole.AHLI_GIZI) { prefix = 'gizi'; }
+    else if (loggedInUser.role === UserRole.ASLAP) { prefix = 'aslap'; }
+    else if (loggedInUser.isCoordinator) {
+      prefix = 'koordinator';
+      if (loggedInUser.coordinatorDivision) {
+        subEntity = loggedInUser.coordinatorDivision.toLowerCase().split(' ')[0];
+      }
     }
     
     const page = getPageFromTab(activeTab);
+    const dateSlug = formatDateToSlug(selectedDate);
+
     if (page) {
-      const newPath = `/${prefix}/${page}`;
+      let newPath = '';
+      if (subEntity) {
+        newPath = `/${prefix}/${subEntity}/${page}/${dateSlug}`;
+      } else {
+        newPath = `/${prefix}/${page}/${dateSlug}`;
+      }
+
       if (window.location.pathname !== newPath) {
         window.history.pushState(null, '', newPath);
       }
     }
-  }, [activeTab, loggedInUser]);
+  }, [activeTab, selectedDate, loggedInUser]);
 
   // Automatically load the coordinator's specific division's SOP checklist in active detail view
   useEffect(() => {
@@ -224,22 +280,85 @@ export default function App() {
     }
   }, [sops]);
 
-  // Bootstrap Supabase with baseline preset-menus and SOP checklists if empty
+  // Bootstrap Supabase with user local storage or baseline preset-menus and SOP checklists if empty
   const bootstrapSupabase = async () => {
     if (!isSupabaseConfigured || !supabase) return;
     try {
-      console.log('Bootstrapping Supabase database tables with baseline values...');
+      console.log('Bootstrapping Supabase database tables...');
       
+      const savedMenusStr = localStorage.getItem('sppg_day_menus');
+      const savedSopsStr = localStorage.getItem('sppg_sops');
+
+      let menusToSeed = PRESET_MENUS;
+      if (savedMenusStr) {
+        try {
+          const parsedMenus = JSON.parse(savedMenusStr);
+          if (parsedMenus && parsedMenus.length > 0) {
+            menusToSeed = parsedMenus;
+          }
+        } catch (e) {
+          console.error('Error parsing local day menus for bootstrap:', e);
+        }
+      }
+
       // 1. Seed day_menus
-      const menuPayload = PRESET_MENUS.map(m => ({
+      const menuPayload = menusToSeed.map(m => ({
         date: m.date,
         menu_list: m.menuList,
-        created_at: m.createdAt,
-        created_by: m.createdBy
+        created_at: m.createdAt || new Date().toISOString(),
+        created_by: m.createdBy || UserRole.ADMIN
       }));
       await supabase.from('day_menus').upsert(menuPayload);
 
-      // 2. Generate initial blank/completed SOP documents
+      // 2. Seed sops
+      if (savedSopsStr) {
+        try {
+          const parsedSops: SOPDocument[] = JSON.parse(savedSopsStr);
+          if (parsedSops && parsedSops.length > 0) {
+            const sopsPayload = parsedSops.map(s => ({
+              id: s.id,
+              date: s.date,
+              division: s.division,
+              creator_role: s.creatorRole,
+              creator_name: s.creatorName,
+              is_checked_all: s.isCheckedAll,
+              signer_supervisor: s.signerSupervisor || '',
+              signature_supervisor_url: s.signatureSupervisorUrl || '',
+              signed_supervisor_at: s.signedSupervisorAt,
+              signer_coordinator: s.signerCoordinator || '',
+              signature_coordinator_url: s.signatureCoordinatorUrl || '',
+              signed_coordinator_at: s.signedCoordinatorAt,
+              status: s.status,
+              updated_at: s.updatedAt || new Date().toISOString()
+            }));
+
+            const tasksPayload: any[] = [];
+            parsedSops.forEach(s => {
+              (s.tasks || []).forEach((t, idx) => {
+                tasksPayload.push({
+                  id: t.id,
+                  sop_id: s.id,
+                  text: t.text,
+                  completed: t.completed,
+                  category: t.category,
+                  sort_order: idx
+                });
+              });
+            });
+
+            await supabase.from('sops').upsert(sopsPayload);
+            if (tasksPayload.length > 0) {
+              await supabase.from('sop_tasks').upsert(tasksPayload);
+            }
+            console.log('Successfully bootstrapped Supabase with user local SOPs!');
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing local sops for bootstrap:', e);
+        }
+      }
+
+      // If no local sops, generate initial default SOPs
       const initialSopsInDatabase: any[] = [];
       const initialTasksInDatabase: any[] = [];
 

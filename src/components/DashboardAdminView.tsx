@@ -53,6 +53,10 @@ export default function DashboardAdminView({
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
+    const globalSaved = localStorage.getItem('sppg_global_master_portions');
+    if (globalSaved) {
+      try { return JSON.parse(globalSaved); } catch (e) { console.error(e); }
+    }
     return { ...DEFAULT_PORTIONS };
   });
 
@@ -70,8 +74,19 @@ export default function DashboardAdminView({
         setIsCustomPortion(false);
       }
     } else {
-      setPortions({ ...DEFAULT_PORTIONS });
-      setIsCustomPortion(false);
+      const globalSaved = localStorage.getItem('sppg_global_master_portions');
+      if (globalSaved) {
+        try {
+          setPortions(JSON.parse(globalSaved));
+          setIsCustomPortion(true);
+        } catch (e) {
+          setPortions({ ...DEFAULT_PORTIONS });
+          setIsCustomPortion(false);
+        }
+      } else {
+        setPortions({ ...DEFAULT_PORTIONS });
+        setIsCustomPortion(false);
+      }
     }
   }, [selectedDate]);
 

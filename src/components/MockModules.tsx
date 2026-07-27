@@ -2746,7 +2746,7 @@ export default function MockModules({
             .select('*')
             .order('uploaded_at', { ascending: false });
 
-          if (!shippingErr && shippingData) {
+          if (!shippingErr && shippingData && shippingData.length > 0) {
             const mappedDocs = shippingData.map(d => ({
               id: d.id,
               type: d.type,
@@ -2793,6 +2793,20 @@ export default function MockModules({
               orlepSignature: d.orlep_signature
             }));
             setRawShippingDocs(mappedDocs);
+          } else if (!shippingErr && shippingData && shippingData.length === 0) {
+            // Cloud table is empty, retain local shipping docs & push local docs to cloud
+            const savedLocal = localStorage.getItem('sppg_shipping_docs');
+            if (savedLocal) {
+              try {
+                const parsed = JSON.parse(savedLocal);
+                if (parsed && parsed.length > 0) {
+                  setRawShippingDocs(parsed);
+                  syncShippingDocsToSupabase([], parsed);
+                }
+              } catch (e) {
+                console.error("Error parsing local shipping docs:", e);
+              }
+            }
           } else if (shippingErr) {
             console.warn("shipping_docs table query error:", shippingErr.message);
           }

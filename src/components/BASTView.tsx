@@ -191,12 +191,33 @@ export default function BASTView({
         } else if (data && data.portions) {
           portions = data.portions as PortionConfig;
         } else {
-          const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
-          if (saved) portions = JSON.parse(saved);
+          // Check master template from cloud
+          const { data: tplData } = await supabase
+            .from('master_porsi')
+            .select('portions')
+            .eq('date', 'DEFAULT_TEMPLATE')
+            .maybeSingle();
+
+          if (tplData && tplData.portions) {
+            portions = tplData.portions as PortionConfig;
+          } else {
+            const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
+            if (saved) {
+              portions = JSON.parse(saved);
+            } else {
+              const globalSaved = localStorage.getItem('sppg_global_master_portions');
+              if (globalSaved) portions = JSON.parse(globalSaved);
+            }
+          }
         }
       } else {
         const saved = localStorage.getItem(`sppg_portions_${selectedDate}`);
-        if (saved) portions = JSON.parse(saved);
+        if (saved) {
+          portions = JSON.parse(saved);
+        } else {
+          const globalSaved = localStorage.getItem('sppg_global_master_portions');
+          if (globalSaved) portions = JSON.parse(globalSaved);
+        }
       }
     } catch (err) {
       console.error("Error loading portion master data for BAST initialization:", err);
