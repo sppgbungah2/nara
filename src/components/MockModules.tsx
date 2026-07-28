@@ -117,7 +117,7 @@ function ShippingDocPanel({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Form states
-  const [vehicleNumber, setVehicleNumber] = useState('W 1234 BGH');
+  const [vehicleNumber, setVehicleNumber] = useState('W 8006 EG');
   const [receiverName, setReceiverName] = useState('');
   const [comments, setComments] = useState('');
   const [imageUrl, setImageUrl] = useState('');

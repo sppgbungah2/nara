@@ -3,7 +3,7 @@ import {
   LayoutDashboard, CheckCircle2, AlertCircle, Plus, Calendar, Clock, 
   Users, ClipboardList, ShieldAlert, CheckSquare, Settings, ArrowRight,
   TrendingUp, Award, Flame, ThumbsUp, AlertTriangle, MessageSquare, ShoppingCart,
-  Check, X, RefreshCw, Star, Info, Trash2, ShieldCheck, HeartHandshake, Eye, Printer
+  Check, X, RefreshCw, Star, Info, Trash2, ShieldCheck, HeartHandshake, Eye, Printer, Code, Copy
 } from 'lucide-react';
 import { DayMenu, UserRole, Division, SOPDocument, TaskItem } from '../types';
 import { DEFAULT_PORTIONS, PortionConfig } from './PortionMasterView';
@@ -45,6 +45,8 @@ export default function DashboardAdminView({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [quickPorsiModalOpen, setQuickPorsiModalOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [sqlModalOpen, setSqlModalOpen] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
   const [tempPortions, setTempPortions] = useState<PortionConfig>({ ...DEFAULT_PORTIONS });
   
   // Load portions state for selectedDate
@@ -302,6 +304,13 @@ export default function DashboardAdminView({
             
             {/* Quick Action Buttons */}
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setSqlModalOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <Code className="w-4 h-4 text-indigo-200" />
+                Setting SQL Query
+              </button>
               <button
                 onClick={() => setIsReportOpen(true)}
                 className="bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
@@ -1288,6 +1297,204 @@ export default function DashboardAdminView({
           keluhanList={keluhanList}
           onClose={() => setIsReportOpen(false)}
         />
+      )}
+
+      {sqlModalOpen && (
+        <div className="fixed inset-0 z-50 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white max-w-3xl w-full rounded-2xl p-6 shadow-2xl border border-neutral-200 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
+              <div className="flex items-center gap-2">
+                <Code className="h-5 w-5 text-indigo-600" />
+                <h3 className="font-extrabold text-neutral-900 text-base">Setting SQL Query Supabase (Per-Divisi)</h3>
+              </div>
+              <button
+                onClick={() => setSqlModalOpen(false)}
+                className="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-lg cursor-pointer hover:bg-neutral-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3 overflow-y-auto flex-1 font-sans text-xs">
+              <p className="text-neutral-600">
+                Gunakan query SQL ini untuk membuat tabel SOP terpisah per divisi (<code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-emerald-700">sop_task_driver</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-emerald-700">sop_task_stocking</code>, dll) di Cloud Supabase tanpa menghapus data lama.
+              </p>
+              
+              <div className="bg-neutral-900 text-neutral-100 rounded-xl p-4 font-mono text-[11px] leading-relaxed overflow-x-auto relative group">
+                <button
+                  onClick={() => {
+                    const sqlText = `-- SQL MIGRATION SUPABASE TERBARU (SKEMA PER-DIVISI)\n-- PERINTAH: Salin seluruh skrip ini dan jalankan di Dashboard Supabase -> SQL Editor.\n-- CATATAN: Skrip ini TIDAK MENGHAPUS data yang sudah ada (menggunakan CREATE TABLE IF NOT EXISTS).\n\nCREATE TABLE IF NOT EXISTS public.sops (\n  id TEXT PRIMARY KEY,\n  date TEXT NOT NULL,\n  division TEXT NOT NULL,\n  creator_role TEXT,\n  creator_name TEXT,\n  is_checked_all BOOLEAN DEFAULT FALSE,\n  signer_supervisor TEXT,\n  signature_supervisor_url TEXT,\n  signed_supervisor_at TIMESTAMP WITH TIME ZONE,\n  signer_coordinator TEXT,\n  signature_coordinator_url TEXT,\n  signed_coordinator_at TIMESTAMP WITH TIME ZONE,\n  status TEXT DEFAULT 'aktif',\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_tasks (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_driver (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_stocking (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_masak (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_pemorsian (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_kebersihan (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_cuci (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.sop_task_keamanan (\n  id TEXT PRIMARY KEY,\n  sop_id TEXT NOT NULL,\n  text TEXT NOT NULL,\n  completed BOOLEAN DEFAULT FALSE,\n  category TEXT DEFAULT 'aktif',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE TABLE IF NOT EXISTS public.shipping_docs (\n  id TEXT PRIMARY KEY,\n  type TEXT NOT NULL,\n  date TEXT NOT NULL,\n  vehicle_number TEXT,\n  image_url TEXT,\n  comments TEXT,\n  uploaded_by TEXT,\n  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  receiver_name TEXT,\n  status TEXT DEFAULT 'Aktif',\n  sj_no TEXT,\n  sj_kepada TEXT,\n  sj_waktu TEXT,\n  sj_driver TEXT,\n  sj_rows JSONB,\n  sj_signature_aslap TEXT,\n  sj_signature_receiver TEXT,\n  bast_no TEXT,\n  bast_driver TEXT,\n  bast_sekolah TEXT,\n  bast_penerima TEXT,\n  bast_barang TEXT,\n  bast_jumlah INT,\n  bast_waktu TEXT,\n  bast_signature_driver TEXT,\n  bast_signature_receiver TEXT,\n  orlep_jam TEXT,\n  orlep_panelis TEXT,\n  orlep_desa TEXT,\n  orlep_menu TEXT,\n  orlep_kritik TEXT,\n  orlep_grid JSONB\n);\n\nALTER TABLE public.sops DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_tasks DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_driver DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_stocking DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_masak DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_pemorsian DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_kebersihan DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_cuci DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;\nALTER TABLE public.shipping_docs DISABLE ROW LEVEL SECURITY;`;
+                    navigator.clipboard.writeText(sqlText);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 3000);
+                  }}
+                  className="absolute top-3 right-3 bg-indigo-600 hover:bg-indigo-500 text-white font-sans text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                >
+                  {copiedSql ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedSql ? 'Tersalin!' : 'Salin SQL'}
+                </button>
+                <pre className="whitespace-pre-wrap">
+{`-- SQL MIGRATION SUPABASE TERBARU (SKEMA PER-DIVISI)
+-- PERINTAH: Salin seluruh skrip ini dan jalankan di Dashboard Supabase -> SQL Editor.
+-- CATATAN: Skrip ini TIDAK MENGHAPUS data yang sudah ada (menggunakan CREATE TABLE IF NOT EXISTS).
+
+CREATE TABLE IF NOT EXISTS public.sops (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  division TEXT NOT NULL,
+  creator_role TEXT,
+  creator_name TEXT,
+  is_checked_all BOOLEAN DEFAULT FALSE,
+  signer_supervisor TEXT,
+  signature_supervisor_url TEXT,
+  signed_supervisor_at TIMESTAMP WITH TIME ZONE,
+  signer_coordinator TEXT,
+  signature_coordinator_url TEXT,
+  signed_coordinator_at TIMESTAMP WITH TIME ZONE,
+  status TEXT DEFAULT 'aktif',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_tasks (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_driver (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_stocking (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_masak (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_pemorsian (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_kebersihan (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_cuci (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.sop_task_keamanan (
+  id TEXT PRIMARY KEY,
+  sop_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  category TEXT DEFAULT 'aktif',
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.shipping_docs (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  date TEXT NOT NULL,
+  vehicle_number TEXT,
+  image_url TEXT,
+  comments TEXT,
+  uploaded_by TEXT,
+  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  receiver_name TEXT,
+  status TEXT DEFAULT 'Aktif',
+  sj_no TEXT,
+  sj_kepada TEXT,
+  sj_waktu TEXT,
+  sj_driver TEXT,
+  sj_rows JSONB,
+  sj_signature_aslap TEXT,
+  sj_signature_receiver TEXT,
+  bast_no TEXT,
+  bast_driver TEXT,
+  bast_sekolah TEXT,
+  bast_penerima TEXT,
+  bast_barang TEXT,
+  bast_jumlah INT,
+  bast_waktu TEXT,
+  bast_signature_driver TEXT,
+  bast_signature_receiver TEXT,
+  orlep_jam TEXT,
+  orlep_panelis TEXT,
+  orlep_desa TEXT,
+  orlep_menu TEXT,
+  orlep_kritik TEXT,
+  orlep_grid JSONB
+);
+
+ALTER TABLE public.sops DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_driver DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_stocking DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_masak DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_pemorsian DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_kebersihan DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_cuci DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shipping_docs DISABLE ROW LEVEL SECURITY;`}
+                </pre>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-neutral-100 flex justify-end gap-2">
+              <button
+                onClick={() => setSqlModalOpen(false)}
+                className="bg-neutral-850 hover:bg-neutral-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer"
+              >
+                Tutup Window
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

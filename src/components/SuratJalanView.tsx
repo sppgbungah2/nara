@@ -355,7 +355,7 @@ export default function SuratJalanView({
         id: `sj-${selectedDate}-${idx}-${Date.now()}`,
         type: 'surat_jalan',
         date: selectedDate,
-        vehicleNumber: 'W 1234 BGH',
+        vehicleNumber: 'W 8006 EG',
         imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500&auto=format&fit=crop&q=80',
         comments: `Dokumen surat jalan pengiriman logistik untuk ${sch} ${breakdownStr}.`,
         uploadedBy: loggedInUser?.email || 'driver@sppg.com',

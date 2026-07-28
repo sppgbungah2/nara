@@ -136,6 +136,18 @@ export default function App() {
     }
   };
 
+  const getSopTaskTableName = (div: Division | string): string => {
+    const norm = (div || '').toLowerCase().trim();
+    if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
+    if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
+    if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
+    if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
+    if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
+    if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
+    if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
+    return 'sop_tasks';
+  };
+
   // Listen for route changes (standard clean pathname routing with date & division slug support)
   useEffect(() => {
     const handleRouteChange = () => {
@@ -462,7 +474,7 @@ export default function App() {
     }
   }, [sops]);
 
-  // Load state directly from Supabase with intelligent local state merging
+  // Load state directly from Supabase with per-division tasks support
   const loadAllFromSupabase = async () => {
     if (isUpdatingSopRef.current) {
       console.log('Skipping Supabase fetch while local SOP update is in flight...');
@@ -482,26 +494,7 @@ export default function App() {
         try {
           const parsed = JSON.parse(savedSops);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setSops(prev => {
-              if (prev.length === 0) return parsed;
-              const merged = [...prev];
-              parsed.forEach((ps: SOPDocument) => {
-                const idx = merged.findIndex(m => m.id === ps.id || (m.date === ps.date && m.division === ps.division));
-                if (idx === -1) {
-                  merged.push(ps);
-                } else {
-                  const taskIds = new Set(merged[idx].tasks.map(t => t.id));
-                  const extra = ps.tasks.filter(t => !taskIds.has(t.id));
-                  if (extra.length > 0) {
-                    merged[idx] = {
-                      ...merged[idx],
-                      tasks: [...merged[idx].tasks, ...extra]
-                    };
-                  }
-                }
-              });
-              return merged;
-            });
+            setSops(parsed);
           }
         } catch (e) { console.error(e); }
       } else if (sops.length === 0) {
@@ -569,13 +562,29 @@ export default function App() {
 
         if (sopErr) throw sopErr;
 
-        const { data: taskData, error: taskErr } = await supabase
-          .from('sop_tasks')
-          .select('*')
-          .order('sort_order', { ascending: true })
-          .range(0, 9999);
+        // Query standard sop_tasks table AND all 7 per-division task tables in parallel
+        const divisionTables = [
+          'sop_tasks',
+          'sop_task_driver',
+          'sop_task_stocking',
+          'sop_task_masak',
+          'sop_task_pemorsian',
+          'sop_task_kebersihan',
+          'sop_task_cuci',
+          'sop_task_keamanan'
+        ];
 
-        if (taskErr) throw taskErr;
+        const taskFetchPromises = divisionTables.map(tbl =>
+          supabase
+            .from(tbl)
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .range(0, 9999)
+            .then(res => res.data || [], () => [])
+        );
+
+        const taskResults = await Promise.all(taskFetchPromises);
+        const combinedTaskData = taskResults.flat();
 
         if (menuData && menuData.length > 0) {
           // Re-format day menus
@@ -590,14 +599,20 @@ export default function App() {
 
         if (sopData && sopData.length > 0) {
           const cloudSops: SOPDocument[] = (sopData || []).map((s: any) => {
-            const matchedTasks = (taskData || [])
+            const taskMap = new Map<string, any>();
+            combinedTaskData
               .filter((t: any) => t.sop_id === s.id)
-              .map((t: any) => ({
-                id: t.id,
-                text: t.text,
-                completed: t.completed,
-                category: t.category as 'persiapan' | 'aktif' | 'penutup'
-              }));
+              .forEach((t: any) => {
+                taskMap.set(t.id, {
+                  id: t.id,
+                  text: t.text,
+                  completed: !!t.completed,
+                  category: t.category as 'persiapan' | 'aktif' | 'penutup',
+                  sort_order: t.sort_order ?? 0
+                });
+              });
+
+            const matchedTasks = Array.from(taskMap.values()).sort((a, b) => a.sort_order - b.sort_order);
 
             return {
               id: s.id,
@@ -618,101 +633,14 @@ export default function App() {
             };
           });
 
-          // Intelligent merging with in-memory or localStorage SOPs so local edits & added tasks are preserved
-          let currentLocalSops = sops;
-          if (currentLocalSops.length === 0) {
-            try {
-              const saved = localStorage.getItem('sppg_sops');
-              if (saved) currentLocalSops = JSON.parse(saved);
-            } catch (e) {}
-          }
-
-          const mergedSopsList: SOPDocument[] = [...cloudSops];
-
-          currentLocalSops.forEach(localSop => {
-            const cloudIndex = mergedSopsList.findIndex(
-              cs => cs.id === localSop.id || (cs.date === localSop.date && cs.division === localSop.division)
-            );
-
-            if (cloudIndex === -1) {
-              mergedSopsList.push(localSop);
-            } else {
-              const cloudSop = mergedSopsList[cloudIndex];
-              const existingCloudTaskIds = new Set(cloudSop.tasks.map(t => t.id));
-              const missingLocalTasks = localSop.tasks.filter(t => !existingCloudTaskIds.has(t.id));
-
-              if (missingLocalTasks.length > 0) {
-                cloudSop.tasks = [...cloudSop.tasks, ...missingLocalTasks];
-              }
-
-              if (localSop.status === 'selesai' && cloudSop.status !== 'selesai') {
-                cloudSop.status = 'selesai';
-                cloudSop.isCheckedAll = localSop.isCheckedAll;
-              }
-              if (localSop.signatureSupervisorUrl && !cloudSop.signatureSupervisorUrl) {
-                cloudSop.signatureSupervisorUrl = localSop.signatureSupervisorUrl;
-                cloudSop.signerSupervisor = localSop.signerSupervisor;
-                cloudSop.signedSupervisorAt = localSop.signedSupervisorAt;
-              }
-              if (localSop.signatureCoordinatorUrl && !cloudSop.signatureCoordinatorUrl) {
-                cloudSop.signatureCoordinatorUrl = localSop.signatureCoordinatorUrl;
-                cloudSop.signerCoordinator = localSop.signerCoordinator;
-                cloudSop.signedCoordinatorAt = localSop.signedCoordinatorAt;
-              }
-            }
-          });
-
-          setSops(mergedSopsList);
+          // Set Cloud SOPs directly as single source of truth
+          setSops(cloudSops);
           try {
-            localStorage.setItem('sppg_sops', JSON.stringify(mergedSopsList));
+            localStorage.setItem('sppg_sops', JSON.stringify(cloudSops));
           } catch (e) { console.error(e); }
         } else if (menuData && menuData.length > 0) {
           // database is empty on SOPs, seed it
           await bootstrapSupabase();
-          const { data: freshMenus } = await supabase.from('day_menus').select('*');
-          const { data: freshSops } = await supabase.from('sops').select('*');
-          const { data: freshTasks } = await supabase
-            .from('sop_tasks')
-            .select('*')
-            .order('sort_order', { ascending: true })
-            .range(0, 9999);
-
-          if (freshMenus && freshMenus.length > 0) {
-            setDayMenus(freshMenus.map((m: any) => ({
-              date: m.date,
-              menuList: m.menu_list,
-              createdAt: m.created_at,
-              createdBy: m.created_by as UserRole
-            })));
-
-            const freshFormattedSops = (freshSops || []).map((s: any) => ({
-              id: s.id,
-              date: s.date,
-              division: s.division as Division,
-              creatorRole: s.creator_role as UserRole,
-              creatorName: s.creator_name,
-              tasks: (freshTasks || []).filter((t: any) => t.sop_id === s.id).map((t: any) => ({
-                id: t.id,
-                text: t.text,
-                completed: t.completed,
-                category: t.category as 'persiapan' | 'aktif' | 'penutup'
-              })),
-              isCheckedAll: s.is_checked_all,
-              signerSupervisor: s.signer_supervisor || '',
-              signatureSupervisorUrl: s.signature_supervisor_url || '',
-              signedSupervisorAt: s.signed_supervisor_at || null,
-              signerCoordinator: s.signer_coordinator || '',
-              signatureCoordinatorUrl: s.signature_coordinator_url || '',
-              signedCoordinatorAt: s.signed_coordinator_at || null,
-              status: s.status as 'aktif' | 'selesai',
-              updatedAt: s.updated_at
-            }));
-
-            setSops(freshFormattedSops);
-            try {
-              localStorage.setItem('sppg_sops', JSON.stringify(freshFormattedSops));
-            } catch (e) { console.error(e); }
-          }
         }
       } catch (e) {
         console.warn('Supabase fetch notice, maintaining local state:', e);
@@ -938,6 +866,8 @@ export default function App() {
       }
 
       if (isSupabaseConfigured && supabase) {
+        const divisionTable = getSopTaskTableName(updatedSOP.division);
+
         // Upsert SOP header
         const { error: headerErr } = await supabase.from('sops').upsert({
           id: updatedSOP.id,
@@ -961,16 +891,14 @@ export default function App() {
           return { success: false, error: headerErr.message };
         }
 
-        // Clean up tasks removed from updatedSOP if any
+        // Clean up tasks removed from updatedSOP if any across divisionTable and sop_tasks
         const activeTaskIds = updatedSOP.tasks.map(t => t.id);
-        const { data: existingTasks } = await supabase.from('sop_tasks').select('id').eq('sop_id', updatedSOP.id);
+        const { data: existingTasks } = await supabase.from(divisionTable).select('id').eq('sop_id', updatedSOP.id);
         if (existingTasks && existingTasks.length > 0) {
           const idsToDelete = existingTasks.map(t => t.id).filter(id => !activeTaskIds.includes(id));
           if (idsToDelete.length > 0) {
-            const { error: delErr } = await supabase.from('sop_tasks').delete().in('id', idsToDelete);
-            if (delErr) {
-              console.error('Failed to delete old tasks:', delErr);
-            }
+            await supabase.from(divisionTable).delete().in('id', idsToDelete);
+            await supabase.from('sop_tasks').delete().in('id', idsToDelete);
           }
         }
 
@@ -984,6 +912,10 @@ export default function App() {
         }));
 
         if (tasksPayload.length > 0) {
+          // Upsert to both division specific table and fallback table
+          if (divisionTable !== 'sop_tasks') {
+            await supabase.from(divisionTable).upsert(tasksPayload);
+          }
           const { error: insTasksErr } = await supabase.from('sop_tasks').upsert(tasksPayload);
           if (insTasksErr) {
             console.error('Failed to upsert updated tasks on Supabase:', insTasksErr);
@@ -1003,8 +935,12 @@ export default function App() {
   };
 
   const handleDeleteSOP = async (sopId: string) => {
+    const targetSop = sops.find(s => s.id === sopId);
     const updatedList = sops.filter(s => s.id !== sopId);
     setSops(updatedList);
+    try {
+      localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
+    } catch (e) {}
 
     if (activeSopDetail && activeSopDetail.id === sopId) {
       setActiveSopDetail(null);
@@ -1012,6 +948,12 @@ export default function App() {
 
     if (isSupabaseConfigured && supabase) {
       try {
+        if (targetSop) {
+          const divisionTable = getSopTaskTableName(targetSop.division);
+          if (divisionTable !== 'sop_tasks') {
+            await supabase.from(divisionTable).delete().eq('sop_id', sopId);
+          }
+        }
         await supabase.from('sop_tasks').delete().eq('sop_id', sopId);
         const { error } = await supabase.from('sops').delete().eq('id', sopId);
         if (error) {
