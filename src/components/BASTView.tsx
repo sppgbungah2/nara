@@ -195,7 +195,7 @@ export default function BASTView({
           const { data: tplData } = await supabase
             .from('master_porsi')
             .select('portions')
-            .eq('date', 'DEFAULT_TEMPLATE')
+            .eq('date', '1970-01-01')
             .maybeSingle();
 
           if (tplData && tplData.portions) {

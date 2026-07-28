@@ -90,7 +90,7 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
           const { data: tplData } = await supabase
             .from('master_porsi')
             .select('*')
-            .eq('date', 'DEFAULT_TEMPLATE')
+            .eq('date', '1970-01-01')
             .maybeSingle();
 
           if (tplData && tplData.portions) {
@@ -233,7 +233,7 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
         };
 
         const templatePayload = {
-          date: 'DEFAULT_TEMPLATE',
+          date: '1970-01-01',
           portions: portions,
           created_by: 'admin@qomaruddin.com',
           created_at: new Date().toISOString()
