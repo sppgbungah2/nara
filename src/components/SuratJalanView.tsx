@@ -7,6 +7,7 @@ import {
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
 import { DEFAULT_PORTIONS, PortionConfig } from './PortionMasterView';
+import { getRecipientName, getDefaultReceiptTime } from '../presetData';
 import SignaturePad from './SignaturePad';
 
 interface SuratJalanViewProps {
@@ -359,11 +360,11 @@ export default function SuratJalanView({
         comments: `Dokumen surat jalan pengiriman logistik untuk ${sch} ${breakdownStr}.`,
         uploadedBy: loggedInUser?.email || 'driver@sppg.com',
         uploadedAt: new Date().toISOString(),
-        receiverName: sch,
+        receiverName: getRecipientName(sch),
         status: 'Aktif',
         sjNo: sjNoStr,
         sjKepada: sch,
-        sjWaktu: '11:00 WIB',
+        sjWaktu: getDefaultReceiptTime(sch),
         sjDriver: loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0],
         sjRows,
         sjSignatureAslap: '',
@@ -579,7 +580,18 @@ export default function SuratJalanView({
                 ) : (
                   <select
                     value={activeDoc.sjKepada || ''}
-                    onChange={(e) => handleFieldChange('sjKepada', e.target.value)}
+                    onChange={(e) => {
+                      const newTarget = e.target.value;
+                      if (!activeDoc) return;
+                      const updated = {
+                        ...activeDoc,
+                        sjKepada: newTarget,
+                        sjWaktu: getDefaultReceiptTime(newTarget),
+                        receiverName: getRecipientName(newTarget)
+                      };
+                      setActiveDoc(updated);
+                      setShippingDocs(prev => prev.map(d => d.id === activeDoc.id ? updated : d));
+                    }}
                     className="text-xs font-bold text-neutral-850 border-b border-dashed border-neutral-300 focus:border-emerald-600 focus:outline-hidden w-full"
                   >
                     <option value="MA Assa'adah">MA Assa'adah</option>
@@ -854,8 +866,8 @@ export default function SuratJalanView({
                     <button
                       onClick={() => setActiveSigRequest({
                         targetField: 'sjSignatureReceiver',
-                        title: 'Tanda Tangan Penerima Sekolah',
-                        suggestedName: activeDoc.sjKepada
+                        title: `Tanda Tangan Penerima (${getRecipientName(activeDoc.sjKepada)})`,
+                        suggestedName: activeDoc.receiverName || getRecipientName(activeDoc.sjKepada)
                       })}
                       className="text-[10px] font-bold text-emerald-800 hover:text-emerald-950 flex flex-col items-center gap-1.5 cursor-pointer hover:scale-105 transition-transform"
                     >
@@ -869,7 +881,7 @@ export default function SuratJalanView({
               </div>
 
               <div className="border-b border-neutral-900 w-44 font-bold text-neutral-900 uppercase">
-                Penerima {activeDoc.sjKepada}
+                {activeDoc.receiverName || getRecipientName(activeDoc.sjKepada)} ({activeDoc.sjKepada})
               </div>
             </div>
           </div>

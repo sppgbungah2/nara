@@ -323,7 +323,7 @@ function ShippingDocPanel({
       // 3. Organoleptik defaults
       const menuStr = currentDayMenu ? currentDayMenu.menuList.join(', ') : 'Nasi Krawu Bungah, Tempe Goreng, Timun, Melon';
       setOrlepMenu(menuStr);
-      setOrlepPanelis(loggedInUser?.fullName || 'Ustadzah Fatimah, S.Gz');
+      setOrlepPanelis(loggedInUser?.fullName || 'Avianti Rahma Dianita');
       setOrlepGrid({
         MP_rasa: 4, MP_warna: 4, MP_aroma: 4, MP_tekstur: 4,
         LH_rasa: 4, LH_warna: 4, LH_aroma: 4, LH_tekstur: 4,
@@ -1868,7 +1868,7 @@ function ShippingDocPanel({
                     <div className="space-y-1">
                       <p><strong className="text-neutral-600">Hari / Tanggal Pengujian:</strong> {getIndonesianDateText(activeDocView.date).dayName}, {getIndonesianDateText(activeDocView.date).dateNum} {getIndonesianDateText(activeDocView.date).monthName} {getIndonesianDateText(activeDocView.date).yearNum}</p>
                       <p><strong className="text-neutral-600">Jam Pengujian:</strong> {activeDocView.orlepJam || '11:30 WIB'}</p>
-                      <p><strong className="text-neutral-600">Nama Panelis:</strong> {activeDocView.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}</p>
+                      <p><strong className="text-neutral-600">Nama Panelis:</strong> {activeDocView.orlepPanelis || 'Avianti Rahma Dianita'}</p>
                     </div>
                     <div className="space-y-1 text-right">
                       <p><strong className="text-neutral-600">Kecamatan / Desa:</strong> {activeDocView.orlepDesa || 'Bungah'}</p>
@@ -1943,7 +1943,7 @@ function ShippingDocPanel({
                     <div className="text-right space-y-12 pr-12">
                       <p className="font-semibold text-neutral-600">Penguji / Panelis,<br /><span className="text-neutral-450 block text-[8px] uppercase tracking-wider font-extrabold">Checker Gizi SPPG</span></p>
                       <div>
-                        <div className="border-b border-neutral-900 w-44 ml-auto font-bold text-neutral-800 uppercase">{activeDocView.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}</div>
+                        <div className="border-b border-neutral-900 w-44 ml-auto font-bold text-neutral-800 uppercase">{activeDocView.orlepPanelis || 'Avianti Rahma Dianita'}</div>
                         <p className="text-[9px] text-neutral-400 mt-0.5">Seksi Kontrol Kualitas Dapur 2</p>
                       </div>
                     </div>
@@ -2192,7 +2192,7 @@ export default function MockModules({
         comments: 'Lembar BAST ditandatangani oleh Pengurus Asrama Putri C.',
         uploadedBy: 'driver@sppg.com',
         uploadedAt: '2026-06-16T12:05:00.000Z',
-        receiverName: 'Ustadzah Fatimah',
+        receiverName: 'Ibu Muslihah',
         status: 'Terverifikasi'
       },
       {
@@ -3268,9 +3268,9 @@ INSERT INTO day_menus (date, menu_list, created_by) VALUES
 -- 2. Menyisipkan data untuk sops (Dokumen SOP Harian)
 INSERT INTO sops (id, date, division, creator_role, creator_name, is_checked_all, signer_supervisor, signature_supervisor_url, signed_supervisor_at, signer_coordinator, signature_coordinator_url, signed_coordinator_at, status) VALUES
 ('2026-06-15-Divisi Masak', '2026-06-15', 'Divisi Masak', 'chef', 'Chef Ahmad', true, 'Chef Ahmad', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Masak', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
-('2026-06-15-Divisi Pemorsian', '2026-06-15', 'Divisi Pemorsian', 'ahli_gizi', 'Ustadzah Fatimah, S.Gz', true, 'Ustadzah Fatimah, S.Gz', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Pemorsian', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
+('2026-06-15-Divisi Pemorsian', '2026-06-15', 'Divisi Pemorsian', 'ahli_gizi', 'Avianti Rahma Dianita', true, 'Avianti Rahma Dianita', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.00 WIB', 'Koordinator Pemorsian', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10,20 Q30,5 50,20 T90,20" fill="none" stroke="black" stroke-width="2"/></svg>', '15/06/2026, 08.30 WIB', 'selesai'),
 ('2026-06-16-Divisi Masak', '2026-06-16', 'Divisi Masak', 'chef', 'Chef Ahmad', false, 'Chef Ahmad', '', null, 'Koordinator Masak', '', null, 'aktif'),
-('2026-06-16-Divisi Pemorsian', '2026-06-16', 'Divisi Pemorsian', 'ahli_gizi', 'Ustadzah Fatimah, S.Gz', false, 'Ustadzah Fatimah, S.Gz', '', null, 'Koordinator Pemorsian', '', null, 'aktif');
+('2026-06-16-Divisi Pemorsian', '2026-06-16', 'Divisi Pemorsian', 'ahli_gizi', 'Avianti Rahma Dianita', false, 'Avianti Rahma Dianita', '', null, 'Koordinator Pemorsian', '', null, 'aktif');
 
 -- 3. Menyisipkan data untuk sop_tasks (Butir SOP Checklist)
 INSERT INTO sop_tasks (id, sop_id, text, completed, category, sort_order) VALUES

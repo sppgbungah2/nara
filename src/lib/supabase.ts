@@ -137,7 +137,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.AHLI_GIZI,
-      fullName: 'Ustadzah Fatimah, S.Gz (Ahli Gizi)'
+      fullName: 'Avianti Rahma Dianita (Ahli Gizi)'
     };
   }
   if (normEmail === 'akuntan@qomaruddin.com') {
@@ -271,7 +271,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.AHLI_GIZI,
-      fullName: 'Ustadzah Fatimah, S.Gz (Ahli Gizi)'
+      fullName: 'Avianti Rahma Dianita (Ahli Gizi)'
     };
   }
   

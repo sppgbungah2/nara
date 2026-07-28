@@ -6,31 +6,31 @@ export const PRESET_MENUS: DayMenu[] = [
     date: '2026-06-15', // Senin
     menuList: ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'],
     createdAt: '2026-06-14T08:00:00Z',
-    createdBy: 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'
+    createdBy: 'Ahli Gizi (Avianti Rahma Dianita)'
   },
   {
     date: '2026-06-16', // Selasa (Matches the attachment example!)
     menuList: ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng Kelapa', 'Pisang'],
     createdAt: '2026-06-15T08:15:00Z',
-    createdBy: 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'
+    createdBy: 'Ahli Gizi (Avianti Rahma Dianita)'
   },
   {
     date: '2026-06-17', // Rabu
     menuList: ['Nasi Gurih', 'Soto Ayam Lamongan', 'Telur Asin Madura', 'Krupuk Bawang', 'Jeruk Manis'],
     createdAt: '2026-06-16T09:00:00Z',
-    createdBy: 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'
+    createdBy: 'Ahli Gizi (Avianti Rahma Dianita)'
   },
   {
     date: '2026-06-18', // Kamis
     menuList: ['Nasi Putih', 'Rawon Daging Sapi Pepesan', 'Mendol Tempe', 'Kecambah Segar & Jeruk Nipis', 'Semangka Merah'],
     createdAt: '2026-06-17T07:45:00Z',
-    createdBy: 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'
+    createdBy: 'Ahli Gizi (Avianti Rahma Dianita)'
   },
   {
     date: '2026-06-19', // Jumat
     menuList: ['Nasi Putih', 'Gulai Ikan Bandeng', 'Sayur Bobor Bayam Labu', 'Tahu Goreng Tepung', 'Melon Segar'],
     createdAt: '2026-06-18T10:30:00Z',
-    createdBy: 'Ahli Gizi (Ustadzah Fatimah, S.Gz)'
+    createdBy: 'Ahli Gizi (Avianti Rahma Dianita)'
   }
 ];
 
@@ -284,7 +284,7 @@ export function generateInitialSOPsForDate(date: string, menuList: string[]): Re
     const creatorInfo = DIVISION_CREATOR_MAP[div];
     let creatorName = 'Rizka Aulia';
     if (creatorInfo.role === UserRole.AHLI_GIZI) {
-      creatorName = 'Dian';
+      creatorName = 'Avianti Rahma Dianita';
     } else if (creatorInfo.role === UserRole.ASLAP) {
       creatorName = 'Ahmad Maghfur (Aslap)';
     }
@@ -314,4 +314,28 @@ export function generateInitialSOPsForDate(date: string, menuList: string[]): Re
   });
 
   return sops;
+}
+
+export function getRecipientName(schoolOrLocation: string): string {
+  if (!schoolOrLocation) return '';
+  const norm = schoolOrLocation.toLowerCase().trim();
+  if (norm.includes('sidokumpul')) return 'Susianti Nengsih';
+  if (norm.includes('sukowati')) return 'Nurul Mahmudah';
+  if (norm.includes('smk')) return 'Ibu Sumiati';
+  if (norm.includes('mts')) return 'Ibu Ina Mariana';
+  if (norm.includes('sma')) return 'Ibu Wahyuni';
+  if (norm.includes('ma')) return 'Ibu Muslihah';
+  return 'Staf Lembaga';
+}
+
+export function getDefaultReceiptTime(schoolOrLocation: string): string {
+  if (!schoolOrLocation) return '08.00 WIB';
+  const norm = schoolOrLocation.toLowerCase().trim();
+  if (norm.includes('sidokumpul')) return '07.00 WIB';
+  if (norm.includes('sukowati')) return '07.30 WIB';
+  if (norm.includes('sma')) return '07.30 WIB';
+  if (norm.includes('ma')) return '08.00 WIB';
+  if (norm.includes('mts')) return '09.00 WIB';
+  if (norm.includes('smk')) return '10.30 WIB';
+  return '08.00 WIB';
 }

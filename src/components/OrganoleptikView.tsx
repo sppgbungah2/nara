@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { DayMenu, UserRole } from '../types';
 import { UserProfile } from '../lib/supabase';
+import { getRecipientName, getDefaultReceiptTime } from '../presetData';
 import SignaturePad from './SignaturePad';
 
 interface OrganoleptikViewProps {
@@ -147,10 +148,10 @@ export default function OrganoleptikView({
       comments: `Hasil uji kelayakan sensorik rasa dan suhu CCP hidangan gizi untuk ${recipient}.`,
       uploadedBy: loggedInUser?.email || 'ahligizi@sppg.com',
       uploadedAt: new Date().toISOString(),
-      receiverName: 'Ahli Gizi SPPG',
+      receiverName: getRecipientName(recipient),
       status: 'Aktif',
-      orlepJam: '11:30 WIB',
-      orlepPanelis: loggedInUser?.fullName || 'Ustadzah Fatimah, S.Gz',
+      orlepJam: getDefaultReceiptTime(recipient),
+      orlepPanelis: loggedInUser?.fullName || 'Avianti Rahma Dianita',
       orlepDesa: recipient,
       orlepMenu: menuStr,
       orlepKritik: 'Suhu hangat terjaga prima, rasa gurih seimbang, melon segar layak konsumsi.',
@@ -1034,7 +1035,7 @@ export default function OrganoleptikView({
                             </span>
                             <span className="text-[9px] text-neutral-400 font-mono block uppercase tracking-wider">PANELIS PENGUJI</span>
                             <h4 className="font-bold text-sm text-neutral-800 group-hover:text-emerald-800 transition-colors">
-                              {doc.orlepPanelis || 'Ustadzah Fatimah, S.Gz'}
+                              {doc.orlepPanelis || 'Avianti Rahma Dianita'}
                             </h4>
                           </div>
                           

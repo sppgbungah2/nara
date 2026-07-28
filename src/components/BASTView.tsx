@@ -7,6 +7,7 @@ import {
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
 import { DEFAULT_PORTIONS, PortionConfig } from './PortionMasterView';
+import { getRecipientName, getDefaultReceiptTime } from '../presetData';
 import SignaturePad from './SignaturePad';
 
 interface BASTViewProps {
@@ -287,6 +288,8 @@ export default function BASTView({
       const isDesa = sch.toLowerCase().includes('desa');
       const docQty = getPortionCount(sch);
       const breakdownStr = getPortionBreakdown(sch);
+      const defaultPenerima = getRecipientName(sch);
+      const defaultWaktu = getDefaultReceiptTime(sch);
       
       return {
         id: `bast-${selectedDate}-${idx}-${Date.now()}`,
@@ -297,15 +300,15 @@ export default function BASTView({
         comments: `Dokumen serah terima makanan bergizi untuk ${sch} ${breakdownStr}.`,
         uploadedBy: loggedInUser?.email || 'driver@sppg.com',
         uploadedAt: new Date().toISOString(),
-        receiverName: isDesa ? 'Kepala Desa / Perwakilan' : 'Staf Lembaga',
+        receiverName: defaultPenerima,
         status: 'Aktif',
         bastNo: bastNoStr,
         bastDriver: loggedInUser?.role === UserRole.DRIVER ? loggedInUser.fullName : DRIVERS_LIST[0],
         bastSekolah: sch,
-        bastPenerima: isDesa ? 'Ibu Sri Wahyuni (Kader)' : 'Ibu Aminah, S.Pd',
+        bastPenerima: defaultPenerima,
         bastBarang: 'PAKET PROGRAM MAKAN BERGIZI GRATIS',
         bastJumlah: docQty,
-        bastWaktu: '11:15 WIB',
+        bastWaktu: defaultWaktu,
         bastSignatureDriver: '',
         bastSignatureReceiver: ''
       };
@@ -517,7 +520,19 @@ export default function BASTView({
                 ) : (
                   <select
                     value={activeDoc.bastSekolah || ''}
-                    onChange={(e) => handleFieldChange('bastSekolah', e.target.value)}
+                    onChange={(e) => {
+                      const newSch = e.target.value;
+                      if (!activeDoc) return;
+                      const updated = {
+                        ...activeDoc,
+                        bastSekolah: newSch,
+                        bastPenerima: getRecipientName(newSch),
+                        bastWaktu: getDefaultReceiptTime(newSch),
+                        receiverName: getRecipientName(newSch)
+                      };
+                      setActiveDoc(updated);
+                      setShippingDocs(prev => prev.map(d => d.id === activeDoc.id ? updated : d));
+                    }}
                     className="text-xs font-bold text-neutral-850 border-b border-dashed border-neutral-300 focus:border-emerald-600 focus:outline-hidden w-full"
                   >
                     <option value="MA Assa'adah">MA Assa'adah</option>

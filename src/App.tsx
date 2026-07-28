@@ -215,7 +215,7 @@ export default function App() {
         setCurrentUsername('Rizka Aulia (Head Chef)');
         break;
       case UserRole.AHLI_GIZI:
-        setCurrentUsername('Ustadzah Fatimah, S.Gz');
+        setCurrentUsername('Avianti Rahma Dianita');
         break;
       case UserRole.ASLAP:
         setCurrentUsername('Ahmad Maghfur (Aslap)');
@@ -367,7 +367,7 @@ export default function App() {
       Object.values(Division).forEach((div) => {
         const creatorInfo = DIVISION_CREATOR_MAP[div];
         const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-15-${div}`;
         initialSopsInDatabase.push({
@@ -405,7 +405,7 @@ export default function App() {
       Object.values(Division).forEach((div) => {
         const creatorInfo = DIVISION_CREATOR_MAP[div];
         const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-16-${div}`;
         initialSopsInDatabase.push({
@@ -484,7 +484,7 @@ export default function App() {
         Object.values(Division).forEach((div) => {
           const creatorInfo = DIVISION_CREATOR_MAP[div];
           const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
-                                creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
+                                creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
           
           const monSOP: SOPDocument = {
             id: `2026-06-15-${div}`,
@@ -510,7 +510,7 @@ export default function App() {
         Object.values(Division).forEach((div) => {
           const creatorInfo = DIVISION_CREATOR_MAP[div];
           const supervisorName = creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' :
-                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Ustadzah Fatimah, S.Gz' : 'Ahmad Maghfur';
+                              creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
           
           const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
           const populatedTasks = defaultTasks.map((t: any, i: number) => 
@@ -602,7 +602,31 @@ export default function App() {
                 updatedAt: s.updated_at
               };
             });
-            setSops(formattedSops);
+
+            // Merge local storage SOPs with cloud SOPs to guarantee user edits are retained
+            const savedSopsStr = localStorage.getItem('sppg_sops');
+            let localSops: SOPDocument[] = [];
+            if (savedSopsStr) {
+              try { localSops = JSON.parse(savedSopsStr); } catch (e) { console.error(e); }
+            }
+
+            const finalSopsMap = new Map<string, SOPDocument>();
+            formattedSops.forEach(s => finalSopsMap.set(s.id, s));
+
+            localSops.forEach(localSOP => {
+              const cloudSOP = finalSopsMap.get(localSOP.id);
+              if (!cloudSOP) {
+                finalSopsMap.set(localSOP.id, localSOP);
+              } else if (localSOP.tasks && localSOP.tasks.length > 0) {
+                if (!cloudSOP.tasks || cloudSOP.tasks.length === 0 || 
+                    (localSOP.updatedAt && new Date(localSOP.updatedAt) > new Date(cloudSOP.updatedAt || '1970-01-01'))) {
+                  finalSopsMap.set(localSOP.id, localSOP);
+                }
+              }
+            });
+
+            const mergedSops = Array.from(finalSopsMap.values());
+            setSops(mergedSops);
           } else {
             // database is empty, seed it
             await bootstrapSupabase();
@@ -728,17 +752,16 @@ export default function App() {
 
     const generated = generateInitialSOPsForDate(date, menuList) as SOPDocument[];
     const filteredSops = sops.filter(s => s.date !== date);
-    setSops([...filteredSops, ...generated]);
+    const updatedSopsList = [...filteredSops, ...generated];
+    setSops(updatedSopsList);
+    try {
+      localStorage.setItem('sppg_sops', JSON.stringify(updatedSopsList));
+    } catch (e) { console.error('Local storage write failed:', e); }
 
     if (isSupabaseConfigured && supabase) {
       try {
         // Cascade delete old sops for this date (cascade deletes tasks as well)
-        const { error: delErr } = await supabase.from('sops').delete().eq('date', date);
-        if (delErr) {
-          console.error('Failed to delete old SOPs:', delErr);
-          alert('Gagal menghapus SOP lama: ' + delErr.message);
-          return;
-        }
+        await supabase.from('sops').delete().eq('date', date);
 
         const sopsPayload = generated.map(s => ({
           id: s.id,
@@ -771,19 +794,15 @@ export default function App() {
           });
         });
 
-        const { error: sopsErr } = await supabase.from('sops').insert(sopsPayload);
+        const { error: sopsErr } = await supabase.from('sops').upsert(sopsPayload);
         if (sopsErr) {
-          console.error('Failed to insert new SOPs:', sopsErr);
-          alert('Gagal menyisipkan SOP baru: ' + sopsErr.message);
-          return;
+          console.error('Failed to upsert new SOPs:', sopsErr);
         }
 
         if (tasksPayload.length > 0) {
-          const { error: tasksErr } = await supabase.from('sop_tasks').insert(tasksPayload);
+          const { error: tasksErr } = await supabase.from('sop_tasks').upsert(tasksPayload);
           if (tasksErr) {
-            console.error('Failed to insert initial tasks:', tasksErr);
-            alert('Gagal menyisipkan tugas SOP baru: ' + tasksErr.message);
-            return;
+            console.error('Failed to upsert initial tasks:', tasksErr);
           }
         }
         console.log('Successfully generated and saved initial SOPs on Supabase for:', date);
@@ -794,8 +813,22 @@ export default function App() {
   };
 
   const handleUpdateSOP = async (updatedSOP: SOPDocument) => {
-    const updatedList = sops.map(s => s.id === updatedSOP.id ? updatedSOP : s);
+    let exists = false;
+    const updatedList = sops.map(s => {
+      if (s.id === updatedSOP.id) {
+        exists = true;
+        return updatedSOP;
+      }
+      return s;
+    });
+    if (!exists) {
+      updatedList.push(updatedSOP);
+    }
+
     setSops(updatedList);
+    try {
+      localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
+    } catch (e) { console.error('Local storage write failed:', e); }
     
     if (activeSopDetail && activeSopDetail.id === updatedSOP.id) {
       setActiveSopDetail(updatedSOP);
@@ -823,16 +856,16 @@ export default function App() {
 
         if (headerErr) {
           console.error('Failed to update SOP header on Supabase:', headerErr);
-          alert('Gagal menyinkronkan data SOP ke Supabase: ' + headerErr.message);
-          return;
         }
 
-        // Delete all old tasks for this specific SOP and insert the new list
-        const { error: delTasksErr } = await supabase.from('sop_tasks').delete().eq('sop_id', updatedSOP.id);
-        if (delTasksErr) {
-          console.error('Failed to delete old tasks for SOP on Supabase:', delTasksErr);
-          alert('Gagal menyinkronkan tugas SOP ke Supabase: ' + delTasksErr.message);
-          return;
+        // Clean up tasks removed from updatedSOP if any
+        const activeTaskIds = updatedSOP.tasks.map(t => t.id);
+        const { data: existingTasks } = await supabase.from('sop_tasks').select('id').eq('sop_id', updatedSOP.id);
+        if (existingTasks && existingTasks.length > 0) {
+          const idsToDelete = existingTasks.map(t => t.id).filter(id => !activeTaskIds.includes(id));
+          if (idsToDelete.length > 0) {
+            await supabase.from('sop_tasks').delete().in('id', idsToDelete);
+          }
         }
 
         const tasksPayload = updatedSOP.tasks.map((t, idx) => ({
@@ -845,11 +878,9 @@ export default function App() {
         }));
 
         if (tasksPayload.length > 0) {
-          const { error: insTasksErr } = await supabase.from('sop_tasks').insert(tasksPayload);
+          const { error: insTasksErr } = await supabase.from('sop_tasks').upsert(tasksPayload);
           if (insTasksErr) {
-            console.error('Failed to insert updated tasks on Supabase:', insTasksErr);
-            alert('Gagal memperbarui rincian tugas SOP di Supabase: ' + insTasksErr.message);
-            return;
+            console.error('Failed to upsert updated tasks on Supabase:', insTasksErr);
           }
         }
         console.log('Successfully synchronized SOP details with Supabase:', updatedSOP.id);
