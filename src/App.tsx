@@ -494,7 +494,8 @@ export default function App() {
           const { data: taskData, error: taskErr } = await supabase
             .from('sop_tasks')
             .select('*')
-            .order('sort_order', { ascending: true });
+            .order('sort_order', { ascending: true })
+            .range(0, 9999);
 
           if (taskErr) throw taskErr;
 
@@ -508,7 +509,7 @@ export default function App() {
             }));
             setDayMenus(formattedMenus);
 
-            // Re-format SOP Documents
+            // Re-format SOP Documents from Supabase
             const formattedSops: SOPDocument[] = (sopData || []).map((s: any) => {
               const matchedTasks = (taskData || [])
                 .filter((t: any) => t.sop_id === s.id)
@@ -538,14 +539,46 @@ export default function App() {
               };
             });
 
-            setSops(formattedSops);
+            // Merge with local storage backup if local has extra tasks or newer data
+            const savedSopsStr = localStorage.getItem('sppg_sops');
+            let localBackupSops: SOPDocument[] = [];
+            if (savedSopsStr) {
+              try { localBackupSops = JSON.parse(savedSopsStr); } catch (e) { console.error(e); }
+            }
+
+            const sopMap = new Map<string, SOPDocument>();
+            formattedSops.forEach(s => sopMap.set(s.id, s));
+
+            localBackupSops.forEach(localSOP => {
+              const existingCloudSOP = sopMap.get(localSOP.id);
+              if (!existingCloudSOP) {
+                sopMap.set(localSOP.id, localSOP);
+              } else {
+                if ((localSOP.tasks?.length || 0) > (existingCloudSOP.tasks?.length || 0)) {
+                  sopMap.set(localSOP.id, {
+                    ...existingCloudSOP,
+                    tasks: localSOP.tasks
+                  });
+                }
+              }
+            });
+
+            const mergedSops = Array.from(sopMap.values());
+            setSops(mergedSops);
+            try {
+              localStorage.setItem('sppg_sops', JSON.stringify(mergedSops));
+            } catch (e) { console.error(e); }
           } else {
             // database is empty, seed it
             await bootstrapSupabase();
             // recall loading
             const { data: freshMenus } = await supabase.from('day_menus').select('*');
             const { data: freshSops } = await supabase.from('sops').select('*');
-            const { data: freshTasks } = await supabase.from('sop_tasks').select('*').order('sort_order', { ascending: true });
+            const { data: freshTasks } = await supabase
+              .from('sop_tasks')
+              .select('*')
+              .order('sort_order', { ascending: true })
+              .range(0, 9999);
 
             if (freshMenus && freshMenus.length > 0) {
               setDayMenus(freshMenus.map((m: any) => ({
@@ -555,7 +588,7 @@ export default function App() {
                 createdBy: m.created_by as UserRole
               })));
 
-              setSops((freshSops || []).map((s: any) => ({
+              const freshFormattedSops = (freshSops || []).map((s: any) => ({
                 id: s.id,
                 date: s.date,
                 division: s.division as Division,
@@ -576,7 +609,12 @@ export default function App() {
                 signedCoordinatorAt: s.signed_coordinator_at || null,
                 status: s.status as 'aktif' | 'selesai',
                 updatedAt: s.updated_at
-              })));
+              }));
+
+              setSops(freshFormattedSops);
+              try {
+                localStorage.setItem('sppg_sops', JSON.stringify(freshFormattedSops));
+              } catch (e) { console.error(e); }
             }
           }
         } catch (e) {
@@ -655,7 +693,20 @@ export default function App() {
   };
 
   const handleGenerateSOPs = async (date: string, menuList: string[], forceReset = false) => {
-    const hasExisting = sops.some(s => s.date === date);
+    let existsInDb = false;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: dbSops } = await supabase.from('sops').select('id').eq('date', date);
+        if (dbSops && dbSops.length > 0) {
+          existsInDb = true;
+        }
+      } catch (err) {
+        console.error('Error checking existing SOPs in DB:', err);
+      }
+    }
+
+    const hasExisting = sops.some(s => s.date === date) || existsInDb;
+
     if (hasExisting && !forceReset) {
       console.log('SOP untuk tanggal', date, 'sudah ada di database. Tidak menimpa data yang ada.');
       return;
@@ -670,6 +721,9 @@ export default function App() {
     const filteredSops = sops.filter(s => s.date !== date);
     const updatedSopsList = [...filteredSops, ...generated];
     setSops(updatedSopsList);
+    try {
+      localStorage.setItem('sppg_sops', JSON.stringify(updatedSopsList));
+    } catch (e) { console.error(e); }
 
     if (isSupabaseConfigured && supabase) {
       try {
@@ -739,6 +793,11 @@ export default function App() {
     }
 
     setSops(updatedList);
+    try {
+      localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
+    } catch (e) {
+      console.error('Error saving sops to local storage:', e);
+    }
     
     if (activeSopDetail && activeSopDetail.id === updatedSOP.id) {
       setActiveSopDetail(updatedSOP);
