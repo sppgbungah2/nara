@@ -82,7 +82,7 @@ export default function SOPChecklistView({
     if (!newTaskText.trim() || sop.status === 'selesai') return;
 
     const newTask = {
-      id: `${sop.division}-custom-${Date.now()}`,
+      id: `task-${sop.id}-${Date.now()}`,
       text: newTaskText.trim(),
       completed: false,
       category: newTaskCategory

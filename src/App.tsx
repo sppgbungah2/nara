@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ClipboardList, Package, Wrench, ShieldCheck, ShoppingCart, Truck, 
   Camera, Users, Calendar, FileText, CheckCircle2, Flame, RefreshCcw, 
@@ -41,6 +41,7 @@ export default function App() {
   
   // Currently viewed SOP Detail (matches printed form view)
   const [activeSopDetail, setActiveSopDetail] = useState<SOPDocument | null>(null);
+  const isUpdatingSopRef = useRef<boolean>(false);
   
   // Mobile navigation drawer toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -461,20 +462,49 @@ export default function App() {
     }
   }, [sops]);
 
-  // Load state directly from Supabase
+  // Load state directly from Supabase with intelligent local state merging
   const loadAllFromSupabase = async () => {
+    if (isUpdatingSopRef.current) {
+      console.log('Skipping Supabase fetch while local SOP update is in flight...');
+      return;
+    }
+
     const loadOfflineFallback = () => {
       const savedMenus = localStorage.getItem('sppg_day_menus');
       if (savedMenus) {
         try { setDayMenus(JSON.parse(savedMenus)); } catch (e) { console.error(e); }
-      } else {
+      } else if (dayMenus.length === 0) {
         setDayMenus(PRESET_MENUS);
       }
 
       const savedSops = localStorage.getItem('sppg_sops');
       if (savedSops) {
-        try { setSops(JSON.parse(savedSops)); } catch (e) { console.error(e); }
-      } else {
+        try {
+          const parsed = JSON.parse(savedSops);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSops(prev => {
+              if (prev.length === 0) return parsed;
+              const merged = [...prev];
+              parsed.forEach((ps: SOPDocument) => {
+                const idx = merged.findIndex(m => m.id === ps.id || (m.date === ps.date && m.division === ps.division));
+                if (idx === -1) {
+                  merged.push(ps);
+                } else {
+                  const taskIds = new Set(merged[idx].tasks.map(t => t.id));
+                  const extra = ps.tasks.filter(t => !taskIds.has(t.id));
+                  if (extra.length > 0) {
+                    merged[idx] = {
+                      ...merged[idx],
+                      tasks: [...merged[idx].tasks, ...extra]
+                    };
+                  }
+                }
+              });
+              return merged;
+            });
+          }
+        } catch (e) { console.error(e); }
+      } else if (sops.length === 0) {
         const mondayMenu = PRESET_MENUS.find(m => m.date === '2026-06-15')?.menuList || [];
         const tuesdayMenu = PRESET_MENUS.find(m => m.date === '2026-06-16')?.menuList || [];
         const seededSOPs: SOPDocument[] = [];
@@ -559,8 +589,7 @@ export default function App() {
         }
 
         if (sopData && sopData.length > 0) {
-          // Re-format SOP Documents strictly from Cloud Supabase (Single Source of Truth)
-          const formattedSops: SOPDocument[] = (sopData || []).map((s: any) => {
+          const cloudSops: SOPDocument[] = (sopData || []).map((s: any) => {
             const matchedTasks = (taskData || [])
               .filter((t: any) => t.sop_id === s.id)
               .map((t: any) => ({
@@ -589,9 +618,53 @@ export default function App() {
             };
           });
 
-          setSops(formattedSops);
+          // Intelligent merging with in-memory or localStorage SOPs so local edits & added tasks are preserved
+          let currentLocalSops = sops;
+          if (currentLocalSops.length === 0) {
+            try {
+              const saved = localStorage.getItem('sppg_sops');
+              if (saved) currentLocalSops = JSON.parse(saved);
+            } catch (e) {}
+          }
+
+          const mergedSopsList: SOPDocument[] = [...cloudSops];
+
+          currentLocalSops.forEach(localSop => {
+            const cloudIndex = mergedSopsList.findIndex(
+              cs => cs.id === localSop.id || (cs.date === localSop.date && cs.division === localSop.division)
+            );
+
+            if (cloudIndex === -1) {
+              mergedSopsList.push(localSop);
+            } else {
+              const cloudSop = mergedSopsList[cloudIndex];
+              const existingCloudTaskIds = new Set(cloudSop.tasks.map(t => t.id));
+              const missingLocalTasks = localSop.tasks.filter(t => !existingCloudTaskIds.has(t.id));
+
+              if (missingLocalTasks.length > 0) {
+                cloudSop.tasks = [...cloudSop.tasks, ...missingLocalTasks];
+              }
+
+              if (localSop.status === 'selesai' && cloudSop.status !== 'selesai') {
+                cloudSop.status = 'selesai';
+                cloudSop.isCheckedAll = localSop.isCheckedAll;
+              }
+              if (localSop.signatureSupervisorUrl && !cloudSop.signatureSupervisorUrl) {
+                cloudSop.signatureSupervisorUrl = localSop.signatureSupervisorUrl;
+                cloudSop.signerSupervisor = localSop.signerSupervisor;
+                cloudSop.signedSupervisorAt = localSop.signedSupervisorAt;
+              }
+              if (localSop.signatureCoordinatorUrl && !cloudSop.signatureCoordinatorUrl) {
+                cloudSop.signatureCoordinatorUrl = localSop.signatureCoordinatorUrl;
+                cloudSop.signerCoordinator = localSop.signerCoordinator;
+                cloudSop.signedCoordinatorAt = localSop.signedCoordinatorAt;
+              }
+            }
+          });
+
+          setSops(mergedSopsList);
           try {
-            localStorage.setItem('sppg_sops', JSON.stringify(formattedSops));
+            localStorage.setItem('sppg_sops', JSON.stringify(mergedSopsList));
           } catch (e) { console.error(e); }
         } else if (menuData && menuData.length > 0) {
           // database is empty on SOPs, seed it
@@ -642,7 +715,7 @@ export default function App() {
           }
         }
       } catch (e) {
-        console.error('Supabase fetch failed, sliding back to offline fallback state:', e);
+        console.warn('Supabase fetch notice, maintaining local state:', e);
         loadOfflineFallback();
       }
     } else {
@@ -656,10 +729,10 @@ export default function App() {
 
     if (!isSupabaseConfigured || !supabase) return;
 
-    // Polling every 4 seconds for cross-device sync
+    // Polling every 2 seconds for cross-device sync
     const interval = setInterval(() => {
       loadAllFromSupabase();
-    }, 4000);
+    }, 2000);
 
     // Sync when window/tab regains focus
     const handleFocus = () => {
@@ -839,31 +912,32 @@ export default function App() {
   };
 
   const handleUpdateSOP = async (updatedSOP: SOPDocument): Promise<{ success: boolean; error?: string }> => {
-    let exists = false;
-    const updatedList = sops.map(s => {
-      if (s.id === updatedSOP.id) {
-        exists = true;
-        return updatedSOP;
-      }
-      return s;
-    });
-    if (!exists) {
-      updatedList.push(updatedSOP);
-    }
-
-    setSops(updatedList);
+    isUpdatingSopRef.current = true;
     try {
-      localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
-    } catch (e) {
-      console.error('Error saving sops to local storage:', e);
-    }
-    
-    if (activeSopDetail && activeSopDetail.id === updatedSOP.id) {
-      setActiveSopDetail(updatedSOP);
-    }
+      let exists = false;
+      const updatedList = sops.map(s => {
+        if (s.id === updatedSOP.id || (s.date === updatedSOP.date && s.division === updatedSOP.division)) {
+          exists = true;
+          return updatedSOP;
+        }
+        return s;
+      });
+      if (!exists) {
+        updatedList.push(updatedSOP);
+      }
 
-    if (isSupabaseConfigured && supabase) {
+      setSops(updatedList);
       try {
+        localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
+      } catch (e) {
+        console.error('Error saving sops to local storage:', e);
+      }
+      
+      if (activeSopDetail && (activeSopDetail.id === updatedSOP.id || (activeSopDetail.date === updatedSOP.date && activeSopDetail.division === updatedSOP.division))) {
+        setActiveSopDetail(updatedSOP);
+      }
+
+      if (isSupabaseConfigured && supabase) {
         // Upsert SOP header
         const { error: headerErr } = await supabase.from('sops').upsert({
           id: updatedSOP.id,
@@ -872,13 +946,13 @@ export default function App() {
           creator_role: updatedSOP.creatorRole,
           creator_name: updatedSOP.creatorName,
           is_checked_all: updatedSOP.isCheckedAll,
-          signer_supervisor: updatedSOP.signerSupervisor,
-          signature_supervisor_url: updatedSOP.signatureSupervisorUrl,
-          signed_supervisor_at: updatedSOP.signedSupervisorAt,
-          signer_coordinator: updatedSOP.signerCoordinator,
-          signature_coordinator_url: updatedSOP.signatureCoordinatorUrl,
-          signed_coordinator_at: updatedSOP.signedCoordinatorAt,
-          status: updatedSOP.status,
+          signer_supervisor: updatedSOP.signerSupervisor || '',
+          signature_supervisor_url: updatedSOP.signatureSupervisorUrl || '',
+          signed_supervisor_at: updatedSOP.signedSupervisorAt || null,
+          signer_coordinator: updatedSOP.signerCoordinator || '',
+          signature_coordinator_url: updatedSOP.signatureCoordinatorUrl || '',
+          signed_coordinator_at: updatedSOP.signedCoordinatorAt || null,
+          status: updatedSOP.status || 'aktif',
           updated_at: updatedSOP.updatedAt || new Date().toISOString()
         });
 
@@ -903,9 +977,9 @@ export default function App() {
         const tasksPayload = updatedSOP.tasks.map((t, idx) => ({
           id: t.id,
           sop_id: updatedSOP.id,
-          text: t.text,
-          completed: t.completed,
-          category: t.category,
+          text: t.text || '',
+          completed: !!t.completed,
+          category: t.category || 'aktif',
           sort_order: idx
         }));
 
@@ -918,12 +992,14 @@ export default function App() {
         }
         console.log('Successfully synchronized SOP details with Supabase:', updatedSOP.id);
         return { success: true };
-      } catch (e: any) {
-        console.error('Failed to synchronize status with Supabase:', e);
-        return { success: false, error: e?.message || 'Gagal tersambung ke Cloud' };
       }
+      return { success: true };
+    } catch (e: any) {
+      console.error('Failed to synchronize status with Supabase:', e);
+      return { success: false, error: e?.message || 'Gagal tersambung ke Cloud' };
+    } finally {
+      isUpdatingSopRef.current = false;
     }
-    return { success: true };
   };
 
   const handleDeleteSOP = async (sopId: string) => {
