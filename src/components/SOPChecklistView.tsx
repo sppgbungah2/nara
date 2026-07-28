@@ -26,7 +26,7 @@ export default function SOPChecklistView({
   isCoordinator = false,
   loggedInUser = null
 }: SOPChecklistViewProps) {
-  const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || loggedInUser?.email === 'punkysme@gmail.com' || currentUserRole === UserRole.ADMIN;
+  const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || loggedInUser?.email === 'punkysme@gmail.com' || currentUserRole === UserRole.ADMIN || loggedInUser?.role === UserRole.ADMIN;
   const [activeSignType, setActiveSignType] = useState<'supervisor' | 'coordinator' | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskCategory, setNewTaskCategory] = useState<'persiapan' | 'aktif' | 'penutup'>('aktif');
@@ -75,6 +75,10 @@ export default function SOPChecklistView({
 
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      alert('Hanya Admin Utama yang berhak menambah atau mengubah butir SOP!');
+      return;
+    }
     if (!newTaskText.trim() || sop.status === 'selesai') return;
 
     const newTask = {
@@ -96,6 +100,10 @@ export default function SOPChecklistView({
 
   const handleDeleteTask = (taskId: string) => {
     if (sop.status === 'selesai') return;
+    if (!isAdmin) {
+      alert('Hanya Admin Utama yang berhak menghapus butir SOP!');
+      return;
+    }
     
     const updatedTasks = sop.tasks.filter(t => t.id !== taskId);
     const isCheckedAll = updatedTasks.length > 0 && updatedTasks.every(t => t.completed);
@@ -419,11 +427,12 @@ export default function SOPChecklistView({
                             <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
-                            {sop.status !== 'selesai' && (task.id.includes('custom') || isAdmin) && (
+                            {sop.status !== 'selesai' && isAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
                                 className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print shrink-0"
+                                title="Hapus Butir SOP (Khusus Admin Utama)"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -453,11 +462,12 @@ export default function SOPChecklistView({
                             <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
-                            {sop.status !== 'selesai' && (task.id.includes('custom') || isAdmin) && (
+                            {sop.status !== 'selesai' && isAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
                                 className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print shrink-0"
+                                title="Hapus Butir SOP (Khusus Admin Utama)"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -487,11 +497,12 @@ export default function SOPChecklistView({
                             <span className={`text-[12.5px] font-medium leading-relaxed font-sans whitespace-normal break-words block flex-1 ${task.completed ? 'line-through text-neutral-400 font-normal' : 'text-neutral-800'}`}>
                               {task.text}
                             </span>
-                            {sop.status !== 'selesai' && (task.id.includes('custom') || isAdmin) && (
+                            {sop.status !== 'selesai' && isAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTask(task.id)}
                                 className="text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 h-5 w-5 no-print shrink-0"
+                                title="Hapus Butir SOP (Khusus Admin Utama)"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -503,38 +514,46 @@ export default function SOPChecklistView({
                   </div>
                 </div>
 
-                {/* Inline Task Adder form (Only when document is active) */}
+                {/* Inline Task Adder form (Only when document is active and user is Admin Utama) */}
                 {sop.status !== 'selesai' && (
-                  <form onSubmit={handleAddTask} className="mt-6 pt-5 border-t border-dashed border-neutral-200 no-print">
-                     <h5 className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-2">
-                       + Sisipkan Instruksi Tambahan Khusus
-                     </h5>
-                     <div className="flex flex-col sm:flex-row gap-2">
-                       <select 
-                         value={newTaskCategory}
-                         onChange={e => setNewTaskCategory(e.target.value as any)}
-                         className="text-xs bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/10 w-full sm:w-auto"
-                       >
-                         <option value="persiapan">I. Persiapan</option>
-                         <option value="aktif">II. Tugas Inti</option>
-                         <option value="penutup">III. Penutup</option>
-                       </select>
-                       <input
-                         type="text"
-                         placeholder="Tulis tugas (mis. Iris timba bumbu sisa kunyit 250gr)..."
-                         value={newTaskText}
-                         onChange={e => setNewTaskText(e.target.value)}
-                         className="flex-1 text-xs border border-neutral-200 bg-neutral-50/50 rounded-lg px-3 py-1.5 outline-hidden focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-auto"
-                       />
-                       <button
-                         type="submit"
-                         className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-1.5 rounded-lg flex items-center justify-center gap-1.5 w-full sm:w-auto shrink-0"
-                       >
-                         <Plus className="h-3.5 w-3.5" />
-                         Tambah
-                       </button>
-                     </div>
-                  </form>
+                  isAdmin ? (
+                    <form onSubmit={handleAddTask} className="mt-6 pt-5 border-t border-dashed border-neutral-200 no-print">
+                       <h5 className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider mb-2">
+                         + Sisipkan Instruksi Tambahan Khusus (Khusus Admin Utama)
+                       </h5>
+                       <div className="flex flex-col sm:flex-row gap-2">
+                         <select 
+                           value={newTaskCategory}
+                           onChange={e => setNewTaskCategory(e.target.value as any)}
+                           className="text-xs bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/10 w-full sm:w-auto font-sans"
+                         >
+                           <option value="persiapan">I. Persiapan</option>
+                           <option value="aktif">II. Tugas Inti</option>
+                           <option value="penutup">III. Penutup</option>
+                         </select>
+                         <input
+                           type="text"
+                           placeholder="Tulis tugas (mis. Iris timba bumbu sisa kunyit 250gr)..."
+                           value={newTaskText}
+                           onChange={e => setNewTaskText(e.target.value)}
+                           className="flex-1 text-xs border border-neutral-200 bg-neutral-50/50 rounded-lg px-3 py-1.5 outline-hidden focus:ring-2 focus:ring-emerald-500/20 w-full sm:w-auto font-sans"
+                         />
+                         <button
+                           type="submit"
+                           className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs px-4 py-1.5 rounded-lg flex items-center justify-center gap-1.5 w-full sm:w-auto shrink-0 font-sans"
+                         >
+                           <Plus className="h-3.5 w-3.5" />
+                           Tambah
+                         </button>
+                       </div>
+                    </form>
+                  ) : (
+                    <div className="mt-6 pt-4 border-t border-neutral-200/80 text-center no-print">
+                      <span className="text-[11px] text-neutral-600 font-sans italic bg-neutral-50 px-3.5 py-1.5 rounded-lg border border-neutral-200 inline-flex items-center gap-1.5">
+                        <span>🔒</span> Hak Akses Divisi: Penambahan / penghapusan butir SOP dikunci oleh Admin Utama. Divisi hanya mengisi centang checklist dan tanda tangan.
+                      </span>
+                    </div>
+                  )
                 )}
               </td>
             </tr>
