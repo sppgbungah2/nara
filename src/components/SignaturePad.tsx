@@ -39,17 +39,24 @@ export default function SignaturePad({ onSave, onCancel, title, suggestedName }:
 
     const rect = canvas.getBoundingClientRect();
     
-    // Scale corresponding to the visual dimensions vs canvas backbuffer
-    if ('touches' in e) {
-      if (e.touches.length === 0) return { x: 0, y: 0 };
+    if ('touches' in e || 'changedTouches' in e) {
+      const touchEvt = e as unknown as TouchEvent;
+      const touch = (touchEvt.touches && touchEvt.touches.length > 0) 
+        ? touchEvt.touches[0] 
+        : (touchEvt.changedTouches && touchEvt.changedTouches.length > 0) 
+        ? touchEvt.changedTouches[0] 
+        : null;
+
+      if (!touch) return { x: 0, y: 0 };
       return {
-        x: (e.touches[0].clientX - rect.left) * (canvas.width / rect.width),
-        y: (e.touches[0].clientY - rect.top) * (canvas.height / rect.height)
+        x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+        y: (touch.clientY - rect.top) * (canvas.height / rect.height)
       };
     } else {
+      const mouseEvt = e as React.MouseEvent<HTMLCanvasElement>;
       return {
-        x: (e.clientX - rect.left) * (canvas.width / rect.width),
-        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        x: (mouseEvt.clientX - rect.left) * (canvas.width / rect.width),
+        y: (mouseEvt.clientY - rect.top) * (canvas.height / rect.height)
       };
     }
   };
@@ -240,8 +247,15 @@ export default function SignaturePad({ onSave, onCancel, title, suggestedName }:
 
         {/* Upload Error Banner */}
         {uploadError && (
-          <div className="bg-red-50 border-b border-red-100 text-red-700 text-xs px-5 py-2.5 font-medium flex items-center gap-2">
+          <div className="bg-red-50 border-b border-red-100 text-red-700 text-xs px-5 py-2.5 font-medium flex items-center justify-between gap-2">
             <span>⚠ Error: {uploadError}</span>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-md font-bold text-[10px] uppercase transition-all shrink-0 cursor-pointer"
+            >
+              Coba Lagi
+            </button>
           </div>
         )}
 

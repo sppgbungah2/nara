@@ -13,36 +13,43 @@ import SOPRecap from './components/SOPRecap';
 import MockModules from './components/MockModules';
 import Login from './components/Login';
 import { isSupabaseConfigured, supabase, mapUserToProfile, UserProfile } from './lib/supabase';
+import { useRouting } from './hooks/useRouting';
+import { useSopData } from './hooks/useSopData';
 
 export default function App() {
   // User Authentication State
   const [loggedInUser, setLoggedInUser] = useState<UserProfile | null>(null);
 
-  // Sidebar Tabs
-  const [activeTab, setActiveTab] = useState<number>(23); // Default to Admin Dashboard (non-admin will auto-redirect)
-  
-  // Dynamic SOP State
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  });
+  // Custom Hooks for Routing & SOP Data
+  const { 
+    activeTab, 
+    setActiveTab, 
+    selectedDate, 
+    setSelectedDate, 
+    activeSopDetail, 
+    setActiveSopDetail 
+  } = useRouting(loggedInUser);
+
+  const {
+    sops,
+    setSops,
+    dayMenus,
+    setDayMenus,
+    loadingSops,
+    sopError,
+    syncStatus,
+    fetchSopsAndMenus,
+    handleUpdateSOP,
+    handleSaveSopsToCloud,
+    handleGenerateSOPs,
+    handleDeleteSOP
+  } = useSopData(selectedDate);
+
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
   const [currentUsername, setCurrentUsername] = useState<string>('Sistem Administrator');
   
-  // Collections of day menus and SOP Documents
-  const [dayMenus, setDayMenus] = useState<DayMenu[]>(PRESET_MENUS);
-  const [sops, setSops] = useState<SOPDocument[]>([]);
-  
   // Inner SOP Sub-Tab selection
   const [currentSubTab, setCurrentSubTab] = useState<'dashboard' | 'create' | 'recap'>('dashboard');
-  
-  // Currently viewed SOP Detail (matches printed form view)
-  const [activeSopDetail, setActiveSopDetail] = useState<SOPDocument | null>(null);
-  const isUpdatingSopRef = useRef<boolean>(false);
-  const deletedSopIdsRef = useRef<Set<string>>(new Set());
   
   // Mobile navigation drawer toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -207,16 +214,16 @@ export default function App() {
     else if (email.includes('mts@qomaruddin.com')) { prefix = 'user'; subEntity = 'mts'; }
     else if (email.includes('sukowati@qomaruddin.com')) { prefix = 'user'; subEntity = 'sukowati'; }
     else if (email.includes('sidokumpul@qomaruddin.com')) { prefix = 'user'; subEntity = 'sidokumpul'; }
+    else if (loggedInUser.isCoordinator) {
+      prefix = 'koordinator';
+      if (loggedInUser.coordinatorDivision) {
+        subEntity = getSlugFromDivision(loggedInUser.coordinatorDivision);
+      }
+    }
     else if (loggedInUser.role === UserRole.DRIVER) { prefix = 'driver'; }
     else if (loggedInUser.role === UserRole.CHEF) { prefix = 'chef'; }
     else if (loggedInUser.role === UserRole.AHLI_GIZI) { prefix = 'gizi'; }
     else if (loggedInUser.role === UserRole.ASLAP) { prefix = 'aslap'; }
-    else if (loggedInUser.isCoordinator) {
-      prefix = 'koordinator';
-      if (loggedInUser.coordinatorDivision) {
-        subEntity = loggedInUser.coordinatorDivision.toLowerCase().split(' ')[0];
-      }
-    }
     
     const page = getPageFromTab(activeTab);
     const dateSlug = formatDateToSlug(selectedDate);
@@ -242,9 +249,21 @@ export default function App() {
     }
   }, [activeTab, selectedDate, activeSopDetail, loggedInUser]);
 
-  // Keep activeSopDetail synchronized with URL parameters or latest sops list from Cloud Supabase
+  // Keep activeSopDetail synchronized with URL parameters, logged in coordinator division, or latest sops list from Cloud Supabase
   useEffect(() => {
     if (activeTab !== 15) return;
+
+    // For coordinators, prioritize their assigned division SOP
+    if (loggedInUser?.isCoordinator && loggedInUser?.coordinatorDivision) {
+      const coordDiv = loggedInUser.coordinatorDivision;
+      const matchedSOP = sops.find(s => s.date === selectedDate && s.division === coordDiv);
+      if (matchedSOP) {
+        if (!activeSopDetail || activeSopDetail.id !== matchedSOP.id || activeSopDetail.division !== coordDiv) {
+          setActiveSopDetail(matchedSOP);
+          return;
+        }
+      }
+    }
 
     // Check if URL specifies division & date
     const parts = window.location.pathname.split('/').filter(Boolean);
@@ -479,284 +498,10 @@ export default function App() {
     }
   }, [sops]);
 
-  // Load state directly from Supabase with per-division tasks support
+  // Load state directly from Supabase via custom hook
   const loadAllFromSupabase = async () => {
-    if (isUpdatingSopRef.current) {
-      console.log('Skipping Supabase fetch while local SOP update is in flight...');
-      return;
-    }
-
-    const loadOfflineFallback = () => {
-      const savedMenus = localStorage.getItem('sppg_day_menus');
-      if (savedMenus) {
-        try { setDayMenus(JSON.parse(savedMenus)); } catch (e) { console.error(e); }
-      } else if (dayMenus.length === 0) {
-        setDayMenus(PRESET_MENUS);
-      }
-
-      const savedSops = localStorage.getItem('sppg_sops');
-      if (savedSops) {
-        try {
-          const parsed = JSON.parse(savedSops);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSops(parsed.filter((s: SOPDocument) => !deletedSopIdsRef.current.has(s.id)));
-          }
-        } catch (e) { console.error(e); }
-      } else if (sops.length === 0) {
-        const mondayMenu = PRESET_MENUS.find(m => m.date === '2026-06-15')?.menuList || [];
-        const tuesdayMenu = PRESET_MENUS.find(m => m.date === '2026-06-16')?.menuList || [];
-        const seededSOPs: SOPDocument[] = [];
-
-        Object.values(Division).forEach(div => {
-          const monSOP: SOPDocument = {
-            id: `sop-2026-06-15-${div}`,
-            date: '2026-06-15',
-            division: div,
-            creatorRole: DIVISION_CREATOR_MAP[div]?.role || UserRole.ADMIN,
-            creatorName: `Koordinator ${div.toUpperCase()}`,
-            tasks: generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks || [],
-            isCheckedAll: false,
-            signerSupervisor: '',
-            signatureSupervisorUrl: '',
-            signedSupervisorAt: null,
-            signerCoordinator: '',
-            signatureCoordinatorUrl: '',
-            signedCoordinatorAt: null,
-            status: 'aktif',
-            updatedAt: '2026-06-15T05:00:00Z'
-          };
-          seededSOPs.push(monSOP);
-
-          const tueSOP: SOPDocument = {
-            id: `sop-2026-06-16-${div}`,
-            date: '2026-06-16',
-            division: div,
-            creatorRole: DIVISION_CREATOR_MAP[div]?.role || UserRole.ADMIN,
-            creatorName: `Koordinator ${div.toUpperCase()}`,
-            tasks: generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [],
-            isCheckedAll: false,
-            signerSupervisor: '',
-            signatureSupervisorUrl: '',
-            signedSupervisorAt: null,
-            signerCoordinator: '',
-            signatureCoordinatorUrl: '',
-            signedCoordinatorAt: null,
-            status: 'aktif',
-            updatedAt: '2026-06-16T05:00:00Z'
-          };
-          seededSOPs.push(tueSOP);
-        });
-
-        setSops(seededSOPs.filter(s => !deletedSopIdsRef.current.has(s.id)));
-      }
-    };
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { data: menuData, error: menuErr } = await supabase
-          .from('day_menus')
-          .select('*')
-          .order('date', { ascending: true });
-        
-        if (menuErr) throw menuErr;
-
-        const { data: sopData, error: sopErr } = await supabase
-          .from('sops')
-          .select('*')
-          .order('date', { ascending: true });
-
-        if (sopErr) throw sopErr;
-
-        // Query standard sop_tasks table AND all per-division task tables in parallel
-        const divisionTables = [
-          'sop_tasks',
-          'sop_task_driver', 'sop_driver',
-          'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
-          'sop_task_masak', 'sop_masak', 'sop_pemasakan',
-          'sop_task_pemorsian', 'sop_pemorsian',
-          'sop_task_kebersihan', 'sop_kebersihan',
-          'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
-          'sop_task_keamanan', 'sop_keamanan'
-        ];
-
-        const taskFetchPromises = divisionTables.map(tbl =>
-          supabase
-            .from(tbl)
-            .select('*')
-            .order('sort_order', { ascending: true })
-            .range(0, 9999)
-            .then(res => res.data || [], () => [])
-        );
-
-        const taskResults = await Promise.all(taskFetchPromises);
-        const combinedTaskData = taskResults.flat();
-
-        if (menuData && menuData.length > 0) {
-          // Re-format day menus
-          const formattedMenus: DayMenu[] = menuData.map((m: any) => ({
-            date: m.date,
-            menuList: m.menu_list || [],
-            createdAt: m.created_at,
-            createdBy: m.created_by as UserRole
-          }));
-          setDayMenus(formattedMenus);
-        }
-
-        if (sopData && sopData.length > 0) {
-          const validSopRows = (sopData || []).filter((s: any) => !deletedSopIdsRef.current.has(s.id));
-
-          const cloudSops: SOPDocument[] = validSopRows.map((s: any) => {
-            const divSlug = getSlugFromDivision(s.division as Division);
-            const altSopId = `SOP_${divSlug}_${s.date}`;
-
-            // Find all matching tasks from combinedTaskData across tables
-            const matchedCloudTasks = combinedTaskData.filter((t: any) => {
-              if (!t.sop_id) return false;
-              const normSopId = String(t.sop_id).toLowerCase().trim();
-              const normSid = String(s.id).toLowerCase().trim();
-              const normAlt = altSopId.toLowerCase().trim();
-              const normDate = String(s.date).replace(/[^0-9]/g, '');
-              const cleanTaskSopId = normSopId.replace(/[^a-z0-9]/g, '');
-              const cleanDivSlug = divSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-              return normSopId === normSid || 
-                     normSopId === normAlt || 
-                     (cleanTaskSopId.includes(normDate) && cleanTaskSopId.includes(cleanDivSlug));
-            });
-
-            // Get standard default template tasks for this division & menu
-            const matchedMenu = menuData?.find((m: any) => m.date === s.date)?.menu_list || [];
-            const defaultTemplateTasks = getDefaultTasksForDivision(s.division as Division, matchedMenu).map((t, idx) => ({
-              ...t,
-              id: `${s.date}-${s.division}-t-${idx}`,
-              sort_order: idx
-            }));
-
-            // Merge cloud tasks onto default template tasks so template tasks are never lost!
-            const finalTaskMap = new Map<string, any>();
-            
-            // 1. Add default template tasks
-            defaultTemplateTasks.forEach(dt => finalTaskMap.set(dt.text.trim().toLowerCase(), dt));
-
-            // 2. Overlay cloud tasks (matched by text or id)
-            matchedCloudTasks.forEach((ct: any) => {
-              const taskObj = {
-                id: ct.id,
-                text: ct.text,
-                completed: !!ct.completed,
-                category: ct.category as 'persiapan' | 'aktif' | 'penutup',
-                sort_order: ct.sort_order ?? 0
-              };
-              const matchingTemplate = defaultTemplateTasks.find(dt => dt.text.trim().toLowerCase() === String(ct.text || '').trim().toLowerCase());
-              if (matchingTemplate) {
-                finalTaskMap.set(matchingTemplate.text.trim().toLowerCase(), {
-                  ...matchingTemplate,
-                  ...taskObj,
-                  id: ct.id || matchingTemplate.id
-                });
-              } else {
-                finalTaskMap.set(ct.id || `custom-${ct.text}`, taskObj);
-              }
-            });
-
-            const mergedTasks = Array.from(finalTaskMap.values()).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-
-            return {
-              id: s.id,
-              date: s.date,
-              division: s.division as Division,
-              creatorRole: s.creator_role as UserRole,
-              creatorName: s.creator_name,
-              tasks: mergedTasks,
-              isCheckedAll: s.is_checked_all,
-              signerSupervisor: s.signer_supervisor || '',
-              signatureSupervisorUrl: s.signature_supervisor_url || '',
-              signedSupervisorAt: s.signed_supervisor_at || null,
-              signerCoordinator: s.signer_coordinator || '',
-              signatureCoordinatorUrl: s.signature_coordinator_url || '',
-              signedCoordinatorAt: s.signed_coordinator_at || null,
-              status: s.status as 'aktif' | 'selesai',
-              updatedAt: s.updated_at
-            };
-          });
-
-          // Merge cloud sops with local state to preserve uncommitted local additions or updates
-          setSops(prev => {
-            const mergedMap = new Map<string, SOPDocument>();
-
-            cloudSops.forEach(cs => {
-              if (!deletedSopIdsRef.current.has(cs.id)) {
-                mergedMap.set(cs.id, cs);
-              }
-            });
-
-            prev.forEach(ls => {
-              if (deletedSopIdsRef.current.has(ls.id)) return;
-              const existing = mergedMap.get(ls.id);
-              if (!existing) {
-                // Locally added SOP that hasn't landed on Cloud yet
-                mergedMap.set(ls.id, ls);
-              } else if (ls.tasks.length > existing.tasks.length) {
-                // Prefer local if it has more tasks added locally
-                mergedMap.set(ls.id, ls);
-              }
-            });
-
-            const mergedList = Array.from(mergedMap.values());
-            try {
-              localStorage.setItem('sppg_sops', JSON.stringify(mergedList));
-            } catch (e) { console.error(e); }
-            return mergedList;
-          });
-        } else if (menuData && menuData.length > 0) {
-          // database is empty on SOPs, seed it
-          await bootstrapSupabase();
-        }
-      } catch (e) {
-        console.warn('Supabase fetch notice, maintaining local state:', e);
-        loadOfflineFallback();
-      }
-    } else {
-      loadOfflineFallback();
-    }
+    await fetchSopsAndMenus();
   };
-
-  // Real-time synchronization across devices
-  useEffect(() => {
-    loadAllFromSupabase();
-
-    if (!isSupabaseConfigured || !supabase) return;
-
-    // Polling every 2 seconds for cross-device sync
-    const interval = setInterval(() => {
-      loadAllFromSupabase();
-    }, 2000);
-
-    // Sync when window/tab regains focus
-    const handleFocus = () => {
-      loadAllFromSupabase();
-    };
-    window.addEventListener('focus', handleFocus);
-
-    // Realtime Supabase Channels
-    const channel = supabase
-      .channel('public:sops_realtime_sync')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sops' }, () => {
-        loadAllFromSupabase();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sop_tasks' }, () => {
-        loadAllFromSupabase();
-      })
-      .subscribe();
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      if (supabase) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [loggedInUser]);
 
   // Handlers
   const handleSaveMenu = async (date: string, menuList: string[]) => {
@@ -801,9 +546,6 @@ export default function App() {
       return;
     }
 
-    isUpdatingSopRef.current = true;
-    sops.filter(s => s.date === date).forEach(s => deletedSopIdsRef.current.add(s.id));
-
     // Update local state immediately
     setDayMenus(prev => prev.filter(m => m.date !== date));
     setSops(prev => prev.filter(s => s.date !== date));
@@ -828,326 +570,11 @@ export default function App() {
         }
       } catch (e) {
         console.error('Failed to delete menu on Supabase:', e);
-      } finally {
-        isUpdatingSopRef.current = false;
       }
-    } else {
-      isUpdatingSopRef.current = false;
     }
   };
 
-  const handleGenerateSOPs = async (date: string, menuList: string[], forceReset = false) => {
-    isUpdatingSopRef.current = true;
-    try {
-      const generated = generateInitialSOPsForDate(date, menuList) as SOPDocument[];
-      
-      // Unmark deleted refs for newly generated SOPs
-      generated.forEach(g => deletedSopIdsRef.current.delete(g.id));
 
-      const filteredSops = sops.filter(s => s.date !== date);
-      const updatedSopsList = [...filteredSops, ...generated];
-      setSops(updatedSopsList);
-      try {
-        localStorage.setItem('sppg_sops', JSON.stringify(updatedSopsList));
-      } catch (e) { console.error(e); }
-
-      // Persist directly & comprehensively to Cloud
-      await handleSaveSopsToCloud(date);
-    } catch (e) {
-      console.error('Failed to generate template SOPs on Supabase:', e);
-    } finally {
-      isUpdatingSopRef.current = false;
-    }
-  };
-
-  const handleUpdateSOP = async (updatedSOP: SOPDocument): Promise<{ success: boolean; error?: string }> => {
-    isUpdatingSopRef.current = true;
-    try {
-      deletedSopIdsRef.current.delete(updatedSOP.id);
-
-      let exists = false;
-      const updatedList = sops.map(s => {
-        if (s.id === updatedSOP.id || (s.date === updatedSOP.date && s.division === updatedSOP.division)) {
-          exists = true;
-          return updatedSOP;
-        }
-        return s;
-      });
-      if (!exists) {
-        updatedList.push(updatedSOP);
-      }
-
-      setSops(updatedList);
-      try {
-        localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
-      } catch (e) {
-        console.error('Error saving sops to local storage:', e);
-      }
-      
-      if (activeSopDetail && (activeSopDetail.id === updatedSOP.id || (activeSopDetail.date === updatedSOP.date && activeSopDetail.division === updatedSOP.division))) {
-        setActiveSopDetail(updatedSOP);
-      }
-
-      if (isSupabaseConfigured && supabase) {
-        const divSlug = getSlugFromDivision(updatedSOP.division);
-        const altSopId = `SOP_${divSlug}_${updatedSOP.date}`;
-        const targetTables = getSopTaskTableNames(updatedSOP.division);
-
-        // Upsert SOP header
-        const { error: headerErr } = await supabase.from('sops').upsert({
-          id: updatedSOP.id,
-          date: updatedSOP.date,
-          division: updatedSOP.division,
-          creator_role: updatedSOP.creatorRole,
-          creator_name: updatedSOP.creatorName,
-          is_checked_all: updatedSOP.isCheckedAll,
-          signer_supervisor: updatedSOP.signerSupervisor || '',
-          signature_supervisor_url: updatedSOP.signatureSupervisorUrl || '',
-          signed_supervisor_at: updatedSOP.signedSupervisorAt || null,
-          signer_coordinator: updatedSOP.signerCoordinator || '',
-          signature_coordinator_url: updatedSOP.signatureCoordinatorUrl || '',
-          signed_coordinator_at: updatedSOP.signedCoordinatorAt || null,
-          status: updatedSOP.status || 'aktif',
-          updated_at: updatedSOP.updatedAt || new Date().toISOString()
-        });
-
-        if (headerErr) {
-          console.error('Failed to update SOP header on Supabase:', headerErr);
-        }
-
-        const tasksPayloadWithSId = updatedSOP.tasks.map((t, idx) => ({
-          id: t.id,
-          sop_id: updatedSOP.id,
-          text: t.text || '',
-          completed: !!t.completed,
-          category: t.category || 'aktif',
-          sort_order: t.sort_order ?? idx
-        }));
-
-        const tasksPayloadWithAltId = updatedSOP.tasks.map((t, idx) => ({
-          id: t.id.includes('custom') ? t.id : `${altSopId}-${idx}`,
-          sop_id: altSopId,
-          text: t.text || '',
-          completed: !!t.completed,
-          category: t.category || 'aktif',
-          sort_order: t.sort_order ?? idx
-        }));
-
-        for (const tbl of targetTables) {
-          try {
-            await supabase.from(tbl).delete().or(`sop_id.eq.${updatedSOP.id},sop_id.eq.${altSopId}`);
-            await supabase.from(tbl).upsert(tasksPayloadWithSId).then(() => null, () => null);
-            if (tbl !== 'sop_tasks') {
-              await supabase.from(tbl).upsert(tasksPayloadWithAltId).then(() => null, () => null);
-            }
-          } catch (e) {
-            // Table might not exist, ignore
-          }
-        }
-
-        console.log('Successfully synchronized SOP details with Supabase:', updatedSOP.id);
-        return { success: true };
-      }
-      return { success: true };
-    } catch (e: any) {
-      console.error('Failed to synchronize status with Supabase:', e);
-      return { success: false, error: e?.message || 'Gagal tersambung ke Cloud' };
-    } finally {
-      isUpdatingSopRef.current = false;
-    }
-  };
-
-  const handleDeleteSOP = async (sopId: string) => {
-    deletedSopIdsRef.current.add(sopId);
-    isUpdatingSopRef.current = true;
-
-    const targetSop = sops.find(s => s.id === sopId);
-    const updatedList = sops.filter(s => s.id !== sopId);
-    setSops(updatedList);
-    try {
-      localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
-    } catch (e) {}
-
-    if (activeSopDetail && activeSopDetail.id === sopId) {
-      setActiveSopDetail(null);
-    }
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const divisionTables = [
-          'sop_tasks', 'sop_task_driver', 'sop_driver',
-          'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
-          'sop_task_masak', 'sop_masak', 'sop_pemasakan',
-          'sop_task_pemorsian', 'sop_pemorsian',
-          'sop_task_kebersihan', 'sop_kebersihan',
-          'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
-          'sop_task_keamanan', 'sop_keamanan'
-        ];
-        for (const tbl of divisionTables) {
-          try {
-            await supabase.from(tbl).delete().or(`sop_id.eq.${sopId},sop_id.like.%${sopId}%`);
-          } catch (e) {}
-        }
-        const { error } = await supabase.from('sops').delete().eq('id', sopId);
-        if (error) {
-          console.error('Failed to delete SOP from Supabase:', error);
-          alert('Gagal menghapus SOP di Cloud Supabase: ' + error.message);
-        } else {
-          console.log('Successfully deleted SOP from Supabase:', sopId);
-        }
-      } catch (e: any) {
-        console.error('Supabase delete SOP error:', e);
-        alert('Terjadi kesalahan saat menghapus SOP di Cloud: ' + (e?.message || e));
-      } finally {
-        isUpdatingSopRef.current = false;
-      }
-    } else {
-      isUpdatingSopRef.current = false;
-    }
-  };
-
-  // Comprehensive Cloud Save handler for explicitly saving & publishing SOPs
-  const handleSaveSopsToCloud = async (targetDate?: string): Promise<{ success: boolean; message: string }> => {
-    const dateToSave = targetDate || selectedDate;
-    isUpdatingSopRef.current = true;
-    try {
-      let sopsToSave = sops.filter(s => s.date === dateToSave && !deletedSopIdsRef.current.has(s.id));
-      const dayMenuObj = dayMenus.find(m => m.date === dateToSave);
-      const menuList = dayMenuObj?.menuList || [];
-
-      // Ensure all 7 division SOPs exist for dateToSave
-      if (sopsToSave.length < Object.values(Division).length) {
-        const generated = generateInitialSOPsForDate(dateToSave, menuList) as SOPDocument[];
-        const existingDivs = new Set(sopsToSave.map(s => s.division));
-        const missing = generated.filter(g => !existingDivs.has(g.division));
-        sopsToSave = [...sopsToSave, ...missing];
-        setSops(prev => {
-          const filtered = prev.filter(s => s.date !== dateToSave);
-          return [...filtered, ...sopsToSave];
-        });
-      }
-
-      if (!isSupabaseConfigured || !supabase) {
-        return { success: true, message: 'SOP tersimpan di memori lokal (Supabase belum terkonfigurasi)' };
-      }
-
-      // 1. Save / Upsert Menu for this date
-      if (dayMenuObj) {
-        await supabase.from('day_menus').upsert({
-          date: dateToSave,
-          menu_list: dayMenuObj.menuList,
-          created_at: dayMenuObj.createdAt,
-          created_by: dayMenuObj.createdBy
-        });
-      }
-
-      // 2. Clear any deleted SOPs from Cloud for this date
-      const deletedSopIds = Array.from(deletedSopIdsRef.current).filter((id: string) => id.includes(dateToSave));
-      if (deletedSopIds.length > 0) {
-        await supabase.from('sops').delete().in('id', deletedSopIds);
-        const divisionTables = [
-          'sop_tasks', 'sop_task_driver', 'sop_driver',
-          'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
-          'sop_task_masak', 'sop_masak', 'sop_pemasakan',
-          'sop_task_pemorsian', 'sop_pemorsian',
-          'sop_task_kebersihan', 'sop_kebersihan',
-          'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
-          'sop_task_keamanan', 'sop_keamanan'
-        ];
-        for (const tbl of divisionTables) {
-          try {
-            await supabase.from(tbl).delete().in('sop_id', deletedSopIds);
-          } catch (e) {}
-        }
-      }
-
-      // 3. Upsert SOP headers for all divisions
-      const sopsPayload = sopsToSave.map(s => ({
-        id: s.id,
-        date: s.date,
-        division: s.division,
-        creator_role: s.creatorRole,
-        creator_name: s.creatorName,
-        is_checked_all: s.isCheckedAll,
-        signer_supervisor: s.signerSupervisor || '',
-        signature_supervisor_url: s.signatureSupervisorUrl || '',
-        signed_supervisor_at: s.signedSupervisorAt,
-        signer_coordinator: s.signerCoordinator || '',
-        signature_coordinator_url: s.signatureCoordinatorUrl || '',
-        signed_coordinator_at: s.signedCoordinatorAt,
-        status: s.status || 'aktif',
-        updated_at: s.updatedAt || new Date().toISOString()
-      }));
-
-      const { error: headerErr } = await supabase.from('sops').upsert(sopsPayload);
-      if (headerErr) {
-        console.error('Failed to upsert SOP headers:', headerErr);
-        return { success: false, message: 'Gagal menyimpan header SOP: ' + headerErr.message };
-      }
-
-      // 4. Clean & re-insert tasks for each SOP across division tables & sop_tasks
-      for (const s of sopsToSave) {
-        const divSlug = getSlugFromDivision(s.division);
-        const altSopId = `SOP_${divSlug}_${s.date}`;
-        const targetTables = getSopTaskTableNames(s.division);
-
-        const defaultTasks = getDefaultTasksForDivision(s.division, menuList);
-        const currentTasks = s.tasks || [];
-
-        let finalTasks = [...currentTasks];
-        defaultTasks.forEach(dt => {
-          const exists = finalTasks.some(ct => ct.text.trim().toLowerCase() === dt.text.trim().toLowerCase());
-          if (!exists) {
-            finalTasks.push({
-              ...dt,
-              id: `${s.date}-${s.division}-t-${finalTasks.length}`
-            });
-          }
-        });
-
-        const tasksPayloadWithSId = finalTasks.map((t, idx) => ({
-          id: t.id,
-          sop_id: s.id,
-          text: t.text || '',
-          completed: !!t.completed,
-          category: t.category || 'aktif',
-          sort_order: t.sort_order ?? idx
-        }));
-
-        const tasksPayloadWithAltId = finalTasks.map((t, idx) => ({
-          id: t.id.includes('custom') ? t.id : `${altSopId}-${idx}`,
-          sop_id: altSopId,
-          text: t.text || '',
-          completed: !!t.completed,
-          category: t.category || 'aktif',
-          sort_order: t.sort_order ?? idx
-        }));
-
-        for (const tbl of targetTables) {
-          try {
-            await supabase.from(tbl).delete().or(`sop_id.eq.${s.id},sop_id.eq.${altSopId},sop_id.like.%${s.date}%`);
-            await supabase.from(tbl).upsert(tasksPayloadWithSId).then(() => null, () => null);
-            if (tbl !== 'sop_tasks') {
-              await supabase.from(tbl).upsert(tasksPayloadWithAltId).then(() => null, () => null);
-            }
-          } catch (e) {
-            // Table might not exist, ignore
-          }
-        }
-      }
-
-      console.log(`Successfully saved ${sopsToSave.length} SOPs to Supabase for date ${dateToSave}`);
-      return { 
-        success: true, 
-        message: `🎉 Berhasil! Seluruh ${sopsToSave.length} SOP (termasuk tugas Driver & divisi) tersimpan & tersinkronisasi 100% ke Cloud Supabase!` 
-      };
-    } catch (err: any) {
-      console.error('Error in handleSaveSopsToCloud:', err);
-      return { success: false, message: 'Terjadi kesalahan saat menyimpan: ' + (err?.message || err) };
-    } finally {
-      isUpdatingSopRef.current = false;
-    }
-  };
 
   // Helper selectors
   const getMenuForSelectedDate = () => {
@@ -1161,7 +588,7 @@ export default function App() {
   const syncMenuFromSchedule = (date: string, items: string[]) => {
     // Allows schedule tab to write back to our database
     handleSaveMenu(date, items);
-    handleGenerateSOPs(date, items);
+    handleGenerateSOPs(date);
     setSelectedDate(date);
     setCurrentSubTab('dashboard');
   };
@@ -1517,7 +944,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     const menuItems = getMenuForSelectedDate()?.menuList || ['Nasi Putih', 'Lauk Protein', 'Lauk Nabati', 'Sayuran Segar'];
-                    handleGenerateSOPs(selectedDate, menuItems);
+                    handleGenerateSOPs(selectedDate);
                   }}
                   className="bg-emerald-800 hover:bg-emerald-950 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-xs transition-colors w-full sm:w-auto"
                 >
@@ -1666,7 +1093,7 @@ export default function App() {
                             // Quick auto-generate using preloaded menu
                             const defaultList = ['Nasi Putih', 'Krawu Ayam Bungah', 'Tempe Goreng Ketumbar', 'Kupasan Timun Segar', 'Sambal Serundeng kelapa', 'Pisang'];
                             handleSaveMenu(selectedDate, defaultList);
-                            handleGenerateSOPs(selectedDate, defaultList);
+                            handleGenerateSOPs(selectedDate);
                           }}
                           className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold px-5 py-2.5 rounded-xl text-center inline-block"
                         >

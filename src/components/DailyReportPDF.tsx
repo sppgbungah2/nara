@@ -882,8 +882,39 @@ export default function DailyReportPDF({
 
         </div>
 
+        {/* Print Media Query CSS Styles */}
+        <style>{`
+          @media print {
+            body {
+              background: #ffffff !important;
+              color: #000000 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .no-print, header, nav, button {
+              display: none !important;
+            }
+            .print-container {
+              width: 100% !important;
+              max-width: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+            }
+            table, tr, td, th {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            .signature-block, .report-section {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+          }
+        `}</style>
+
         {/* Kolom Tanda Tangan Resmi Yayasan */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 text-center text-xs font-sans mt-12 pt-8 border-t border-neutral-300 break-inside-avoid">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 text-center text-xs font-sans mt-12 pt-8 border-t border-neutral-300 break-inside-avoid signature-block">
           {/* Aslap */}
           <div className="flex flex-col justify-between h-36">
             <div>

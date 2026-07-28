@@ -155,7 +155,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.CHEF,
-      fullName: 'Koordinator Stocking',
+      fullName: 'Koordinator Persiapan & Stocking',
       isCoordinator: true,
       coordinatorDivision: Division.STOCKING
     };
@@ -166,7 +166,7 @@ export function mapUserToProfile(uid: string, email: string): UserProfile {
       id: uid,
       email,
       role: UserRole.CHEF,
-      fullName: 'Koordinator Persiapan',
+      fullName: 'Koordinator Persiapan & Stocking',
       isCoordinator: true,
       coordinatorDivision: Division.STOCKING
     };

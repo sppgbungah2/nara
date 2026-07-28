@@ -339,3 +339,102 @@ export function getDefaultReceiptTime(schoolOrLocation: string): string {
   if (norm.includes('smk')) return '10.30 WIB';
   return '08.00 WIB';
 }
+
+export function parseDateFromSlug(slug: string): string | null {
+  if (!slug) return null;
+  const s = slug.trim();
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = isoMatch[2].padStart(2, '0');
+    const d = isoMatch[3].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const idMatch = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (idMatch) {
+    const d = idMatch[1].padStart(2, '0');
+    const m = idMatch[2].padStart(2, '0');
+    const y = idMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+  return null;
+}
+
+export function formatDateToSlug(dateStr: string): string {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    const y = parts[0];
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    return `${d}-${m}-${y}`;
+  }
+  return dateStr;
+}
+
+export function getTabFromPage(pageName: string): number {
+  const norm = pageName.toLowerCase().trim();
+  if (norm === 'dashboard-admin' || norm === 'dashboard') return 23;
+  if (norm === 'sop') return 15;
+  if (norm === 'keluhan') return 14;
+  if (norm === 'order-alat' || norm === 'order_alat') return 4;
+  if (norm === 'order-operasional' || norm === 'order_operasional') return 5;
+  if (norm === 'pengiriman-ompreng') return 18;
+  if (norm === 'serah-terima' || norm === 'bast') return 19;
+  if (norm === 'surat-jalan' || norm === 'sj') return 20;
+  if (norm === 'organoleptik') return 21;
+  if (norm === 'master-porsi' || norm === 'master_porsi') return 22;
+  return 23;
+}
+
+export function getPageFromTab(tabNum: number): string {
+  if (tabNum === 23) return 'dashboard-admin';
+  if (tabNum === 15) return 'sop';
+  if (tabNum === 14) return 'keluhan';
+  if (tabNum === 4) return 'order-alat';
+  if (tabNum === 5) return 'order-operasional';
+  if (tabNum === 18) return 'pengiriman-ompreng';
+  if (tabNum === 19) return 'serah-terima';
+  if (tabNum === 20) return 'surat-jalan';
+  if (tabNum === 21) return 'organoleptik';
+  if (tabNum === 22) return 'master-porsi';
+  return '';
+}
+
+export function getDivisionFromSlug(slug: string): Division | null {
+  const norm = slug.toLowerCase().trim();
+  if (norm === 'driver') return Division.DRIVER;
+  if (norm === 'persiapan' || norm === 'stocking') return Division.STOCKING;
+  if (norm === 'pemasakan' || norm === 'masak') return Division.MASAK;
+  if (norm === 'pemorsian') return Division.PEMORSIAN;
+  if (norm === 'distribusi') return Division.DRIVER;
+  if (norm === 'kebersihan') return Division.KEBERSIHAN;
+  if (norm === 'pencucian' || norm === 'cuci') return Division.CUCI;
+  if (norm === 'keamanan' || norm === 'security') return Division.KEAMANAN;
+  return null;
+}
+
+export function getSlugFromDivision(div: Division): string {
+  switch (div) {
+    case Division.DRIVER: return 'driver';
+    case Division.STOCKING: return 'persiapan';
+    case Division.MASAK: return 'pemasakan';
+    case Division.PEMORSIAN: return 'pemorsian';
+    case Division.KEBERSIHAN: return 'kebersihan';
+    case Division.CUCI: return 'pencucian';
+    case Division.KEAMANAN: return 'keamanan';
+    default: return 'persiapan';
+  }
+}
+
+export function getSopTaskTableNames(div: Division | string): string[] {
+  const norm = (div || '').toLowerCase().trim();
+  if (norm.includes('driver') || norm.includes('distribusi')) return ['sop_task_driver', 'sop_driver', 'sop_tasks'];
+  if (norm.includes('stocking') || norm.includes('persiapan')) return ['sop_task_stocking', 'sop_stocking', 'sop_persiapan', 'sop_tasks'];
+  if (norm.includes('masak') || norm.includes('pemasakan')) return ['sop_task_masak', 'sop_masak', 'sop_pemasakan', 'sop_tasks'];
+  if (norm.includes('pemorsian')) return ['sop_task_pemorsian', 'sop_pemorsian', 'sop_tasks'];
+  if (norm.includes('kebersihan')) return ['sop_task_kebersihan', 'sop_kebersihan', 'sop_tasks'];
+  if (norm.includes('cuci') || norm.includes('pencucian')) return ['sop_task_cuci', 'sop_cuci', 'sop_pencucian', 'sop_tasks'];
+  if (norm.includes('keamanan') || norm.includes('security')) return ['sop_task_keamanan', 'sop_keamanan', 'sop_tasks'];
+  return ['sop_tasks'];
+}
