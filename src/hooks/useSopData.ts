@@ -208,10 +208,16 @@ export function useSopData(selectedDate: string) {
       setSops(prev => prev.map(s => s.id === updatedSOP.id ? updatedSOP : s));
 
       if (isSupabaseConfigured && supabase) {
+        const creatorInfo = DIVISION_CREATOR_MAP[updatedSOP.division as Division] || { role: UserRole.ASLAP, name: 'Aslap' };
+        const creatorRole = updatedSOP.creatorRole || creatorInfo.role;
+        const creatorName = updatedSOP.creatorName || (creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' : creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur');
+
         const sopPayload = {
           id: updatedSOP.id,
           division: updatedSOP.division,
           date: updatedSOP.date,
+          creator_role: creatorRole,
+          creator_name: creatorName,
           is_checked_all: updatedSOP.isCheckedAll,
           signer_supervisor: updatedSOP.signerSupervisor,
           signature_supervisor_url: updatedSOP.signatureSupervisorUrl,
@@ -295,10 +301,16 @@ export function useSopData(selectedDate: string) {
 
       if (isSupabaseConfigured && supabase) {
         for (const s of sopsToSave) {
+          const creatorInfo = DIVISION_CREATOR_MAP[s.division as Division] || { role: UserRole.ASLAP, name: 'Aslap' };
+          const creatorRole = s.creatorRole || creatorInfo.role;
+          const creatorName = s.creatorName || (creatorInfo.role === UserRole.CHEF ? 'Rizka Aulia' : creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur');
+
           const sopPayload = {
             id: s.id,
             division: s.division,
             date: s.date,
+            creator_role: creatorRole,
+            creator_name: creatorName,
             is_checked_all: !!s.isCheckedAll,
             signer_supervisor: s.signerSupervisor || '',
             signature_supervisor_url: s.signatureSupervisorUrl || '',
