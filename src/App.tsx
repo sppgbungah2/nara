@@ -654,10 +654,14 @@ export default function App() {
     }
   };
 
-  const handleGenerateSOPs = async (date: string, menuList: string[]) => {
+  const handleGenerateSOPs = async (date: string, menuList: string[], forceReset = false) => {
     const hasExisting = sops.some(s => s.date === date);
-    if (hasExisting) {
-      if (!confirm('SOP untuk tanggal ini sudah ada. Apakah Anda ingin mengatur ulang kembalikan tugas ke setelan bawaan? Seluruh coretan tanda tangan akan terhapus.')) {
+    if (hasExisting && !forceReset) {
+      console.log('SOP untuk tanggal', date, 'sudah ada di database. Tidak menimpa data yang ada.');
+      return;
+    }
+    if (hasExisting && forceReset) {
+      if (!confirm('SOP untuk tanggal ini sudah ada. Apakah Anda ingin mengatur ulang kembalikan tugas ke setelan bawaan? Seluruh tugas tambahan dan coretan tanda tangan akan terhapus.')) {
         return;
       }
     }
@@ -721,7 +725,7 @@ export default function App() {
     }
   };
 
-  const handleUpdateSOP = async (updatedSOP: SOPDocument) => {
+  const handleUpdateSOP = async (updatedSOP: SOPDocument): Promise<{ success: boolean; error?: string }> => {
     let exists = false;
     const updatedList = sops.map(s => {
       if (s.id === updatedSOP.id) {
@@ -757,11 +761,12 @@ export default function App() {
           signature_coordinator_url: updatedSOP.signatureCoordinatorUrl,
           signed_coordinator_at: updatedSOP.signedCoordinatorAt,
           status: updatedSOP.status,
-          updated_at: updatedSOP.updatedAt
+          updated_at: updatedSOP.updatedAt || new Date().toISOString()
         });
 
         if (headerErr) {
           console.error('Failed to update SOP header on Supabase:', headerErr);
+          return { success: false, error: headerErr.message };
         }
 
         // Clean up tasks removed from updatedSOP if any
@@ -770,7 +775,10 @@ export default function App() {
         if (existingTasks && existingTasks.length > 0) {
           const idsToDelete = existingTasks.map(t => t.id).filter(id => !activeTaskIds.includes(id));
           if (idsToDelete.length > 0) {
-            await supabase.from('sop_tasks').delete().in('id', idsToDelete);
+            const { error: delErr } = await supabase.from('sop_tasks').delete().in('id', idsToDelete);
+            if (delErr) {
+              console.error('Failed to delete old tasks:', delErr);
+            }
           }
         }
 
@@ -787,13 +795,17 @@ export default function App() {
           const { error: insTasksErr } = await supabase.from('sop_tasks').upsert(tasksPayload);
           if (insTasksErr) {
             console.error('Failed to upsert updated tasks on Supabase:', insTasksErr);
+            return { success: false, error: insTasksErr.message };
           }
         }
         console.log('Successfully synchronized SOP details with Supabase:', updatedSOP.id);
-      } catch (e) {
+        return { success: true };
+      } catch (e: any) {
         console.error('Failed to synchronize status with Supabase:', e);
+        return { success: false, error: e?.message || 'Gagal tersambung ke Cloud' };
       }
     }
+    return { success: true };
   };
 
   const handleDeleteSOP = async (sopId: string) => {

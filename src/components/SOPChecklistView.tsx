@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  ArrowLeft, Printer, Download, Plus, Check, Save, Clock, HelpCircle, UserCheck, Trash2
+  ArrowLeft, Printer, Download, Plus, Check, Save, Clock, HelpCircle, UserCheck, Trash2, CheckCircle2, RefreshCw, AlertCircle, CloudCheck, Cloud
 } from 'lucide-react';
 import { SOPDocument, Division, UserRole } from '../types';
 import SignaturePad from './SignaturePad';
@@ -10,7 +10,7 @@ interface SOPChecklistViewProps {
   menuList: string[];
   currentUserRole: UserRole;
   currentUsername: string;
-  onUpdateSOP: (updatedSOP: SOPDocument) => void;
+  onUpdateSOP: (updatedSOP: SOPDocument) => Promise<{ success: boolean; error?: string }> | any;
   onBack: () => void;
   isCoordinator?: boolean;
   loggedInUser?: any;
@@ -32,6 +32,30 @@ export default function SOPChecklistView({
   const [newTaskCategory, setNewTaskCategory] = useState<'persiapan' | 'aktif' | 'penutup'>('aktif');
   const [isExporting, setIsExporting] = useState(false);
 
+  // Sync state feedback
+  const [syncStatus, setSyncStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [lastSavedTime, setLastSavedTime] = useState<string>('');
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string>('');
+
+  const triggerSOPUpdate = async (updatedSOP: SOPDocument) => {
+    setSyncStatus('saving');
+    try {
+      const res = await onUpdateSOP(updatedSOP);
+      if (res && res.success === false) {
+        setSyncStatus('error');
+        setSyncErrorMessage(res.error || 'Gagal menyimpan ke Cloud Supabase');
+      } else {
+        setSyncStatus('saved');
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')} WIB`;
+        setLastSavedTime(timeStr);
+      }
+    } catch (err: any) {
+      setSyncStatus('error');
+      setSyncErrorMessage(err?.message || 'Error koneksi Cloud');
+    }
+  };
+
   const handleToggleTask = (taskId: string) => {
     if (sop.status === 'selesai') return; // Cannot modify if finalized
     
@@ -41,7 +65,7 @@ export default function SOPChecklistView({
     
     const isCheckedAll = updatedTasks.every(t => t.completed);
     
-    onUpdateSOP({
+    triggerSOPUpdate({
       ...sop,
       tasks: updatedTasks,
       isCheckedAll,
@@ -60,7 +84,7 @@ export default function SOPChecklistView({
       category: newTaskCategory
     };
 
-    onUpdateSOP({
+    triggerSOPUpdate({
       ...sop,
       tasks: [...sop.tasks, newTask],
       isCheckedAll: false,
@@ -76,7 +100,7 @@ export default function SOPChecklistView({
     const updatedTasks = sop.tasks.filter(t => t.id !== taskId);
     const isCheckedAll = updatedTasks.length > 0 && updatedTasks.every(t => t.completed);
     
-    onUpdateSOP({
+    triggerSOPUpdate({
       ...sop,
       tasks: updatedTasks,
       isCheckedAll,
@@ -92,7 +116,7 @@ export default function SOPChecklistView({
     const timestamp = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
     
     if (activeSignType === 'supervisor') {
-      onUpdateSOP({
+      triggerSOPUpdate({
         ...sop,
         signatureSupervisorUrl: dataUrl,
         signedSupervisorAt: timestamp,
@@ -100,7 +124,7 @@ export default function SOPChecklistView({
         updatedAt: new Date().toISOString()
       });
     } else if (activeSignType === 'coordinator') {
-      onUpdateSOP({
+      triggerSOPUpdate({
         ...sop,
         signatureCoordinatorUrl: dataUrl,
         signedCoordinatorAt: timestamp,
@@ -119,7 +143,7 @@ export default function SOPChecklistView({
     }
 
     if (confirm('Apakah Anda yakin ingin mengunci SOP ini? Berkas yang dikunci akan direkap permanen dan tidak dapat diedit kembali.')) {
-      onUpdateSOP({
+      triggerSOPUpdate({
         ...sop,
         status: 'selesai',
         updatedAt: new Date().toISOString()
@@ -245,6 +269,37 @@ export default function SOPChecklistView({
               Kunci & Rekap SOP
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Real-time Cloud Save Status Banner */}
+      <div className="no-print flex items-center justify-between bg-white border border-neutral-200 rounded-2xl px-4 py-2.5 shadow-xs">
+        <div className="flex items-center gap-2 text-xs">
+          {syncStatus === 'saving' && (
+            <div className="flex items-center gap-2 text-blue-700 font-semibold">
+              <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+              <span>Menyimpan perubahan SOP ke Cloud Supabase...</span>
+            </div>
+          )}
+          {syncStatus === 'saved' && (
+            <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>
+                SOP Tersimpan Aman di Cloud Supabase
+                {lastSavedTime && <span className="font-normal text-neutral-500 ml-1.5">(Terakhir disimpan {lastSavedTime})</span>}
+              </span>
+            </div>
+          )}
+          {syncStatus === 'error' && (
+            <div className="flex items-center gap-2 text-rose-700 font-semibold">
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+              <span>Gagal menyimpan ke Cloud: {syncErrorMessage || 'Periksa koneksi internet'}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="text-[11px] font-mono text-neutral-500 hidden sm:block">
+          Total: <strong className="text-neutral-800">{sop.tasks.length}</strong> Butir Tugas
         </div>
       </div>
 
