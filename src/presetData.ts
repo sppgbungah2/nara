@@ -427,14 +427,18 @@ export function getSlugFromDivision(div: Division): string {
   }
 }
 
-export function getSopTaskTableNames(div: Division | string): string[] {
+export function getSopTaskTableName(div: Division | string): string {
   const norm = (div || '').toLowerCase().trim();
-  if (norm.includes('driver') || norm.includes('distribusi')) return ['sop_task_driver', 'sop_driver', 'sop_tasks'];
-  if (norm.includes('stocking') || norm.includes('persiapan')) return ['sop_task_stocking', 'sop_stocking', 'sop_persiapan', 'sop_tasks'];
-  if (norm.includes('masak') || norm.includes('pemasakan')) return ['sop_task_masak', 'sop_masak', 'sop_pemasakan', 'sop_tasks'];
-  if (norm.includes('pemorsian')) return ['sop_task_pemorsian', 'sop_pemorsian', 'sop_tasks'];
-  if (norm.includes('kebersihan')) return ['sop_task_kebersihan', 'sop_kebersihan', 'sop_tasks'];
-  if (norm.includes('cuci') || norm.includes('pencucian')) return ['sop_task_cuci', 'sop_cuci', 'sop_pencucian', 'sop_tasks'];
-  if (norm.includes('keamanan') || norm.includes('security')) return ['sop_task_keamanan', 'sop_keamanan', 'sop_tasks'];
-  return ['sop_tasks'];
+  if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
+  if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
+  if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
+  if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
+  if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
+  if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
+  if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
+  return 'sop_task_stocking';
+}
+
+export function getSopTaskTableNames(div: Division | string): string[] {
+  return [getSopTaskTableName(div)];
 }

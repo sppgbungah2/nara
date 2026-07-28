@@ -3,6 +3,7 @@ import { SOPDocument, Division, DayMenu, TaskItem, UserRole } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { 
   getSopTaskTableNames, 
+  getSopTaskTableName,
   generateInitialSOPsForDate, 
   getDefaultTasksForDivision, 
   getSlugFromDivision,
@@ -71,14 +72,14 @@ export function useSopData(selectedDate: string) {
       if (sopErr) throw sopErr;
 
       const divisionTables = [
-        'sop_tasks',
-        'sop_task_driver', 'sop_driver',
-        'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
-        'sop_task_masak', 'sop_masak', 'sop_pemasakan',
-        'sop_task_pemorsian', 'sop_pemorsian',
-        'sop_task_kebersihan', 'sop_kebersihan',
-        'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
-        'sop_task_keamanan', 'sop_keamanan'
+        'sop_task_driver',
+        'sop_task_stocking',
+        'sop_task_masak',
+        'sop_task_pemorsian',
+        'sop_task_kebersihan',
+        'sop_task_cuci',
+        'sop_task_keamanan',
+        'sop_tasks'
       ];
 
       const taskFetchResults = await Promise.all(
@@ -88,11 +89,14 @@ export function useSopData(selectedDate: string) {
             .select('*')
             .order('sort_order', { ascending: true })
             .range(0, 9999)
-            .then(res => res.data || [], () => [])
+            .then(res => ({ tbl, data: res.data || [] }), () => ({ tbl, data: [] }))
         )
       );
 
-      const allTasksCombined = taskFetchResults.flat();
+      const tableDataMap = new Map<string, any[]>();
+      taskFetchResults.forEach(item => {
+        tableDataMap.set(item.tbl, item.data);
+      });
 
       if (menuData) {
         setDayMenus(menuData.map((m: any) => ({
@@ -106,15 +110,17 @@ export function useSopData(selectedDate: string) {
 
       if (sopData && sopData.length > 0) {
         const formattedSOPs: SOPDocument[] = sopData.map((s: any) => {
-          const matchedCloudTasks = allTasksCombined.filter((t: any) => {
+          const primaryTable = getSopTaskTableName(s.division as Division);
+          const divSlug = getSlugFromDivision(s.division as Division);
+          const altId = `SOP_${divSlug}_${s.date}`;
+
+          // Get tasks from the division's specific table first
+          const primaryTasks = tableDataMap.get(primaryTable) || [];
+          let matchedCloudTasks = primaryTasks.filter((t: any) => {
             if (!t.sop_id) return false;
             const cleanT = String(t.sop_id).trim();
             const cleanS = String(s.id).trim();
-            if (cleanT === cleanS) return true;
-
-            const divSlug = getSlugFromDivision(s.division as Division);
-            const altId = `SOP_${divSlug}_${s.date}`;
-            if (cleanT === altId) return true;
+            if (cleanT === cleanS || cleanT === altId) return true;
 
             const cleanTaskSopId = cleanT.toLowerCase();
             const cleanDivSlug = divSlug.toLowerCase();
@@ -122,6 +128,23 @@ export function useSopData(selectedDate: string) {
             return (cleanTaskSopId.includes(s.date) && cleanTaskSopId.includes(cleanDivSlug)) ||
                    (cleanTaskSopId.includes(normDate) && cleanTaskSopId.includes(cleanDivSlug));
           });
+
+          // Fallback to sop_tasks if primary table is empty for legacy records
+          if (matchedCloudTasks.length === 0) {
+            const fallbackTasks = tableDataMap.get('sop_tasks') || [];
+            matchedCloudTasks = fallbackTasks.filter((t: any) => {
+              if (!t.sop_id) return false;
+              const cleanT = String(t.sop_id).trim();
+              const cleanS = String(s.id).trim();
+              if (cleanT === cleanS || cleanT === altId) return true;
+
+              const cleanTaskSopId = cleanT.toLowerCase();
+              const cleanDivSlug = divSlug.toLowerCase();
+              const normDate = s.date.replace(/-/g, '');
+              return (cleanTaskSopId.includes(s.date) && cleanTaskSopId.includes(cleanDivSlug)) ||
+                     (cleanTaskSopId.includes(normDate) && cleanTaskSopId.includes(cleanDivSlug));
+            });
+          }
 
           let mergedTasks: TaskItem[] = [];
           if (matchedCloudTasks.length > 0) {
@@ -232,7 +255,7 @@ export function useSopData(selectedDate: string) {
         const { error: sopErr } = await supabase.from('sops').upsert(sopPayload);
         if (sopErr) throw sopErr;
 
-        const targetTables = getSopTaskTableNames(updatedSOP.division);
+        const targetTable = getSopTaskTableName(updatedSOP.division);
         const divSlug = getSlugFromDivision(updatedSOP.division);
         const altSopId = `SOP_${divSlug}_${updatedSOP.date}`;
 
@@ -245,28 +268,19 @@ export function useSopData(selectedDate: string) {
           sort_order: t.sort_order ?? idx
         }));
 
-        const tasksPayloadWithAltId = updatedSOP.tasks.map((t, idx) => ({
-          id: t.id.includes('custom') ? t.id : `${altSopId}-${idx}`,
-          sop_id: altSopId,
-          text: t.text || '',
-          completed: !!t.completed,
-          category: t.category || 'aktif',
-          sort_order: t.sort_order ?? idx
-        }));
-
-        for (const tbl of targetTables) {
+        // Clean old records from both targetTable and sop_tasks (and legacy tables)
+        const tablesToClean = [targetTable, 'sop_tasks', 'sop_driver', 'sop_stocking', 'sop_persiapan', 'sop_masak', 'sop_pemasakan', 'sop_pemorsian', 'sop_kebersihan', 'sop_cuci', 'sop_pencucian', 'sop_keamanan'];
+        for (const tbl of tablesToClean) {
           try {
             await supabase.from(tbl).delete().eq('sop_id', updatedSOP.id);
             await supabase.from(tbl).delete().eq('sop_id', altSopId);
-            if (tasksPayloadWithSId.length > 0) {
-              await supabase.from(tbl).upsert(tasksPayloadWithSId);
-              if (tbl !== 'sop_tasks') {
-                await supabase.from(tbl).upsert(tasksPayloadWithAltId);
-              }
-            }
-          } catch (e) {
-            console.warn(`Upsert tasks table ${tbl} failed:`, e);
-          }
+          } catch (e) {}
+        }
+
+        // Write ONLY to the division's specific task table
+        if (tasksPayloadWithSId.length > 0) {
+          const { error: taskErr } = await supabase.from(targetTable).upsert(tasksPayloadWithSId);
+          if (taskErr) console.error(`Error writing tasks to ${targetTable}:`, taskErr);
         }
       }
 
@@ -326,7 +340,7 @@ export function useSopData(selectedDate: string) {
 
           const divSlug = getSlugFromDivision(s.division);
           const altSopId = `SOP_${divSlug}_${s.date}`;
-          const targetTables = getSopTaskTableNames(s.division);
+          const targetTable = getSopTaskTableName(s.division);
 
           const tasksToSave = (s.tasks && s.tasks.length > 0) 
             ? s.tasks 
@@ -341,29 +355,19 @@ export function useSopData(selectedDate: string) {
             sort_order: t.sort_order ?? idx
           }));
 
-          const tasksPayloadWithAltId = tasksToSave.map((t, idx) => ({
-            id: t.id.includes('custom') ? t.id : `${altSopId}-${idx}`,
-            sop_id: altSopId,
-            text: t.text || '',
-            completed: !!t.completed,
-            category: t.category || 'aktif',
-            sort_order: t.sort_order ?? idx
-          }));
-
-          for (const tbl of targetTables) {
+          // Clean up old tasks in targetTable and sop_tasks / legacy tables
+          const tablesToClean = [targetTable, 'sop_tasks', 'sop_driver', 'sop_stocking', 'sop_persiapan', 'sop_masak', 'sop_pemasakan', 'sop_pemorsian', 'sop_kebersihan', 'sop_cuci', 'sop_pencucian', 'sop_keamanan'];
+          for (const tbl of tablesToClean) {
             try {
               await supabase.from(tbl).delete().eq('sop_id', s.id);
               await supabase.from(tbl).delete().eq('sop_id', altSopId);
+            } catch (e) {}
+          }
 
-              if (tasksPayloadWithSId.length > 0) {
-                await supabase.from(tbl).upsert(tasksPayloadWithSId);
-                if (tbl !== 'sop_tasks') {
-                  await supabase.from(tbl).upsert(tasksPayloadWithAltId);
-                }
-              }
-            } catch (e) {
-              console.warn(`Failed writing to ${tbl}:`, e);
-            }
+          // Write ONLY to division's specific task table
+          if (tasksPayloadWithSId.length > 0) {
+            const { error: taskErr } = await supabase.from(targetTable).upsert(tasksPayloadWithSId);
+            if (taskErr) console.error(`Failed writing to ${targetTable}:`, taskErr);
           }
         }
       }

@@ -144,20 +144,20 @@ export default function App() {
     }
   };
 
-  const getSopTaskTableNames = (div: Division | string): string[] => {
+  const getSopTaskTableName = (div: Division | string): string => {
     const norm = (div || '').toLowerCase().trim();
-    if (norm.includes('driver') || norm.includes('distribusi')) return ['sop_task_driver', 'sop_driver', 'sop_tasks'];
-    if (norm.includes('stocking') || norm.includes('persiapan')) return ['sop_task_stocking', 'sop_stocking', 'sop_persiapan', 'sop_tasks'];
-    if (norm.includes('masak') || norm.includes('pemasakan')) return ['sop_task_masak', 'sop_masak', 'sop_pemasakan', 'sop_tasks'];
-    if (norm.includes('pemorsian')) return ['sop_task_pemorsian', 'sop_pemorsian', 'sop_tasks'];
-    if (norm.includes('kebersihan')) return ['sop_task_kebersihan', 'sop_kebersihan', 'sop_tasks'];
-    if (norm.includes('cuci') || norm.includes('pencucian')) return ['sop_task_cuci', 'sop_cuci', 'sop_pencucian', 'sop_tasks'];
-    if (norm.includes('keamanan') || norm.includes('security')) return ['sop_task_keamanan', 'sop_keamanan', 'sop_tasks'];
-    return ['sop_tasks'];
+    if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
+    if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
+    if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
+    if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
+    if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
+    if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
+    if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
+    return 'sop_task_stocking';
   };
 
-  const getSopTaskTableName = (div: Division | string): string => {
-    return getSopTaskTableNames(div)[0];
+  const getSopTaskTableNames = (div: Division | string): string[] => {
+    return [getSopTaskTableName(div)];
   };
 
   // Listen for route changes (standard clean pathname routing with date & division slug support)
@@ -402,7 +402,7 @@ export default function App() {
 
       // 2. Generate initial default SOPs if empty
       const initialSopsInDatabase: any[] = [];
-      const initialTasksInDatabase: any[] = [];
+      const tasksByTable: Record<string, any[]> = {};
 
       // Monday 2026-06-15 sops (Seeded as completed & signed)
       const mondayMenu = ['Nasi Putih', 'Ayam Geprek Sambal Korek', 'Tumis Kangkung Belacan', 'Khrupuk Udang', 'Pisang Ambon'];
@@ -412,6 +412,9 @@ export default function App() {
                               creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-15-${div}`;
+        const targetTable = getSopTaskTableName(div);
+        if (!tasksByTable[targetTable]) tasksByTable[targetTable] = [];
+
         initialSopsInDatabase.push({
           id: sopId,
           date: '2026-06-15',
@@ -431,7 +434,7 @@ export default function App() {
 
         const defaultTasks = generateInitialSOPsForDate('2026-06-15', mondayMenu).find(s => s.division === div)?.tasks || [];
         defaultTasks.forEach((t: any, idx: number) => {
-          initialTasksInDatabase.push({
+          tasksByTable[targetTable].push({
             id: `${sopId}-t-${idx}`,
             sop_id: sopId,
             text: t.text,
@@ -450,6 +453,9 @@ export default function App() {
                               creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-16-${div}`;
+        const targetTable = getSopTaskTableName(div);
+        if (!tasksByTable[targetTable]) tasksByTable[targetTable] = [];
+
         initialSopsInDatabase.push({
           id: sopId,
           date: '2026-06-16',
@@ -469,7 +475,7 @@ export default function App() {
 
         const defaultTasks = generateInitialSOPsForDate('2026-06-16', tuesdayMenu).find(s => s.division === div)?.tasks || [];
         defaultTasks.forEach((t: any, idx: number) => {
-          initialTasksInDatabase.push({
+          tasksByTable[targetTable].push({
             id: `${sopId}-t-${idx}`,
             sop_id: sopId,
             text: t.text,
@@ -481,7 +487,11 @@ export default function App() {
       });
 
       await supabase.from('sops').upsert(initialSopsInDatabase);
-      await supabase.from('sop_tasks').upsert(initialTasksInDatabase);
+      for (const [tbl, tasks] of Object.entries(tasksByTable)) {
+        if (tasks.length > 0) {
+          await supabase.from(tbl).upsert(tasks);
+        }
+      }
       console.log('Bootstrapping Supabase database completed successfully!');
     } catch (e) {
       console.error('Failed to bootstrap Supabase:', e);
