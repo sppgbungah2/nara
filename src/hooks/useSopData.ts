@@ -325,12 +325,29 @@ export function useSopData(selectedDate: string) {
 
         // Write tasks directly to division specific tables (sop_tasks_<divisi> and sop_task_<divisi>)
         if (tasksPayloadWithSId.length > 0) {
+          let successCount = 0;
+          let lastError = '';
+
           for (const tbl of targetTables) {
-            const { error: taskErr } = await supabase.from(tbl).upsert(tasksPayloadWithSId);
-            if (taskErr) {
-              console.error(`Error writing tasks to ${tbl}:`, taskErr);
-              throw new Error(`Gagal menyimpan tugas ke tabel divisi ${tbl}: ${taskErr.message}`);
+            try {
+              const { error: taskErr } = await supabase.from(tbl).upsert(tasksPayloadWithSId);
+              if (!taskErr) {
+                successCount++;
+              } else {
+                console.warn(`Peringatan simpan ke ${tbl}:`, taskErr.message);
+                lastError = taskErr.message;
+              }
+            } catch (e: any) {
+              console.warn(`Exception saat simpan ke ${tbl}:`, e);
+              lastError = e?.message || String(e);
             }
+          }
+
+          if (successCount === 0) {
+            if (lastError.toLowerCase().includes('row-level security') || lastError.toLowerCase().includes('rls')) {
+              throw new Error(`Akses Ditolak oleh Row Level Security (RLS) Supabase pada tabel divisi '${targetTables[0]}'. Silakan salin & jalankan skrip SQL Migration di menu Admin -> SQL Editor Supabase untuk mematikan RLS.`);
+            }
+            throw new Error(`Gagal menyimpan tugas ke tabel divisi (${targetTables.join(', ')}): ${lastError}`);
           }
         }
       }
@@ -432,12 +449,29 @@ export function useSopData(selectedDate: string) {
 
           // Write tasks to division task tables (sop_tasks_<divisi> and sop_task_<divisi>)
           if (tasksPayloadWithSId.length > 0) {
+            let successCount = 0;
+            let lastError = '';
+
             for (const tbl of targetTables) {
-              const { error: taskErr } = await supabase.from(tbl).upsert(tasksPayloadWithSId);
-              if (taskErr) {
-                console.error(`Failed writing tasks to ${tbl}:`, taskErr);
-                throw new Error(`Gagal menyimpan tugas ke tabel divisi ${tbl}: ${taskErr.message}`);
+              try {
+                const { error: taskErr } = await supabase.from(tbl).upsert(tasksPayloadWithSId);
+                if (!taskErr) {
+                  successCount++;
+                } else {
+                  console.warn(`Peringatan simpan ke ${tbl}:`, taskErr.message);
+                  lastError = taskErr.message;
+                }
+              } catch (e: any) {
+                console.warn(`Exception saat simpan ke ${tbl}:`, e);
+                lastError = e?.message || String(e);
               }
+            }
+
+            if (successCount === 0) {
+              if (lastError.toLowerCase().includes('row-level security') || lastError.toLowerCase().includes('rls')) {
+                throw new Error(`Akses Ditolak oleh Row Level Security (RLS) Supabase pada tabel divisi '${targetTables[0]}'. Silakan buka menu Admin & salin skrip SQL Migration lalu jalankan di Supabase SQL Editor untuk mematikan RLS.`);
+              }
+              throw new Error(`Gagal menyimpan tugas divisi ${s.division}: ${lastError}`);
             }
           }
         }
