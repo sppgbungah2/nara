@@ -427,18 +427,41 @@ export function getSlugFromDivision(div: Division): string {
   }
 }
 
+export function normalizeDateISO(dateStr: string): string {
+  if (!dateStr) return '';
+  const parsed = parseDateFromSlug(dateStr);
+  if (parsed) return parsed;
+  return dateStr.trim();
+}
+
+export function getCanonicalSopId(date: string, division: Division | string): string {
+  const isoDate = normalizeDateISO(date);
+  const norm = (division || '').toString().toLowerCase();
+  let divSlug = 'stocking';
+  if (norm.includes('driver') || norm.includes('distribusi')) divSlug = 'driver';
+  else if (norm.includes('stocking') || norm.includes('persiapan')) divSlug = 'stocking';
+  else if (norm.includes('masak') || norm.includes('pemasakan')) divSlug = 'masak';
+  else if (norm.includes('pemorsian')) divSlug = 'pemorsian';
+  else if (norm.includes('kebersihan')) divSlug = 'kebersihan';
+  else if (norm.includes('cuci') || norm.includes('pencucian')) divSlug = 'cuci';
+  else if (norm.includes('keamanan') || norm.includes('security')) divSlug = 'keamanan';
+  return `SOP-${isoDate}-${divSlug.toUpperCase()}`;
+}
+
 export function getSopTaskTableName(div: Division | string): string {
   const norm = (div || '').toLowerCase().trim();
-  if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
-  if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
-  if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
-  if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
-  if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
-  if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
-  if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
-  return 'sop_task_stocking';
+  if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_tasks_driver';
+  if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_tasks_stocking';
+  if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_tasks_masak';
+  if (norm.includes('pemorsian')) return 'sop_tasks_pemorsian';
+  if (norm.includes('kebersihan')) return 'sop_tasks_kebersihan';
+  if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_tasks_cuci';
+  if (norm.includes('keamanan') || norm.includes('security')) return 'sop_tasks_keamanan';
+  return 'sop_tasks_stocking';
 }
 
 export function getSopTaskTableNames(div: Division | string): string[] {
-  return [getSopTaskTableName(div)];
+  const primary = getSopTaskTableName(div);
+  const singular = primary.replace('sop_tasks_', 'sop_task_');
+  return [primary, singular];
 }
