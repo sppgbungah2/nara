@@ -284,7 +284,7 @@ export function generateInitialSOPsForDate(date: string, menuList: string[]): Re
     const creatorInfo = DIVISION_CREATOR_MAP[div];
     let creatorName = 'Rizka Aulia';
     if (creatorInfo.role === UserRole.AHLI_GIZI) {
-      creatorName = 'Ustadzah Fatimah, S.Gz';
+      creatorName = 'Dian';
     } else if (creatorInfo.role === UserRole.ASLAP) {
       creatorName = 'Ahmad Maghfur (Aslap)';
     }
