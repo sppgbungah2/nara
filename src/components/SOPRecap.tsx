@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { 
-  ClipboardCheck, Search, Filter, Calendar, CheckSquare, Eye, Printer, ShieldAlert, FileMinus
+  ClipboardCheck, Search, Filter, Calendar, CheckSquare, Eye, Printer, ShieldAlert, FileMinus, Trash2
 } from 'lucide-react';
 import { SOPDocument, Division, UserRole } from '../types';
 
 interface SOPRecapProps {
   sops: SOPDocument[];
   onSelectSOP: (sop: SOPDocument) => void;
+  onDeleteSOP?: (sopId: string) => void;
 }
 
-export default function SOPRecap({ sops, onSelectSOP }: SOPRecapProps) {
+export default function SOPRecap({ sops, onSelectSOP, onDeleteSOP }: SOPRecapProps) {
   const [filterDivision, setFilterDivision] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,13 +217,29 @@ export default function SOPRecap({ sops, onSelectSOP }: SOPRecapProps) {
                       </td>
                       {/* Action buttons */}
                       <td className="py-3.5 px-5 text-right no-print">
-                        <button
-                          onClick={() => onSelectSOP(sop)}
-                          className="text-white bg-emerald-800 hover:bg-emerald-950 font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 ml-auto"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Buka
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => onSelectSOP(sop)}
+                            className="text-white bg-emerald-800 hover:bg-emerald-950 font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Buka
+                          </button>
+                          {onDeleteSOP && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Hapus berkas SOP ${sop.division} tanggal ${formatIndoDate(sop.date)}? Berkas SOP yang dihapus tidak dapat dikembalikan.`)) {
+                                  onDeleteSOP(sop.id);
+                                }
+                              }}
+                              className="text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 font-semibold px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              title="Hapus SOP"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                              <span className="hidden sm:inline">Hapus</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

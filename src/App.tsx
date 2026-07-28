@@ -890,6 +890,34 @@ export default function App() {
     }
   };
 
+  const handleDeleteSOP = async (sopId: string) => {
+    const updatedList = sops.filter(s => s.id !== sopId);
+    setSops(updatedList);
+    try {
+      localStorage.setItem('sppg_sops', JSON.stringify(updatedList));
+    } catch (e) {
+      console.error('Local storage write failed:', e);
+    }
+
+    if (activeSopDetail && activeSopDetail.id === sopId) {
+      setActiveSopDetail(null);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('sop_tasks').delete().eq('sop_id', sopId);
+        const { error } = await supabase.from('sops').delete().eq('id', sopId);
+        if (error) {
+          console.error('Failed to delete SOP from Supabase:', error);
+        } else {
+          console.log('Successfully deleted SOP from Supabase:', sopId);
+        }
+      } catch (e) {
+        console.error('Supabase delete SOP error:', e);
+      }
+    }
+  };
+
   // Helper selectors
   const getMenuForSelectedDate = () => {
     return dayMenus.find(m => m.date === selectedDate) || null;
@@ -1337,6 +1365,7 @@ export default function App() {
                 <SOPRecap
                   sops={sops}
                   onSelectSOP={(sop) => setActiveSopDetail(sop)}
+                  onDeleteSOP={handleDeleteSOP}
                 />
               ) : (
                 /* 2.A MAIN SOP DASHBOARD SUB-TAB */
