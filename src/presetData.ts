@@ -450,18 +450,18 @@ export function getCanonicalSopId(date: string, division: Division | string): st
 
 export function getSopTaskTableName(div: Division | string): string {
   const norm = (div || '').toLowerCase().trim();
-  if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_tasks_driver';
-  if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_tasks_stocking';
-  if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_tasks_masak';
-  if (norm.includes('pemorsian')) return 'sop_tasks_pemorsian';
-  if (norm.includes('kebersihan')) return 'sop_tasks_kebersihan';
-  if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_tasks_cuci';
-  if (norm.includes('keamanan') || norm.includes('security')) return 'sop_tasks_keamanan';
-  return 'sop_tasks_stocking';
+  if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
+  if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
+  if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
+  if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
+  if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
+  if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
+  if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
+  return 'sop_task_stocking';
 }
 
 export function getSopTaskTableNames(div: Division | string): string[] {
   const primary = getSopTaskTableName(div);
-  const singular = primary.replace('sop_tasks_', 'sop_task_');
-  return [primary, singular];
+  const plural = primary.replace('sop_task_', 'sop_tasks_');
+  return [primary, plural];
 }

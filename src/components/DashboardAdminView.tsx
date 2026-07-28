@@ -1454,7 +1454,25 @@ ALTER TABLE public.sop_task_masak DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_task_pemorsian DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_task_kebersihan DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_task_cuci DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;`;
+ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;
+
+DO $$ 
+DECLARE 
+  tbl text;
+BEGIN 
+  FOR tbl IN 
+    SELECT table_name FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+      AND table_name IN (
+        'day_menus','sops','sop_tasks',
+        'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
+        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan'
+      )
+  LOOP 
+    EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);
+    EXECUTE format('CREATE POLICY "Public Full Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl);
+  END LOOP; 
+END $$;`;
                     navigator.clipboard.writeText(sqlText);
                     setCopiedSql(true);
                     setTimeout(() => setCopiedSql(false), 3000);
@@ -1568,7 +1586,25 @@ ALTER TABLE public.sop_task_masak DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_task_pemorsian DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_task_kebersihan DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_task_cuci DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;`}
+ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;
+
+DO $$ 
+DECLARE 
+  tbl text;
+BEGIN 
+  FOR tbl IN 
+    SELECT table_name FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+      AND table_name IN (
+        'day_menus','sops','sop_tasks',
+        'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
+        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan'
+      )
+  LOOP 
+    EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);
+    EXECUTE format('CREATE POLICY "Public Full Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl);
+  END LOOP; 
+END $$;`}
                 </pre>
               </div>
             </div>

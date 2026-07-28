@@ -312,7 +312,7 @@ CREATE TABLE IF NOT EXISTS public.volunteer_complaints (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. DISABLE RLS ATAU BUAT ACCESS POLICY TERBUKA AGAR TIDAK TERBLOKIR
+-- 6. DISABLE RLS DAN BUAT ACCESS POLICY TERBUKA AGAR SAMA SEKALI TIDAK TERBLOKIR
 ALTER TABLE public.day_menus DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sops DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sop_tasks DISABLE ROW LEVEL SECURITY;
@@ -339,3 +339,23 @@ ALTER TABLE public.kedatangan_barang DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sisa_stok DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_requests DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.volunteer_complaints DISABLE ROW LEVEL SECURITY;
+
+-- KLAUSA POLIS TERBUKA (PERMISSIVE POLICIES UNTUK ANONYMOUS & AUTHENTICATED USER)
+DO $$ 
+DECLARE 
+  tbl text;
+BEGIN 
+  FOR tbl IN 
+    SELECT table_name FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+      AND table_name IN (
+        'day_menus','sops','sop_tasks',
+        'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
+        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan',
+        'shipping_docs','master_porsi','kedatangan_barang','sisa_stok','order_requests','volunteer_complaints'
+      )
+  LOOP 
+    EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);
+    EXECUTE format('CREATE POLICY "Public Full Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl);
+  END LOOP; 
+END $$;
