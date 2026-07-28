@@ -109,7 +109,33 @@ export default function App() {
     return '';
   };
 
-  // Listen for route changes (standard clean pathname routing with date slug support)
+  const getDivisionFromSlug = (slug: string): Division | null => {
+    const norm = slug.toLowerCase().trim();
+    if (norm === 'driver') return Division.DRIVER;
+    if (norm === 'persiapan' || norm === 'stocking') return Division.STOCKING;
+    if (norm === 'pemasakan' || norm === 'masak') return Division.MASAK;
+    if (norm === 'pemorsian') return Division.PEMORSIAN;
+    if (norm === 'distribusi') return Division.DRIVER;
+    if (norm === 'kebersihan') return Division.KEBERSIHAN;
+    if (norm === 'pencucian' || norm === 'cuci') return Division.CUCI;
+    if (norm === 'keamanan' || norm === 'security') return Division.KEAMANAN;
+    return null;
+  };
+
+  const getSlugFromDivision = (div: Division): string => {
+    switch (div) {
+      case Division.DRIVER: return 'driver';
+      case Division.STOCKING: return 'persiapan';
+      case Division.MASAK: return 'pemasakan';
+      case Division.PEMORSIAN: return 'pemorsian';
+      case Division.KEBERSIHAN: return 'kebersihan';
+      case Division.CUCI: return 'pencucian';
+      case Division.KEAMANAN: return 'keamanan';
+      default: return 'persiapan';
+    }
+  };
+
+  // Listen for route changes (standard clean pathname routing with date & division slug support)
   useEffect(() => {
     const handleRouteChange = () => {
       // Clean up legacy hash paths if present by rewriting them to standard paths
@@ -121,7 +147,7 @@ export default function App() {
       const path = window.location.pathname;
       if (!path || path === '/') return;
       
-      const parts = path.split('/').filter(Boolean); // e.g. ["admin", "sop", "27-7-2026"] or ["user", "ma", "surat-jalan", "27-7-2026"]
+      const parts = path.split('/').filter(Boolean); // e.g. ["admin", "sop", "driver", "29-7-2026"]
       
       // 1. Check for Date Slug
       for (let i = parts.length - 1; i >= 0; i--) {
@@ -149,7 +175,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleRouteChange);
   }, []);
 
-  // Update browser URL path when activeTab or selectedDate changes
+  // Update browser URL path when activeTab, selectedDate, or activeSopDetail changes
   useEffect(() => {
     if (!loggedInUser) return;
     
@@ -179,7 +205,14 @@ export default function App() {
 
     if (page) {
       let newPath = '';
-      if (subEntity) {
+      if (activeTab === 15 && activeSopDetail) {
+        const divSlug = getSlugFromDivision(activeSopDetail.division);
+        if (subEntity) {
+          newPath = `/${prefix}/${subEntity}/${page}/${divSlug}/${dateSlug}`;
+        } else {
+          newPath = `/${prefix}/${page}/${divSlug}/${dateSlug}`;
+        }
+      } else if (subEntity) {
         newPath = `/${prefix}/${subEntity}/${page}/${dateSlug}`;
       } else {
         newPath = `/${prefix}/${page}/${dateSlug}`;
@@ -189,19 +222,46 @@ export default function App() {
         window.history.pushState(null, '', newPath);
       }
     }
-  }, [activeTab, selectedDate, loggedInUser]);
+  }, [activeTab, selectedDate, activeSopDetail, loggedInUser]);
 
-  // Automatically load the coordinator's specific division's SOP checklist in active detail view
+  // Keep activeSopDetail synchronized with URL parameters or latest sops list from Cloud Supabase
   useEffect(() => {
-    if (loggedInUser?.isCoordinator && loggedInUser?.coordinatorDivision && activeTab === 15) {
-      const matchedSOP = sops.find(s => s.date === selectedDate && s.division === loggedInUser.coordinatorDivision);
+    if (activeTab !== 15) return;
+
+    // Check if URL specifies division & date
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    let urlDiv: Division | null = null;
+    let urlDate: string | null = null;
+    for (const p of parts) {
+      const d = parseDateFromSlug(p);
+      if (d) urlDate = d;
+      const div = getDivisionFromSlug(p);
+      if (div) urlDiv = div;
+    }
+
+    const searchDate = urlDate || selectedDate;
+    let searchDiv = urlDiv;
+
+    if (!searchDiv && loggedInUser?.isCoordinator && loggedInUser?.coordinatorDivision) {
+      searchDiv = loggedInUser.coordinatorDivision;
+    } else if (!searchDiv && activeSopDetail) {
+      searchDiv = activeSopDetail.division;
+    }
+
+    if (searchDiv && searchDate) {
+      const matchedSOP = sops.find(s => s.date === searchDate && s.division === searchDiv);
       if (matchedSOP) {
-        setActiveSopDetail(matchedSOP);
-      } else {
-        setActiveSopDetail(null);
+        if (!activeSopDetail || JSON.stringify(matchedSOP) !== JSON.stringify(activeSopDetail)) {
+          setActiveSopDetail(matchedSOP);
+        }
+      }
+    } else if (activeSopDetail) {
+      const updatedSop = sops.find(s => s.id === activeSopDetail.id || (s.date === activeSopDetail.date && s.division === activeSopDetail.division));
+      if (updatedSop && JSON.stringify(updatedSop) !== JSON.stringify(activeSopDetail)) {
+        setActiveSopDetail(updatedSop);
       }
     }
-  }, [loggedInUser, selectedDate, sops, activeTab]);
+  }, [sops, activeTab, selectedDate, loggedInUser]);
 
   // Synchronise usernames based on active role
   useEffect(() => {
