@@ -14,6 +14,7 @@ interface SOPChecklistViewProps {
   onBack: () => void;
   isCoordinator?: boolean;
   loggedInUser?: any;
+  onSaveSopsToCloud?: (date?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 export default function SOPChecklistView({ 
@@ -24,7 +25,8 @@ export default function SOPChecklistView({
   onUpdateSOP, 
   onBack,
   isCoordinator = false,
-  loggedInUser = null
+  loggedInUser = null,
+  onSaveSopsToCloud
 }: SOPChecklistViewProps) {
   const isAdmin = loggedInUser?.email === 'maghfurmunif@gmail.com' || loggedInUser?.email === 'punkysme@gmail.com' || currentUserRole === UserRole.ADMIN || loggedInUser?.role === UserRole.ADMIN;
   const [activeSignType, setActiveSignType] = useState<'supervisor' | 'coordinator' | null>(null);
@@ -227,6 +229,27 @@ export default function SOPChecklistView({
     }
   };
 
+  const handleManualCloudSave = async () => {
+    if (onSaveSopsToCloud) {
+      setSyncStatus('saving');
+      try {
+        const res = await onSaveSopsToCloud(sop.date);
+        if (res.success) {
+          setSyncStatus('saved');
+          setLastSavedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+        } else {
+          setSyncStatus('error');
+          setSyncErrorMessage(res.message);
+        }
+      } catch (e: any) {
+        setSyncStatus('error');
+        setSyncErrorMessage(e?.message || 'Gagal tersambung');
+      }
+    } else {
+      triggerSOPUpdate(sop);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Upper navigation actions */}
@@ -246,7 +269,16 @@ export default function SOPChecklistView({
           </button>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={handleManualCloudSave}
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            title="Simpan & Sinkronkan Seluruh Tugas SOP Ini Langsung ke Cloud Supabase"
+          >
+            <Cloud className="h-4 w-4" />
+            SIMPAN SOP KE CLOUD
+          </button>
           <button
             onClick={handlePrint}
             className="bg-white border border-neutral-200 hover:bg-neutral-50 px-3.5 py-1.5 rounded-xl text-xs font-bold text-neutral-700 flex items-center gap-1.5 transition-all shadow-xs"

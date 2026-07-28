@@ -35,6 +35,7 @@ export interface TaskItem {
   text: string;
   completed: boolean;
   category: 'persiapan' | 'aktif' | 'penutup'; // APD/General, Cooking/Active, Cleaning/Closing
+  sort_order?: number;
 }
 
 export interface SOPDocument {

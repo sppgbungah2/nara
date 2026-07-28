@@ -24,6 +24,7 @@ interface DashboardAdminViewProps {
   setOrderRequests: React.Dispatch<React.SetStateAction<OrderRequestItem[]>>;
   keluhanList: VolunteerComplaintItem[];
   setKeluhanList: React.Dispatch<React.SetStateAction<VolunteerComplaintItem[]>>;
+  onSaveSopsToCloud?: (date?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 export default function DashboardAdminView({
@@ -39,10 +40,12 @@ export default function DashboardAdminView({
   orderRequests = [],
   setOrderRequests,
   keluhanList = [],
-  setKeluhanList
+  setKeluhanList,
+  onSaveSopsToCloud
 }: DashboardAdminViewProps) {
   // Local state for interactive editing
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isSavingCloud, setIsSavingCloud] = useState(false);
   const [quickPorsiModalOpen, setQuickPorsiModalOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [sqlModalOpen, setSqlModalOpen] = useState(false);
@@ -209,6 +212,21 @@ export default function DashboardAdminView({
     setTimeout(() => setSuccessMsg(null), 3500);
   };
 
+  // Explicitly Save SOPs to Cloud Supabase
+  const handleSaveToCloud = async () => {
+    if (!onSaveSopsToCloud) return;
+    setIsSavingCloud(true);
+    try {
+      const res = await onSaveSopsToCloud(selectedDate);
+      setSuccessMsg(res.message);
+    } catch (err: any) {
+      alert('Gagal menyimpan ke Cloud: ' + (err?.message || err));
+    } finally {
+      setIsSavingCloud(false);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    }
+  };
+
   // Quick set portions
   const handleOpenQuickPorsi = () => {
     setTempPortions({ ...portions });
@@ -304,6 +322,16 @@ export default function DashboardAdminView({
             
             {/* Quick Action Buttons */}
             <div className="flex items-center gap-2 flex-wrap">
+              {onSaveSopsToCloud && (
+                <button
+                  onClick={handleSaveToCloud}
+                  disabled={isSavingCloud}
+                  className="bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-neutral-950 font-black text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer border border-emerald-300"
+                >
+                  {isSavingCloud ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-emerald-950" />}
+                  SIMPAN SOP KE CLOUD
+                </button>
+              )}
               <button
                 onClick={() => setSqlModalOpen(true)}
                 className="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer"

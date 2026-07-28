@@ -20,6 +20,7 @@ interface SOPCreatorProps {
   onDeleteMenu: (date: string) => void;
   onSetUserRole: (role: UserRole) => void;
   onBootstrapDb: () => Promise<void>;
+  onSaveSopsToCloud?: (date?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const PRESET_SUGGESTIONS = [
@@ -43,7 +44,8 @@ export default function SOPCreator({
   onSelectDate,
   onDeleteMenu,
   onSetUserRole,
-  onBootstrapDb
+  onBootstrapDb,
+  onSaveSopsToCloud
 }: SOPCreatorProps) {
   // Primary (H-0 / Current Edit Date) States
   const [editedMenuList, setEditedMenuList] = useState<string[]>(
@@ -103,13 +105,32 @@ export default function SOPCreator({
     }
     
     setIsActivating(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       onSaveMenu(selectedDate, editedMenuList);
       onGenerateSOPs(selectedDate, editedMenuList);
+      if (onSaveSopsToCloud) {
+        const res = await onSaveSopsToCloud(selectedDate);
+        setSuccessBanner(res.message);
+      } else {
+        setSuccessBanner(`Menu & SOP digital untuk tanggal ${selectedDate} berhasil dideploy ke Supabase!`);
+      }
       setIsActivating(false);
-      setSuccessBanner(`Menu & SOP digital untuk tanggal ${selectedDate} berhasil dideploy ke Supabase!`);
       setTimeout(() => setSuccessBanner(null), 4000);
     }, 1000);
+  };
+
+  const handleExplicitCloudSave = async () => {
+    if (!onSaveSopsToCloud) return;
+    setIsActivating(true);
+    try {
+      const res = await onSaveSopsToCloud(selectedDate);
+      setSuccessBanner(res.message);
+    } catch (err: any) {
+      alert('Gagal menyimpan ke Cloud: ' + (err?.message || err));
+    } finally {
+      setIsActivating(false);
+      setTimeout(() => setSuccessBanner(null), 4000);
+    }
   };
 
   // Scheduling (Future Date) Handlers
@@ -310,27 +331,40 @@ export default function SOPCreator({
             </div>
           )}
 
-          <div className="border-t border-neutral-100 pt-4 flex items-center justify-between">
+          <div className="border-t border-neutral-100 pt-4 flex items-center justify-between flex-wrap gap-2">
             <span className="text-[10px] text-neutral-400">
               *Diunggah oleh: {dayMenu ? dayMenu.createdBy : 'Draf belum disimpan'}
             </span>
-            <button
-              id="btn-release-sops"
-              onClick={handleSaveMenuAndInitialize}
-              className="bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform"
-            >
-              {dayMenu ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Ganti / Update SOP & Menu
-                </>
-              ) : (
-                <>
-                  <FilePlus className="h-3.5 w-3.5" />
-                  Rilis SOP Tanggal Ini
-                </>
+            <div className="flex items-center gap-2">
+              {onSaveSopsToCloud && (
+                <button
+                  type="button"
+                  onClick={handleExplicitCloudSave}
+                  disabled={isActivating}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform active:scale-95"
+                >
+                  {isActivating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  SIMPAN SOP KE CLOUD
+                </button>
               )}
-            </button>
+              <button
+                id="btn-release-sops"
+                onClick={handleSaveMenuAndInitialize}
+                className="bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 text-white font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform"
+              >
+                {dayMenu ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Ganti / Update SOP & Menu
+                  </>
+                ) : (
+                  <>
+                    <FilePlus className="h-3.5 w-3.5" />
+                    Rilis SOP Tanggal Ini
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

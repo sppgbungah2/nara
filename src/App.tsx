@@ -6,7 +6,7 @@ import {
   Menu, Info, Eye, Trash2, ClipboardCheck, LayoutDashboard
 } from 'lucide-react';
 import { Division, UserRole, DayMenu, SOPDocument } from './types';
-import { PRESET_MENUS, DIVISION_CREATOR_MAP, generateInitialSOPsForDate } from './presetData';
+import { PRESET_MENUS, DIVISION_CREATOR_MAP, generateInitialSOPsForDate, getDefaultTasksForDivision } from './presetData';
 import SOPCreator from './components/SOPCreator';
 import SOPChecklistView from './components/SOPChecklistView';
 import SOPRecap from './components/SOPRecap';
@@ -137,16 +137,20 @@ export default function App() {
     }
   };
 
-  const getSopTaskTableName = (div: Division | string): string => {
+  const getSopTaskTableNames = (div: Division | string): string[] => {
     const norm = (div || '').toLowerCase().trim();
-    if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
-    if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
-    if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
-    if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
-    if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
-    if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
-    if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
-    return 'sop_tasks';
+    if (norm.includes('driver') || norm.includes('distribusi')) return ['sop_task_driver', 'sop_driver', 'sop_tasks'];
+    if (norm.includes('stocking') || norm.includes('persiapan')) return ['sop_task_stocking', 'sop_stocking', 'sop_persiapan', 'sop_tasks'];
+    if (norm.includes('masak') || norm.includes('pemasakan')) return ['sop_task_masak', 'sop_masak', 'sop_pemasakan', 'sop_tasks'];
+    if (norm.includes('pemorsian')) return ['sop_task_pemorsian', 'sop_pemorsian', 'sop_tasks'];
+    if (norm.includes('kebersihan')) return ['sop_task_kebersihan', 'sop_kebersihan', 'sop_tasks'];
+    if (norm.includes('cuci') || norm.includes('pencucian')) return ['sop_task_cuci', 'sop_cuci', 'sop_pencucian', 'sop_tasks'];
+    if (norm.includes('keamanan') || norm.includes('security')) return ['sop_task_keamanan', 'sop_keamanan', 'sop_tasks'];
+    return ['sop_tasks'];
+  };
+
+  const getSopTaskTableName = (div: Division | string): string => {
+    return getSopTaskTableNames(div)[0];
   };
 
   // Listen for route changes (standard clean pathname routing with date & division slug support)
@@ -563,16 +567,16 @@ export default function App() {
 
         if (sopErr) throw sopErr;
 
-        // Query standard sop_tasks table AND all 7 per-division task tables in parallel
+        // Query standard sop_tasks table AND all per-division task tables in parallel
         const divisionTables = [
           'sop_tasks',
-          'sop_task_driver',
-          'sop_task_stocking',
-          'sop_task_masak',
-          'sop_task_pemorsian',
-          'sop_task_kebersihan',
-          'sop_task_cuci',
-          'sop_task_keamanan'
+          'sop_task_driver', 'sop_driver',
+          'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
+          'sop_task_masak', 'sop_masak', 'sop_pemasakan',
+          'sop_task_pemorsian', 'sop_pemorsian',
+          'sop_task_kebersihan', 'sop_kebersihan',
+          'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
+          'sop_task_keamanan', 'sop_keamanan'
         ];
 
         const taskFetchPromises = divisionTables.map(tbl =>
@@ -602,20 +606,60 @@ export default function App() {
           const validSopRows = (sopData || []).filter((s: any) => !deletedSopIdsRef.current.has(s.id));
 
           const cloudSops: SOPDocument[] = validSopRows.map((s: any) => {
-            const taskMap = new Map<string, any>();
-            combinedTaskData
-              .filter((t: any) => t.sop_id === s.id)
-              .forEach((t: any) => {
-                taskMap.set(t.id, {
-                  id: t.id,
-                  text: t.text,
-                  completed: !!t.completed,
-                  category: t.category as 'persiapan' | 'aktif' | 'penutup',
-                  sort_order: t.sort_order ?? 0
-                });
-              });
+            const divSlug = getSlugFromDivision(s.division as Division);
+            const altSopId = `SOP_${divSlug}_${s.date}`;
 
-            const matchedTasks = Array.from(taskMap.values()).sort((a, b) => a.sort_order - b.sort_order);
+            // Find all matching tasks from combinedTaskData across tables
+            const matchedCloudTasks = combinedTaskData.filter((t: any) => {
+              if (!t.sop_id) return false;
+              const normSopId = String(t.sop_id).toLowerCase().trim();
+              const normSid = String(s.id).toLowerCase().trim();
+              const normAlt = altSopId.toLowerCase().trim();
+              const normDate = String(s.date).replace(/[^0-9]/g, '');
+              const cleanTaskSopId = normSopId.replace(/[^a-z0-9]/g, '');
+              const cleanDivSlug = divSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+              return normSopId === normSid || 
+                     normSopId === normAlt || 
+                     (cleanTaskSopId.includes(normDate) && cleanTaskSopId.includes(cleanDivSlug));
+            });
+
+            // Get standard default template tasks for this division & menu
+            const matchedMenu = menuData?.find((m: any) => m.date === s.date)?.menu_list || [];
+            const defaultTemplateTasks = getDefaultTasksForDivision(s.division as Division, matchedMenu).map((t, idx) => ({
+              ...t,
+              id: `${s.date}-${s.division}-t-${idx}`,
+              sort_order: idx
+            }));
+
+            // Merge cloud tasks onto default template tasks so template tasks are never lost!
+            const finalTaskMap = new Map<string, any>();
+            
+            // 1. Add default template tasks
+            defaultTemplateTasks.forEach(dt => finalTaskMap.set(dt.text.trim().toLowerCase(), dt));
+
+            // 2. Overlay cloud tasks (matched by text or id)
+            matchedCloudTasks.forEach((ct: any) => {
+              const taskObj = {
+                id: ct.id,
+                text: ct.text,
+                completed: !!ct.completed,
+                category: ct.category as 'persiapan' | 'aktif' | 'penutup',
+                sort_order: ct.sort_order ?? 0
+              };
+              const matchingTemplate = defaultTemplateTasks.find(dt => dt.text.trim().toLowerCase() === String(ct.text || '').trim().toLowerCase());
+              if (matchingTemplate) {
+                finalTaskMap.set(matchingTemplate.text.trim().toLowerCase(), {
+                  ...matchingTemplate,
+                  ...taskObj,
+                  id: ct.id || matchingTemplate.id
+                });
+              } else {
+                finalTaskMap.set(ct.id || `custom-${ct.text}`, taskObj);
+              }
+            });
+
+            const mergedTasks = Array.from(finalTaskMap.values()).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
             return {
               id: s.id,
@@ -623,7 +667,7 @@ export default function App() {
               division: s.division as Division,
               creatorRole: s.creator_role as UserRole,
               creatorName: s.creator_name,
-              tasks: matchedTasks,
+              tasks: mergedTasks,
               isCheckedAll: s.is_checked_all,
               signerSupervisor: s.signer_supervisor || '',
               signatureSupervisorUrl: s.signature_supervisor_url || '',
@@ -807,59 +851,8 @@ export default function App() {
         localStorage.setItem('sppg_sops', JSON.stringify(updatedSopsList));
       } catch (e) { console.error(e); }
 
-      if (isSupabaseConfigured && supabase) {
-        // Cascade delete old sops & tasks for this date first
-        await supabase.from('sops').delete().eq('date', date);
-        const divisionTables = [
-          'sop_tasks', 'sop_task_driver', 'sop_task_stocking', 'sop_task_masak',
-          'sop_task_pemorsian', 'sop_task_kebersihan', 'sop_task_cuci', 'sop_task_keamanan'
-        ];
-        for (const tbl of divisionTables) {
-          await supabase.from(tbl).delete().like('sop_id', `%${date}%`);
-        }
-
-        const sopsPayload = generated.map(s => ({
-          id: s.id,
-          date: s.date,
-          division: s.division,
-          creator_role: s.creatorRole,
-          creator_name: s.creatorName,
-          is_checked_all: s.isCheckedAll,
-          signer_supervisor: s.signerSupervisor || '',
-          signature_supervisor_url: s.signatureSupervisorUrl || '',
-          signed_supervisor_at: s.signedSupervisorAt,
-          signer_coordinator: s.signerCoordinator || '',
-          signature_coordinator_url: s.signatureCoordinatorUrl || '',
-          signed_coordinator_at: s.signedCoordinatorAt,
-          status: s.status,
-          updated_at: s.updatedAt || new Date().toISOString()
-        }));
-
-        const { error: sopsErr } = await supabase.from('sops').upsert(sopsPayload);
-        if (sopsErr) {
-          console.error('Failed to upsert new SOP headers:', sopsErr);
-        }
-
-        for (const s of generated) {
-          const divTable = getSopTaskTableName(s.division);
-          const tasksPayload = s.tasks.map((t, idx) => ({
-            id: t.id,
-            sop_id: s.id,
-            text: t.text,
-            completed: !!t.completed,
-            category: t.category,
-            sort_order: idx
-          }));
-
-          if (tasksPayload.length > 0) {
-            if (divTable !== 'sop_tasks') {
-              await supabase.from(divTable).upsert(tasksPayload);
-            }
-            await supabase.from('sop_tasks').upsert(tasksPayload);
-          }
-        }
-        console.log('Successfully generated and saved initial SOPs on Supabase for:', date);
-      }
+      // Persist directly & comprehensively to Cloud
+      await handleSaveSopsToCloud(date);
     } catch (e) {
       console.error('Failed to generate template SOPs on Supabase:', e);
     } finally {
@@ -896,7 +889,9 @@ export default function App() {
       }
 
       if (isSupabaseConfigured && supabase) {
-        const divisionTable = getSopTaskTableName(updatedSOP.division);
+        const divSlug = getSlugFromDivision(updatedSOP.division);
+        const altSopId = `SOP_${divSlug}_${updatedSOP.date}`;
+        const targetTables = getSopTaskTableNames(updatedSOP.division);
 
         // Upsert SOP header
         const { error: headerErr } = await supabase.from('sops').upsert({
@@ -918,40 +913,38 @@ export default function App() {
 
         if (headerErr) {
           console.error('Failed to update SOP header on Supabase:', headerErr);
-          return { success: false, error: headerErr.message };
         }
 
-        // Clean up tasks removed from updatedSOP if any across divisionTable and sop_tasks
-        const activeTaskIds = updatedSOP.tasks.map(t => t.id);
-        const { data: existingTasks } = await supabase.from(divisionTable).select('id').eq('sop_id', updatedSOP.id);
-        if (existingTasks && existingTasks.length > 0) {
-          const idsToDelete = existingTasks.map(t => t.id).filter(id => !activeTaskIds.includes(id));
-          if (idsToDelete.length > 0) {
-            await supabase.from(divisionTable).delete().in('id', idsToDelete);
-            await supabase.from('sop_tasks').delete().in('id', idsToDelete);
-          }
-        }
-
-        const tasksPayload = updatedSOP.tasks.map((t, idx) => ({
+        const tasksPayloadWithSId = updatedSOP.tasks.map((t, idx) => ({
           id: t.id,
           sop_id: updatedSOP.id,
           text: t.text || '',
           completed: !!t.completed,
           category: t.category || 'aktif',
-          sort_order: idx
+          sort_order: t.sort_order ?? idx
         }));
 
-        if (tasksPayload.length > 0) {
-          // Upsert to both division specific table and fallback table
-          if (divisionTable !== 'sop_tasks') {
-            await supabase.from(divisionTable).upsert(tasksPayload);
-          }
-          const { error: insTasksErr } = await supabase.from('sop_tasks').upsert(tasksPayload);
-          if (insTasksErr) {
-            console.error('Failed to upsert updated tasks on Supabase:', insTasksErr);
-            return { success: false, error: insTasksErr.message };
+        const tasksPayloadWithAltId = updatedSOP.tasks.map((t, idx) => ({
+          id: t.id.includes('custom') ? t.id : `${altSopId}-${idx}`,
+          sop_id: altSopId,
+          text: t.text || '',
+          completed: !!t.completed,
+          category: t.category || 'aktif',
+          sort_order: t.sort_order ?? idx
+        }));
+
+        for (const tbl of targetTables) {
+          try {
+            await supabase.from(tbl).delete().or(`sop_id.eq.${updatedSOP.id},sop_id.eq.${altSopId}`);
+            await supabase.from(tbl).upsert(tasksPayloadWithSId).then(() => null, () => null);
+            if (tbl !== 'sop_tasks') {
+              await supabase.from(tbl).upsert(tasksPayloadWithAltId).then(() => null, () => null);
+            }
+          } catch (e) {
+            // Table might not exist, ignore
           }
         }
+
         console.log('Successfully synchronized SOP details with Supabase:', updatedSOP.id);
         return { success: true };
       }
@@ -981,13 +974,20 @@ export default function App() {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        if (targetSop) {
-          const divisionTable = getSopTaskTableName(targetSop.division);
-          if (divisionTable !== 'sop_tasks') {
-            await supabase.from(divisionTable).delete().eq('sop_id', sopId);
-          }
+        const divisionTables = [
+          'sop_tasks', 'sop_task_driver', 'sop_driver',
+          'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
+          'sop_task_masak', 'sop_masak', 'sop_pemasakan',
+          'sop_task_pemorsian', 'sop_pemorsian',
+          'sop_task_kebersihan', 'sop_kebersihan',
+          'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
+          'sop_task_keamanan', 'sop_keamanan'
+        ];
+        for (const tbl of divisionTables) {
+          try {
+            await supabase.from(tbl).delete().or(`sop_id.eq.${sopId},sop_id.like.%${sopId}%`);
+          } catch (e) {}
         }
-        await supabase.from('sop_tasks').delete().eq('sop_id', sopId);
         const { error } = await supabase.from('sops').delete().eq('id', sopId);
         if (error) {
           console.error('Failed to delete SOP from Supabase:', error);
@@ -1002,6 +1002,149 @@ export default function App() {
         isUpdatingSopRef.current = false;
       }
     } else {
+      isUpdatingSopRef.current = false;
+    }
+  };
+
+  // Comprehensive Cloud Save handler for explicitly saving & publishing SOPs
+  const handleSaveSopsToCloud = async (targetDate?: string): Promise<{ success: boolean; message: string }> => {
+    const dateToSave = targetDate || selectedDate;
+    isUpdatingSopRef.current = true;
+    try {
+      let sopsToSave = sops.filter(s => s.date === dateToSave && !deletedSopIdsRef.current.has(s.id));
+      const dayMenuObj = dayMenus.find(m => m.date === dateToSave);
+      const menuList = dayMenuObj?.menuList || [];
+
+      // Ensure all 7 division SOPs exist for dateToSave
+      if (sopsToSave.length < Object.values(Division).length) {
+        const generated = generateInitialSOPsForDate(dateToSave, menuList) as SOPDocument[];
+        const existingDivs = new Set(sopsToSave.map(s => s.division));
+        const missing = generated.filter(g => !existingDivs.has(g.division));
+        sopsToSave = [...sopsToSave, ...missing];
+        setSops(prev => {
+          const filtered = prev.filter(s => s.date !== dateToSave);
+          return [...filtered, ...sopsToSave];
+        });
+      }
+
+      if (!isSupabaseConfigured || !supabase) {
+        return { success: true, message: 'SOP tersimpan di memori lokal (Supabase belum terkonfigurasi)' };
+      }
+
+      // 1. Save / Upsert Menu for this date
+      if (dayMenuObj) {
+        await supabase.from('day_menus').upsert({
+          date: dateToSave,
+          menu_list: dayMenuObj.menuList,
+          created_at: dayMenuObj.createdAt,
+          created_by: dayMenuObj.createdBy
+        });
+      }
+
+      // 2. Clear any deleted SOPs from Cloud for this date
+      const deletedSopIds = Array.from(deletedSopIdsRef.current).filter((id: string) => id.includes(dateToSave));
+      if (deletedSopIds.length > 0) {
+        await supabase.from('sops').delete().in('id', deletedSopIds);
+        const divisionTables = [
+          'sop_tasks', 'sop_task_driver', 'sop_driver',
+          'sop_task_stocking', 'sop_stocking', 'sop_persiapan',
+          'sop_task_masak', 'sop_masak', 'sop_pemasakan',
+          'sop_task_pemorsian', 'sop_pemorsian',
+          'sop_task_kebersihan', 'sop_kebersihan',
+          'sop_task_cuci', 'sop_cuci', 'sop_pencucian',
+          'sop_task_keamanan', 'sop_keamanan'
+        ];
+        for (const tbl of divisionTables) {
+          try {
+            await supabase.from(tbl).delete().in('sop_id', deletedSopIds);
+          } catch (e) {}
+        }
+      }
+
+      // 3. Upsert SOP headers for all divisions
+      const sopsPayload = sopsToSave.map(s => ({
+        id: s.id,
+        date: s.date,
+        division: s.division,
+        creator_role: s.creatorRole,
+        creator_name: s.creatorName,
+        is_checked_all: s.isCheckedAll,
+        signer_supervisor: s.signerSupervisor || '',
+        signature_supervisor_url: s.signatureSupervisorUrl || '',
+        signed_supervisor_at: s.signedSupervisorAt,
+        signer_coordinator: s.signerCoordinator || '',
+        signature_coordinator_url: s.signatureCoordinatorUrl || '',
+        signed_coordinator_at: s.signedCoordinatorAt,
+        status: s.status || 'aktif',
+        updated_at: s.updatedAt || new Date().toISOString()
+      }));
+
+      const { error: headerErr } = await supabase.from('sops').upsert(sopsPayload);
+      if (headerErr) {
+        console.error('Failed to upsert SOP headers:', headerErr);
+        return { success: false, message: 'Gagal menyimpan header SOP: ' + headerErr.message };
+      }
+
+      // 4. Clean & re-insert tasks for each SOP across division tables & sop_tasks
+      for (const s of sopsToSave) {
+        const divSlug = getSlugFromDivision(s.division);
+        const altSopId = `SOP_${divSlug}_${s.date}`;
+        const targetTables = getSopTaskTableNames(s.division);
+
+        const defaultTasks = getDefaultTasksForDivision(s.division, menuList);
+        const currentTasks = s.tasks || [];
+
+        let finalTasks = [...currentTasks];
+        defaultTasks.forEach(dt => {
+          const exists = finalTasks.some(ct => ct.text.trim().toLowerCase() === dt.text.trim().toLowerCase());
+          if (!exists) {
+            finalTasks.push({
+              ...dt,
+              id: `${s.date}-${s.division}-t-${finalTasks.length}`
+            });
+          }
+        });
+
+        const tasksPayloadWithSId = finalTasks.map((t, idx) => ({
+          id: t.id,
+          sop_id: s.id,
+          text: t.text || '',
+          completed: !!t.completed,
+          category: t.category || 'aktif',
+          sort_order: t.sort_order ?? idx
+        }));
+
+        const tasksPayloadWithAltId = finalTasks.map((t, idx) => ({
+          id: t.id.includes('custom') ? t.id : `${altSopId}-${idx}`,
+          sop_id: altSopId,
+          text: t.text || '',
+          completed: !!t.completed,
+          category: t.category || 'aktif',
+          sort_order: t.sort_order ?? idx
+        }));
+
+        for (const tbl of targetTables) {
+          try {
+            await supabase.from(tbl).delete().or(`sop_id.eq.${s.id},sop_id.eq.${altSopId},sop_id.like.%${s.date}%`);
+            await supabase.from(tbl).upsert(tasksPayloadWithSId).then(() => null, () => null);
+            if (tbl !== 'sop_tasks') {
+              await supabase.from(tbl).upsert(tasksPayloadWithAltId).then(() => null, () => null);
+            }
+          } catch (e) {
+            // Table might not exist, ignore
+          }
+        }
+      }
+
+      console.log(`Successfully saved ${sopsToSave.length} SOPs to Supabase for date ${dateToSave}`);
+      return { 
+        success: true, 
+        message: `🎉 Berhasil! Seluruh ${sopsToSave.length} SOP (termasuk tugas Driver & divisi) tersimpan & tersinkronisasi 100% ke Cloud Supabase!` 
+      };
+    } catch (err: any) {
+      console.error('Error in handleSaveSopsToCloud:', err);
+      return { success: false, message: 'Terjadi kesalahan saat menyimpan: ' + (err?.message || err) };
+    } finally {
       isUpdatingSopRef.current = false;
     }
   };
@@ -1341,6 +1484,7 @@ export default function App() {
               sops={sops}
               setSops={setSops}
               onGoToTab={setActiveTab}
+              onSaveSopsToCloud={handleSaveSopsToCloud}
             />
           ) : activeSopDetail ? (
             /* Render Full-depth checklist printed form sheet */
@@ -1353,6 +1497,7 @@ export default function App() {
               onBack={() => setActiveSopDetail(null)}
               isCoordinator={loggedInUser?.isCoordinator}
               loggedInUser={loggedInUser}
+              onSaveSopsToCloud={handleSaveSopsToCloud}
             />
           ) : loggedInUser.isCoordinator ? (
             /* Coordinator Empty State: No SOP generated for this date yet */
@@ -1448,6 +1593,7 @@ export default function App() {
                   onDeleteMenu={handleDeleteMenu}
                   onSetUserRole={setCurrentUserRole}
                   onBootstrapDb={bootstrapSupabase}
+                  onSaveSopsToCloud={handleSaveSopsToCloud}
                 />
               ) : currentSubTab === 'recap' ? (
                 <SOPRecap

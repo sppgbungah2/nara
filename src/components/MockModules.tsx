@@ -68,6 +68,7 @@ interface MockModulesProps {
   sops?: any[];
   setSops?: any;
   onGoToTab?: (tabNum: number) => void;
+  onSaveSopsToCloud?: (date?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const DISTRIBUTION_LOCATIONS = [
@@ -2020,7 +2021,8 @@ export default function MockModules({
   selectedDate,
   sops = [],
   setSops,
-  onGoToTab
+  onGoToTab,
+  onSaveSopsToCloud
 }: MockModulesProps) {
   // Common states
   const [searchTerm, setSearchTerm] = useState('');
@@ -5288,6 +5290,7 @@ INSERT INTO volunteer_complaints (source, category, complaint_text, action_taken
           setOrderRequests={setOrderRequests}
           keluhanList={keluhanList}
           setKeluhanList={setKeluhanList}
+          onSaveSopsToCloud={onSaveSopsToCloud}
         />
       );
     }
