@@ -9,6 +9,7 @@ import { DayMenu, UserRole, Division, SOPDocument, TaskItem } from '../types';
 import { DEFAULT_PORTIONS, PortionConfig } from './PortionMasterView';
 import { SisaStokItem, OrderRequestItem, VolunteerComplaintItem } from './MockModules';
 import DailyReportPDF from './DailyReportPDF';
+import { safeLocalStorageSetItem, safeLocalStorageGetItem } from '../lib/storage';
 
 interface DashboardAdminViewProps {
   selectedDate: string;
@@ -235,7 +236,7 @@ export default function DashboardAdminView({
 
   const handleSaveQuickPorsi = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem(`sppg_portions_${selectedDate}`, JSON.stringify(tempPortions));
+    safeLocalStorageSetItem(`sppg_portions_${selectedDate}`, JSON.stringify(tempPortions));
     setPortions({ ...tempPortions });
     setIsCustomPortion(true);
     setQuickPorsiModalOpen(false);
@@ -254,7 +255,7 @@ export default function DashboardAdminView({
       return req;
     });
     setOrderRequests(updated);
-    localStorage.setItem('sppg_order_requests', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_order_requests', JSON.stringify(updated));
     setSuccessMsg('Permohonan order berhasil disetujui!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
@@ -272,7 +273,7 @@ export default function DashboardAdminView({
       return req;
     });
     setOrderRequests(updated);
-    localStorage.setItem('sppg_order_requests', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_order_requests', JSON.stringify(updated));
     setSuccessMsg('Permohonan order berhasil ditolak dengan catatan.');
     setTimeout(() => setSuccessMsg(null), 3000);
   };
@@ -287,7 +288,7 @@ export default function DashboardAdminView({
       return item;
     });
     setKeluhanList(updated);
-    localStorage.setItem('sppg_volunteer_complaints', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_volunteer_complaints', JSON.stringify(updated));
     setSuccessMsg('Keluhan relawan berhasil diselesaikan & diarsipkan!');
     setTimeout(() => setSuccessMsg(null), 3000);
   };

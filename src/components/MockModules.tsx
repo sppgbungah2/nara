@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
+import { safeLocalStorageSetItem, safeLocalStorageGetItem } from '../lib/storage';
 import { uploadToCloudinary, isCloudinaryConfigured } from '../lib/cloudinary';
 import SignaturePad from './SignaturePad';
 import BASTView from './BASTView';
@@ -2120,7 +2121,7 @@ export default function MockModules({
   const setKedatanganMap = (update: React.SetStateAction<Record<string, KedatanganBarangItem[]>>) => {
     setRawKedatanganMap(prev => {
       const next = typeof update === 'function' ? (update as any)(prev) : update;
-      localStorage.setItem('sppg_kedatangan_barang_map', JSON.stringify(next));
+      safeLocalStorageSetItem('sppg_kedatangan_barang_map', JSON.stringify(next));
       setTimeout(() => {
         syncKedatanganMapToSupabase(prev, next);
       }, 0);
@@ -2301,7 +2302,7 @@ export default function MockModules({
   const setShippingDocs = (update: React.SetStateAction<ShippingDocItem[]>) => {
     setRawShippingDocs(prev => {
       const next = typeof update === 'function' ? (update as any)(prev) : update;
-      localStorage.setItem('sppg_shipping_docs', JSON.stringify(next));
+      safeLocalStorageSetItem('sppg_shipping_docs', JSON.stringify(next));
       setTimeout(() => {
         syncShippingDocsToSupabase(prev, next);
       }, 0);
@@ -2599,15 +2600,15 @@ export default function MockModules({
   });
 
   useEffect(() => {
-    localStorage.setItem('sppg_stok_operasional_by_date_v1', JSON.stringify(operasionalMap));
+    safeLocalStorageSetItem('sppg_stok_operasional_by_date_v1', JSON.stringify(operasionalMap));
   }, [operasionalMap]);
 
   useEffect(() => {
-    localStorage.setItem('sppg_stock_opname_by_date_v4', JSON.stringify(stockMap));
+    safeLocalStorageSetItem('sppg_stock_opname_by_date_v4', JSON.stringify(stockMap));
   }, [stockMap]);
 
   useEffect(() => {
-    localStorage.setItem('sppg_rekap_sampah_v3', JSON.stringify(trashItems));
+    safeLocalStorageSetItem('sppg_rekap_sampah_v3', JSON.stringify(trashItems));
   }, [trashItems]);
 
   // Saved Reports State for Stock Opname, Stok Operasional, and Kedatangan Barang
@@ -2623,12 +2624,12 @@ export default function MockModules({
   }
 
   const [savedReports, setSavedReports] = useState<SavedReport[]>(() => {
-    const raw = localStorage.getItem('sppg_saved_reports_excel_v1');
+    const raw = safeLocalStorageGetItem('sppg_saved_reports_excel_v1');
     return raw ? JSON.parse(raw) : [];
   });
 
   useEffect(() => {
-    localStorage.setItem('sppg_saved_reports_excel_v1', JSON.stringify(savedReports));
+    safeLocalStorageSetItem('sppg_saved_reports_excel_v1', JSON.stringify(savedReports));
   }, [savedReports]);
 
   const addSavedReport = (date: string, module: 'stock' | 'operasional' | 'kedatangan', fileName: string, itemCount: number, headers: string[], rows: string[][]) => {
@@ -2662,13 +2663,13 @@ export default function MockModules({
         { id: 'stok-4', item_name: 'Tempe Blok Premium', category: 'Lauk Nabati', quantity: '8 Batang', condition: 'Sangat Segar', action_plan: 'Goreng Crispy Sore Ini', created_by: 'masak@sppg.com' },
         { id: 'stok-5', item_name: 'Cabai Rawit Merah sisa', category: 'Bumbu Dapur', quantity: '2.1 Kg', condition: 'Sedikit Layu', action_plan: 'Langsung blender bumbu halus', created_by: 'stocking@sppg.com' }
       ];
-      localStorage.setItem('sppg_sisa_stok', JSON.stringify(defaults));
+      safeLocalStorageSetItem('sppg_sisa_stok', JSON.stringify(defaults));
       setStokSisa(defaults);
     }
   };
 
   const loadOrdersFromLocal = () => {
-    const raw = localStorage.getItem('sppg_order_requests');
+    const raw = safeLocalStorageGetItem('sppg_order_requests');
     if (raw) {
       setOrderRequests(JSON.parse(raw));
     } else {
@@ -2677,13 +2678,13 @@ export default function MockModules({
         { id: 'o-2', item_name: 'Sabun Cuci Piring Jerigen 20L', qty: '3 Jerigen', reason: 'Stok sabun cuci ompreng menipis sisa 1 jerigen kecil. Cukup untuk 2 hari kedepan.', category: 'operasional', status: 'disetujui', created_by: 'cuci@sppg.com', created_at: new Date(Date.now() - 3600000 * 24).toISOString(), notes: 'Sudah di-order ke Supplier Barokah' },
         { id: 'o-3', item_name: 'Tabung Gas LPG 50 Kg', qty: '2 Tabung', reason: 'Cadangan bahan bakar untuk masak gulai bandeng menu hari kamis.', category: 'operasional', status: 'pending', created_by: 'masak@sppg.com', created_at: new Date(Date.now() - 3600000 * 12).toISOString() }
       ];
-      localStorage.setItem('sppg_order_requests', JSON.stringify(defaults));
+      safeLocalStorageSetItem('sppg_order_requests', JSON.stringify(defaults));
       setOrderRequests(defaults);
     }
   };
 
   const loadKeluhanFromLocal = () => {
-    const raw = localStorage.getItem('sppg_volunteer_complaints');
+    const raw = safeLocalStorageGetItem('sppg_volunteer_complaints');
     if (raw) {
       setKeluhanList(JSON.parse(raw));
     } else {
@@ -2692,7 +2693,7 @@ export default function MockModules({
         { id: 'k-2', source: 'Wali Kamar Asrama Putri 4', category: 'Rasa / Suhu Makanan', complaint_text: 'Sayur bobor bayam yang tiba untuk sarapan terasa terlalu hambar dan dingin.', action_taken: 'Investigasi: Tim masak dievaluasi agar menakar garam presisi.', status: 'selesai', created_by: 'masak@sppg.com', created_at: new Date(Date.now() - 3600000 * 30).toISOString() },
         { id: 'k-3', source: 'Ustadzah Aminah (Asrama Putri C)', category: 'Keterlanjuran / Keterlambatan Kirim', complaint_text: 'Distribusi sarapan pagi ini terlambat 25 menit. Santri terburu-buru sekolah.', action_taken: 'Dalam investigasi: Penyebab keterlambatan mobil operasional slip kopling sedang diperiksa mekanik.', status: 'pending', created_by: 'driver@sppg.com', created_at: new Date(Date.now() - 3600000 * 8).toISOString() }
       ];
-      localStorage.setItem('sppg_volunteer_complaints', JSON.stringify(defaults));
+      safeLocalStorageSetItem('sppg_volunteer_complaints', JSON.stringify(defaults));
       setKeluhanList(defaults);
     }
   };
@@ -2902,7 +2903,7 @@ export default function MockModules({
 
     const updated = [newItem, ...stokSisa];
     setStokSisa(updated);
-    localStorage.setItem('sppg_sisa_stok', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_sisa_stok', JSON.stringify(updated));
     setFormData({});
     setIsAddingSisa(false);
     triggerSuccessMsg(isSavedRemote 
@@ -2924,7 +2925,7 @@ export default function MockModules({
     }
     const updated = stokSisa.filter(item => item.id !== id);
     setStokSisa(updated);
-    localStorage.setItem('sppg_sisa_stok', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_sisa_stok', JSON.stringify(updated));
     triggerSuccessMsg(deletedRemote ? "Data sisa stok terhapus dari Cloud!" : "Data sisa stok terhapus secara lokal!");
   };
 
@@ -2964,7 +2965,7 @@ export default function MockModules({
 
     const updated = [newItem, ...orderRequests];
     setOrderRequests(updated);
-    localStorage.setItem('sppg_order_requests', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_order_requests', JSON.stringify(updated));
     setFormData({});
     triggerSuccessMsg(isSavedRemote
       ? `Pengajuan order ${isAlat ? 'Alat' : 'Operasional'} berhasil dikirim ke Cloud Database!` 
@@ -2993,7 +2994,7 @@ export default function MockModules({
       req.id === id ? { ...req, status: nextStatus, notes } : req
     );
     setOrderRequests(updated);
-    localStorage.setItem('sppg_order_requests', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_order_requests', JSON.stringify(updated));
     
     // Clear admin input for this ID
     setAdminNoteInput(prev => ({ ...prev, [id]: '' }));
@@ -3037,7 +3038,7 @@ export default function MockModules({
 
     const updated = [newItem, ...keluhanList];
     setKeluhanList(updated);
-    localStorage.setItem('sppg_volunteer_complaints', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_volunteer_complaints', JSON.stringify(updated));
     setFormData({});
     triggerSuccessMsg(isSavedRemote
       ? "Laporan keluhan berhasil diunggah ke Cloud Database!" 
@@ -3066,7 +3067,7 @@ export default function MockModules({
       kel.id === id ? { ...kel, action_taken: actionPlan, status: 'selesai' as const } : kel
     );
     setKeluhanList(updated);
-    localStorage.setItem('sppg_volunteer_complaints', JSON.stringify(updated));
+    safeLocalStorageSetItem('sppg_volunteer_complaints', JSON.stringify(updated));
     setAdminComplaintAction(prev => ({ ...prev, [id]: '' }));
     triggerSuccessMsg(isUpdatedRemote
       ? "Keluhan relawan berhasil diselesaikan di Cloud Database!"

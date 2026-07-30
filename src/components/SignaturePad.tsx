@@ -96,6 +96,25 @@ export default function SignaturePad({ onSave, onCancel, title, suggestedName }:
     setIsDrawing(false);
   };
 
+  const compressCanvasToDataURL = (srcCanvas: HTMLCanvasElement): string => {
+    try {
+      const targetWidth = 320;
+      const targetHeight = 150;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = targetWidth;
+      tempCanvas.height = targetHeight;
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) return srcCanvas.toDataURL('image/png');
+
+      ctx.clearRect(0, 0, targetWidth, targetHeight);
+      ctx.drawImage(srcCanvas, 0, 0, srcCanvas.width, srcCanvas.height, 0, 0, targetWidth, targetHeight);
+      return tempCanvas.toDataURL('image/png');
+    } catch (e) {
+      console.warn('Canvas compression fallback to standard dataURL:', e);
+      return srcCanvas.toDataURL('image/png');
+    }
+  };
+
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -104,7 +123,7 @@ export default function SignaturePad({ onSave, onCancel, title, suggestedName }:
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-   const handleSave = async () => {
+  const handleSave = async () => {
     let base64Url = '';
     
     if (useTyped) {
@@ -140,7 +159,7 @@ export default function SignaturePad({ onSave, onCancel, title, suggestedName }:
         ctx.lineWidth = 2;
         ctx.stroke();
         
-        base64Url = canvas.toDataURL();
+        base64Url = compressCanvasToDataURL(canvas);
       }
     } else {
       const canvas = canvasRef.current;
@@ -157,7 +176,7 @@ export default function SignaturePad({ onSave, onCancel, title, suggestedName }:
         }
       }
       
-      base64Url = canvas.toDataURL();
+      base64Url = compressCanvasToDataURL(canvas);
     }
 
     if (!base64Url) return;

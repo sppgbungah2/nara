@@ -4,6 +4,7 @@ import {
   School, Home, Sparkles, BarChart2, Check, Trash2, Edit, Search, Plus, ArrowRight
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { safeLocalStorageSetItem, safeLocalStorageGetItem } from '../lib/storage';
 
 interface PortionMasterViewProps {
   selectedDate: string;
@@ -220,8 +221,8 @@ export default function PortionMasterView({ selectedDate }: PortionMasterViewPro
     
     // Save to local storage cache for active date AND as global master template
     const key = `sppg_portions_${activeDate}`;
-    localStorage.setItem(key, JSON.stringify(portions));
-    localStorage.setItem('sppg_global_master_portions', JSON.stringify(portions));
+    safeLocalStorageSetItem(key, JSON.stringify(portions));
+    safeLocalStorageSetItem('sppg_global_master_portions', JSON.stringify(portions));
 
     try {
       if (isSupabaseConfigured && supabase) {

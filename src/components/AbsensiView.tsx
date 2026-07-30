@@ -4,6 +4,7 @@ import {
   ShieldCheck, Clipboard, Download, Plus, FileSpreadsheet, X 
 } from 'lucide-react';
 import SignaturePad from './SignaturePad';
+import { safeLocalStorageSetItem, safeLocalStorageGetItem } from '../lib/storage';
 
 // CSV Helper for Excel exports
 const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
@@ -105,12 +106,12 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
 
   // Persistence maps
   const [absensiMap, setAbsensiMap] = useState<Record<string, AbsensiItem[]>>(() => {
-    const saved = localStorage.getItem('sppg_absensi_map');
+    const saved = safeLocalStorageGetItem('sppg_absensi_map');
     return saved ? JSON.parse(saved) : {};
   });
 
   const [absensiSignOffs, setAbsensiSignOffs] = useState<Record<string, AbsensiSignOff>>(() => {
-    const saved = localStorage.getItem('sppg_absensi_signoffs');
+    const saved = safeLocalStorageGetItem('sppg_absensi_signoffs');
     return saved ? JSON.parse(saved) : {};
   });
 
@@ -166,11 +167,11 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
 
   // Sync state to LocalStorage
   useEffect(() => {
-    localStorage.setItem('sppg_absensi_map', JSON.stringify(absensiMap));
+    safeLocalStorageSetItem('sppg_absensi_map', JSON.stringify(absensiMap));
   }, [absensiMap]);
 
   useEffect(() => {
-    localStorage.setItem('sppg_absensi_signoffs', JSON.stringify(absensiSignOffs));
+    safeLocalStorageSetItem('sppg_absensi_signoffs', JSON.stringify(absensiSignOffs));
   }, [absensiSignOffs]);
 
   // Handle Initial Population

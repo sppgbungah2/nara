@@ -13,6 +13,7 @@ import SOPRecap from './components/SOPRecap';
 import MockModules from './components/MockModules';
 import Login from './components/Login';
 import { isSupabaseConfigured, supabase, mapUserToProfile, UserProfile } from './lib/supabase';
+import { safeLocalStorageSetItem, safeLocalStorageGetItem } from './lib/storage';
 import { useRouting } from './hooks/useRouting';
 import { useSopData } from './hooks/useSopData';
 
@@ -369,7 +370,7 @@ export default function App() {
   // Sync day menus to localStorage for persistent offline fallbacks
   useEffect(() => {
     if (dayMenus && dayMenus.length > 0) {
-      localStorage.setItem('sppg_day_menus', JSON.stringify(dayMenus));
+      safeLocalStorageSetItem('sppg_day_menus', JSON.stringify(dayMenus));
     }
   }, [dayMenus]);
 
@@ -379,7 +380,7 @@ export default function App() {
     try {
       console.log('Bootstrapping Supabase database tables...');
       
-      const savedMenusStr = localStorage.getItem('sppg_day_menus');
+      const savedMenusStr = safeLocalStorageGetItem('sppg_day_menus');
 
       let menusToSeed = PRESET_MENUS;
       if (savedMenusStr) {

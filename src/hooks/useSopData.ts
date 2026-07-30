@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { SOPDocument, Division, DayMenu, TaskItem, UserRole } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { safeLocalStorageSetItem, safeLocalStorageGetItem } from '../lib/storage';
 import { 
   getSopTaskTableNames, 
   getSopTaskTableName,
@@ -25,7 +26,7 @@ export function useSopData(selectedDate: string) {
   // Load from LocalStorage fallback initially
   useEffect(() => {
     try {
-      const savedSops = localStorage.getItem('sppg_sops');
+      const savedSops = safeLocalStorageGetItem('sppg_sops');
       if (savedSops) {
         const parsed = JSON.parse(savedSops);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -40,11 +41,7 @@ export function useSopData(selectedDate: string) {
   // Sync state to LocalStorage
   useEffect(() => {
     if (sops.length > 0) {
-      try {
-        localStorage.setItem('sppg_sops', JSON.stringify(sops));
-      } catch (e) {
-        console.error('Error writing localStorage sops:', e);
-      }
+      safeLocalStorageSetItem('sppg_sops', JSON.stringify(sops));
     }
   }, [sops]);
 
@@ -502,9 +499,7 @@ export function useSopData(selectedDate: string) {
     setSops(prev => {
       const existingOtherDates = prev.filter(p => normalizeDateISO(p.date) !== targetDate);
       const updatedSopsList = [...existingOtherDates, ...generated];
-      try {
-        localStorage.setItem('sppg_sops', JSON.stringify(updatedSopsList));
-      } catch (e) { console.error(e); }
+      safeLocalStorageSetItem('sppg_sops', JSON.stringify(updatedSopsList));
       return updatedSopsList;
     });
 
