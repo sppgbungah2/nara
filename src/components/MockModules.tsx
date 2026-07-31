@@ -2742,11 +2742,13 @@ export default function MockModules({
           loadKeluhanFromLocal();
         }
 
-        // Fetch Shipping Docs (BAST, Surat Jalan, Organoleptik)
+        // Fetch Shipping Docs (BAST, Surat Jalan, Organoleptik) - Filtered by selectedDate to minimize Egress
         try {
+          const targetDate = selectedDate || '2026-06-16';
           const { data: shippingData, error: shippingErr } = await supabase
             .from('shipping_docs')
             .select('*')
+            .eq('date', targetDate)
             .order('uploaded_at', { ascending: false });
 
           if (!shippingErr && shippingData && shippingData.length > 0) {
@@ -2797,14 +2799,14 @@ export default function MockModules({
             }));
             setRawShippingDocs(mappedDocs);
           } else if (!shippingErr && shippingData && shippingData.length === 0) {
-            // Cloud table is empty, retain local shipping docs & push local docs to cloud
+            // Fallback to local storage if no cloud data for this date
             const savedLocal = localStorage.getItem('sppg_shipping_docs');
             if (savedLocal) {
               try {
                 const parsed = JSON.parse(savedLocal);
                 if (parsed && parsed.length > 0) {
-                  setRawShippingDocs(parsed);
-                  syncShippingDocsToSupabase([], parsed);
+                  const filteredLocal = parsed.filter((d: any) => d.date === targetDate);
+                  setRawShippingDocs(filteredLocal.length > 0 ? filteredLocal : parsed);
                 }
               } catch (e) {
                 console.error("Error parsing local shipping docs:", e);
@@ -2817,11 +2819,13 @@ export default function MockModules({
           console.warn("Failed fetching shipping_docs:", err);
         }
 
-        // Fetch Kedatangan Barang
+        // Fetch Kedatangan Barang - Filtered by selectedDate
         try {
+          const targetDate = selectedDate || '2026-06-16';
           const { data: kdData, error: kdErr } = await supabase
             .from('kedatangan_barang')
-            .select('*');
+            .select('*')
+            .eq('date', targetDate);
 
           if (!kdErr && kdData) {
             const map: Record<string, KedatanganBarangItem[]> = {};
@@ -2865,7 +2869,7 @@ export default function MockModules({
 
   useEffect(() => {
     fetchDatabaseData();
-  }, [moduleIndex]);
+  }, [moduleIndex, selectedDate]);
 
   // Handle adding new sisa stok item
   const handleAddSisaStok = async (e: React.FormEvent) => {

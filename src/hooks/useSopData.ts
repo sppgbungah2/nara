@@ -45,12 +45,14 @@ export function useSopData(selectedDate: string) {
     }
   }, [sops]);
 
-  // Fetch SOPs and Menus from Cloud Supabase
+  // Fetch SOPs and Menus from Cloud Supabase (filtered by active selectedDate to minimize Egress)
   const fetchSopsAndMenus = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) {
       setLoadingSops(false);
       return;
     }
+
+    const targetDate = normalizeDateISO(selectedDate);
 
     try {
       setLoadingSops(true);
@@ -59,6 +61,7 @@ export function useSopData(selectedDate: string) {
       const { data: menuData, error: menuErr } = await supabase
         .from('day_menus')
         .select('*')
+        .eq('date', targetDate)
         .order('date', { ascending: true });
 
       if (menuErr) throw menuErr;
@@ -66,6 +69,7 @@ export function useSopData(selectedDate: string) {
       const { data: sopData, error: sopErr } = await supabase
         .from('sops')
         .select('*')
+        .eq('date', targetDate)
         .order('date', { ascending: true });
 
       if (sopErr) throw sopErr;
@@ -86,8 +90,8 @@ export function useSopData(selectedDate: string) {
           supabase
             .from(tbl)
             .select('*')
+            .like('sop_id', `%${targetDate}%`)
             .order('sort_order', { ascending: true })
-            .range(0, 9999)
             .then(res => ({ tbl, data: res.data || [] }), () => ({ tbl, data: [] }))
         )
       );
@@ -219,6 +223,13 @@ export function useSopData(selectedDate: string) {
             return Array.from(mergedMap.values());
           });
         }
+      } else {
+        // Fallback: Generate initial SOPs for this date if no records exist in cloud
+        const initialSops = generateInitialSOPsForDate(targetDate, dayMenus);
+        setSops(prev => {
+          const otherDates = prev.filter(s => normalizeDateISO(s.date) !== targetDate);
+          return [...otherDates, ...initialSops];
+        });
       }
     } catch (err: any) {
       console.error('Error fetching SOPs from Supabase:', err);
@@ -226,11 +237,29 @@ export function useSopData(selectedDate: string) {
     } finally {
       setLoadingSops(false);
     }
-  }, []);
+  }, [selectedDate, dayMenus]);
 
+  // Initial fetch and Event-based Supabase Realtime synchronization
   useEffect(() => {
     fetchSopsAndMenus();
-  }, [fetchSopsAndMenus]);
+
+    if (!isSupabaseConfigured || !supabase) return;
+
+    // Realtime listener replacing continuous polling
+    const channel = supabase
+      .channel(`sops_realtime_${normalizeDateISO(selectedDate)}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sops' }, () => {
+        fetchSopsAndMenus();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'day_menus' }, () => {
+        fetchSopsAndMenus();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchSopsAndMenus, selectedDate]);
 
   // Update single SOP
   const handleUpdateSOP = async (updatedSOP: SOPDocument) => {
