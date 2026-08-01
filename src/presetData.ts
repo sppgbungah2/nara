@@ -45,8 +45,38 @@ export const DIVISION_CREATOR_MAP: Record<Division, { role: UserRole; label: str
   [Division.KEAMANAN]: { role: UserRole.ASLAP, label: 'Aslap (Asisten Lapangan)' }
 };
 
+// Helper to normalize any format of menuList (string[], JSON string, comma string, array of objects) safely into string[]
+export function normalizeMenuList(rawMenuList: any): string[] {
+  if (!rawMenuList) return [];
+  if (Array.isArray(rawMenuList)) {
+    return rawMenuList
+      .map(item => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item === 'object') {
+          return String(item.name || item.text || item.item || item.label || item.dish || JSON.stringify(item)).trim();
+        }
+        return String(item || '').trim();
+      })
+      .filter(Boolean);
+  }
+  if (typeof rawMenuList === 'string') {
+    const trimmed = rawMenuList.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return normalizeMenuList(parsed);
+        }
+      } catch (_) {}
+    }
+    return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 // Generates lists of default tasks for a division, potentially customizing items based on menu list
-export function getDefaultTasksForDivision(division: Division, menuList: string[]): TaskItem[] {
+export function getDefaultTasksForDivision(division: Division, rawMenuList: any): TaskItem[] {
+  const menuList = normalizeMenuList(rawMenuList);
   const tasks: TaskItem[] = [];
 
   switch (division) {

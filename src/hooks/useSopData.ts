@@ -7,6 +7,7 @@ import {
   getSopTaskTableName,
   generateInitialSOPsForDate, 
   getDefaultTasksForDivision, 
+  normalizeMenuList,
   getSlugFromDivision,
   DIVISION_CREATOR_MAP,
   getCanonicalSopId,
@@ -106,7 +107,7 @@ export function useSopData(selectedDate: string) {
           id: m.id,
           date: normalizeDateISO(m.date),
           dayName: m.day_name,
-          menuList: m.menu_list || [],
+          menuList: normalizeMenuList(m.menu_list),
           portionCount: m.portion_count || 100
         })));
       }
@@ -170,7 +171,7 @@ export function useSopData(selectedDate: string) {
             });
             mergedTasks = Array.from(taskMap.values()).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
           } else {
-            const matchedMenu = menuData?.find((m: any) => normalizeDateISO(m.date) === isoDate)?.menu_list || [];
+            const matchedMenu = normalizeMenuList(menuData?.find((m: any) => normalizeDateISO(m.date) === isoDate)?.menu_list);
             mergedTasks = getDefaultTasksForDivision(s.division as Division, matchedMenu).map((t, idx) => ({
               ...t,
               id: `${canonicalId}-t-${idx}`,

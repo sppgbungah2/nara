@@ -1467,7 +1467,8 @@ BEGIN
       AND table_name IN (
         'day_menus','sops','sop_tasks',
         'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
-        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan'
+        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan',
+        'absensi_logs','absensi_signoffs','absensi_signoff'
       )
   LOOP 
     EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);
@@ -1599,7 +1600,8 @@ BEGIN
       AND table_name IN (
         'day_menus','sops','sop_tasks',
         'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
-        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan'
+        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan',
+        'absensi_logs','absensi_signoffs','absensi_signoff'
       )
   LOOP 
     EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);

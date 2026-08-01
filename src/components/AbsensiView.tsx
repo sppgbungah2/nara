@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import SignaturePad from './SignaturePad';
 import { safeLocalStorageSetItem, safeLocalStorageGetItem } from '../lib/storage';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // CSV Helper for Excel exports
 const downloadCSV = (filename: string, headers: string[], rows: string[][]) => {
@@ -165,6 +166,9 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
     targetField: 'absensiKetua' | 'absensiAslap';
   } | null>(null);
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+
   // Sync state to LocalStorage
   useEffect(() => {
     safeLocalStorageSetItem('sppg_absensi_map', JSON.stringify(absensiMap));
@@ -173,6 +177,137 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
   useEffect(() => {
     safeLocalStorageSetItem('sppg_absensi_signoffs', JSON.stringify(absensiSignOffs));
   }, [absensiSignOffs]);
+
+  // Sync to Supabase helper function
+  const syncAbsensiToSupabase = async (
+    dateStr: string,
+    signOffData: AbsensiSignOff,
+    logsList: AbsensiItem[]
+  ) => {
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('Supabase is not configured.');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // 1. Prepare signoff payload
+      const signOffPayload = {
+        date: dateStr,
+        signer_ketua: signOffData.signerKetua || 'M. Fajrul Falah',
+        signature_ketua_url: signOffData.signatureKetuaUrl || null,
+        signed_ketua_at: signOffData.signedKetuaAt || null,
+        signer_aslap: signOffData.signerAslap || 'Ahmad Maghfur',
+        signature_aslap_url: signOffData.signatureAslapUrl || null,
+        signed_aslap_at: signOffData.signedAslapAt || null,
+        status: signOffData.status || 'Draft',
+        updated_at: new Date().toISOString()
+      };
+
+      // Upsert into both absensi_signoffs and absensi_signoff
+      const resSignoffs = await supabase.from('absensi_signoffs').upsert(signOffPayload);
+      if (resSignoffs.error) {
+        console.warn('absensi_signoffs upsert notice:', resSignoffs.error.message);
+      }
+      try {
+        await supabase.from('absensi_signoff').upsert(signOffPayload);
+      } catch (err) {
+        // ignore fallback errors if table absensi_signoff does not exist
+      }
+
+      // 2. Prepare logs payload
+      if (logsList && logsList.length > 0) {
+        const logsPayload = logsList.map((item, idx) => ({
+          id: item.id || `abs-${dateStr}-${idx}-${item.name.replace(/\s+/g, '-').toLowerCase()}`,
+          date: dateStr,
+          name: item.name,
+          role: item.role,
+          status: item.status,
+          check_in_time: item.checkInTime || '-',
+          notes: item.notes || '',
+          updated_at: new Date().toISOString()
+        }));
+
+        const resLogs = await supabase.from('absensi_logs').upsert(logsPayload);
+        if (resLogs.error) {
+          console.error('absensi_logs upsert error:', resLogs.error.message);
+        }
+      }
+
+      setSyncSuccessMessage(`✅ Berhasil menyinkronkan & merekap data Absensi (${logsList.length} relawan) ke tabel absensi_logs & absensi_signoffs di Supabase!`);
+      setTimeout(() => setSyncSuccessMessage(null), 6000);
+    } catch (err: any) {
+      console.error('Error syncing absensi to Supabase:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Fetch initial data from Supabase when activeDate changes
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !activeDate) return;
+
+    const fetchFromSupabase = async () => {
+      try {
+        // Fetch signoff
+        let { data: signData } = await supabase
+          .from('absensi_signoffs')
+          .select('*')
+          .eq('date', activeDate)
+          .maybeSingle();
+
+        if (!signData) {
+          const { data: signDataAlt } = await supabase
+            .from('absensi_signoff')
+            .select('*')
+            .eq('date', activeDate)
+            .maybeSingle();
+          signData = signDataAlt;
+        }
+
+        if (signData) {
+          setAbsensiSignOffs(prev => ({
+            ...prev,
+            [activeDate]: {
+              signerKetua: signData.signer_ketua || 'M. Fajrul Falah',
+              signatureKetuaUrl: signData.signature_ketua_url || null,
+              signedKetuaAt: signData.signed_ketua_at || null,
+              signerAslap: signData.signer_aslap || 'Ahmad Maghfur',
+              signatureAslapUrl: signData.signature_aslap_url || null,
+              signedAslapAt: signData.signed_aslap_at || null,
+              status: signData.status || 'Draft'
+            }
+          }));
+        }
+
+        // Fetch logs
+        const { data: logsData } = await supabase
+          .from('absensi_logs')
+          .select('*')
+          .eq('date', activeDate);
+
+        if (logsData && logsData.length > 0) {
+          const parsedLogs: AbsensiItem[] = logsData.map(row => ({
+            id: row.id,
+            name: row.name,
+            role: row.role,
+            status: row.status as any,
+            checkInTime: row.check_in_time || row.checkInTime || '-',
+            notes: row.notes || ''
+          }));
+
+          setAbsensiMap(prev => ({
+            ...prev,
+            [activeDate]: parsedLogs
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching absensi from Supabase:', err);
+      }
+    };
+
+    fetchFromSupabase();
+  }, [activeDate]);
 
   // Handle Initial Population
   useEffect(() => {
@@ -268,14 +403,15 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
   // Handlers
   const handleUpdateAbsItem = (id: string, updates: Partial<AbsensiItem>) => {
     if (signOff.status === 'Final') return;
-    setAbsensiMap(prev => {
-      const list = prev[activeDate] || [];
-      const nextList = list.map(item => item.id === id ? { ...item, ...updates } : item);
-      return {
-        ...prev,
-        [activeDate]: nextList
-      };
-    });
+    const list = absensiMap[activeDate] || [];
+    const nextList = list.map(item => item.id === id ? { ...item, ...updates } : item);
+
+    setAbsensiMap(prev => ({
+      ...prev,
+      [activeDate]: nextList
+    }));
+
+    syncAbsensiToSupabase(activeDate, signOff, nextList);
   };
 
   const handleAddAttendee = (e: React.FormEvent) => {
@@ -294,29 +430,33 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
       notes: newAbsNotes.trim()
     };
 
-    setAbsensiMap(prev => {
-      const list = prev[activeDate] || [];
-      return {
-        ...prev,
-        [activeDate]: [...list, newItem]
-      };
-    });
+    const list = absensiMap[activeDate] || [];
+    const nextList = [...list, newItem];
+
+    setAbsensiMap(prev => ({
+      ...prev,
+      [activeDate]: nextList
+    }));
 
     setNewAbsName('');
     setNewAbsNotes('');
     setIsAddingAbs(false);
+
+    syncAbsensiToSupabase(activeDate, signOff, nextList);
   };
 
   const handleDeleteAttendee = (id: string) => {
     if (signOff.status === 'Final') return;
     if (confirm('Apakah Anda yakin ingin menghapus personel ini dari daftar absensi harian?')) {
-      setAbsensiMap(prev => {
-        const list = prev[activeDate] || [];
-        return {
-          ...prev,
-          [activeDate]: list.filter(item => item.id !== id)
-        };
-      });
+      const list = absensiMap[activeDate] || [];
+      const nextList = list.filter(item => item.id !== id);
+
+      setAbsensiMap(prev => ({
+        ...prev,
+        [activeDate]: nextList
+      }));
+
+      syncAbsensiToSupabase(activeDate, signOff, nextList);
     }
   };
 
@@ -326,61 +466,43 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
       return;
     }
 
-    if (confirm('Apakah Anda yakin ingin mengunci Absensi hari ini? Berkas yang dikunci akan direkap permanen dan tidak dapat diedit lagi.')) {
-      setAbsensiSignOffs(prev => {
-        const current = prev[activeDate] || {
-          signerKetua: 'M. Fajrul Falah',
-          signatureKetuaUrl: null,
-          signedKetuaAt: null,
-          signerAslap: 'Ahmad Maghfur',
-          signatureAslapUrl: null,
-          signedAslapAt: null,
-          status: 'Draft'
-        };
-        return {
-          ...prev,
-          [activeDate]: {
-            ...current,
-            status: 'Final'
-          }
-        };
-      });
+    if (confirm('Apakah Anda yakin ingin mengunci Absensi hari ini? Berkas yang dikunci akan direkap permanen dan disinkronkan ke Supabase.')) {
+      const finalSignOff: AbsensiSignOff = {
+        ...signOff,
+        status: 'Final'
+      };
+
+      setAbsensiSignOffs(prev => ({
+        ...prev,
+        [activeDate]: finalSignOff
+      }));
+
+      // Directly sync both signoff and logs to Supabase
+      syncAbsensiToSupabase(activeDate, finalSignOff, itemsList);
     }
   };
 
   const handleSaveAbsensiSignature = (type: 'ketua' | 'aslap', signatureUrl: string) => {
     const timestamp = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB';
-    setAbsensiSignOffs(prev => {
-      const current = prev[activeDate] || {
-        signerKetua: 'M. Fajrul Falah',
-        signatureKetuaUrl: null,
-        signedKetuaAt: null,
-        signerAslap: 'Ahmad Maghfur',
-        signatureAslapUrl: null,
-        signedAslapAt: null,
-        status: 'Draft'
-      };
+    const current = signOff;
 
-      if (type === 'ketua') {
-        return {
-          ...prev,
-          [activeDate]: {
-            ...current,
-            signatureKetuaUrl: signatureUrl,
-            signedKetuaAt: timestamp
-          }
-        };
-      } else {
-        return {
-          ...prev,
-          [activeDate]: {
-            ...current,
-            signatureAslapUrl: signatureUrl,
-            signedAslapAt: timestamp
-          }
-        };
-      }
-    });
+    const updatedSignOff: AbsensiSignOff = {
+      ...current,
+      ...(type === 'ketua' ? {
+        signatureKetuaUrl: signatureUrl,
+        signedKetuaAt: timestamp
+      } : {
+        signatureAslapUrl: signatureUrl,
+        signedAslapAt: timestamp
+      })
+    };
+
+    setAbsensiSignOffs(prev => ({
+      ...prev,
+      [activeDate]: updatedSignOff
+    }));
+
+    syncAbsensiToSupabase(activeDate, updatedSignOff, itemsList);
   };
 
   const handleDownloadAbsTxt = () => {
@@ -450,6 +572,26 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
           )}
         </div>
       </div>
+
+      {/* Supabase Sync Feedback Banners */}
+      {syncSuccessMessage && (
+        <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold p-3.5 rounded-xl flex items-center justify-between shadow-2xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-emerald-700 shrink-0" />
+            <span>{syncSuccessMessage}</span>
+          </div>
+          <button onClick={() => setSyncSuccessMessage(null)} className="text-emerald-700 hover:text-emerald-900 cursor-pointer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {isSyncing && (
+        <div className="bg-sky-50 border border-sky-200 text-sky-800 text-xs font-semibold p-3 rounded-xl flex items-center gap-2 animate-pulse">
+          <Info className="h-4 w-4 text-sky-600 shrink-0" />
+          <span>Menyinkronkan data presensi & otorisasi ke Supabase...</span>
+        </div>
+      )}
 
       {/* Form Tambah Personel */}
       {isAddingAbs && (

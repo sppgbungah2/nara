@@ -3180,6 +3180,46 @@ CREATE TABLE volunteer_complaints (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 7. Membuat tabel absensi_logs (Daftar Presensi Harian Relawan)
+CREATE TABLE IF NOT EXISTS absensi_logs (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  status TEXT NOT NULL,
+  check_in_time TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. Membuat tabel absensi_signoffs (Otorisasi Absensi Harian)
+CREATE TABLE IF NOT EXISTS absensi_signoffs (
+  date TEXT PRIMARY KEY,
+  signer_ketua TEXT,
+  signature_ketua_url TEXT,
+  signed_ketua_at TEXT,
+  signer_aslap TEXT,
+  signature_aslap_url TEXT,
+  signed_aslap_at TEXT,
+  status TEXT DEFAULT 'Draft',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS absensi_signoff (
+  date TEXT PRIMARY KEY,
+  signer_ketua TEXT,
+  signature_ketua_url TEXT,
+  signed_ketua_at TEXT,
+  signer_aslap TEXT,
+  signature_aslap_url TEXT,
+  signed_aslap_at TEXT,
+  status TEXT DEFAULT 'Draft',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- -------------------------------------------------------------
 -- BAGIAN C: PENGAKTIFAN ROW LEVEL SECURITY (RLS) & AKSES SPESIFIK ROLE
 -- -------------------------------------------------------------
