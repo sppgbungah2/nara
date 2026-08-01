@@ -145,12 +145,22 @@ export default function App() {
     }
   };
 
-  const getSopTaskTableName = (_div?: Division | string): string => {
-    return 'sop_tasks';
+  const getSopTaskTableName = (div: Division | string): string => {
+    const norm = (div || '').toLowerCase().trim();
+    if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_tasks_driver';
+    if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_tasks_stocking';
+    if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_tasks_masak';
+    if (norm.includes('pemorsian')) return 'sop_tasks_pemorsian';
+    if (norm.includes('kebersihan')) return 'sop_tasks_kebersihan';
+    if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_tasks_cuci';
+    if (norm.includes('keamanan') || norm.includes('security')) return 'sop_tasks_keamanan';
+    return 'sop_tasks_stocking';
   };
 
-  const getSopTaskTableNames = (_div?: Division | string): string[] => {
-    return ['sop_tasks'];
+  const getSopTaskTableNames = (div: Division | string): string[] => {
+    const primary = getSopTaskTableName(div);
+    const singular = primary.replace('sop_tasks_', 'sop_task_');
+    return [primary, singular, 'sop_tasks'];
   };
 
   // Listen for route changes (standard clean pathname routing with date & division slug support)
@@ -405,8 +415,11 @@ export default function App() {
                               creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-15-${div}`;
-        const targetTable = 'sop_tasks';
+        const targetTable = getSopTaskTableName(div);
+        const singularTable = targetTable.replace('sop_tasks_', 'sop_task_');
         if (!tasksByTable[targetTable]) tasksByTable[targetTable] = [];
+        if (!tasksByTable[singularTable]) tasksByTable[singularTable] = [];
+        if (!tasksByTable['sop_tasks']) tasksByTable['sop_tasks'] = [];
 
         initialSopsInDatabase.push({
           id: sopId,
@@ -436,6 +449,8 @@ export default function App() {
             sort_order: idx
           };
           tasksByTable[targetTable].push(item);
+          tasksByTable[singularTable].push(item);
+          tasksByTable['sop_tasks'].push(item);
         });
       });
 
@@ -447,8 +462,11 @@ export default function App() {
                               creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-16-${div}`;
-        const targetTable = 'sop_tasks';
+        const targetTable = getSopTaskTableName(div);
+        const singularTable = targetTable.replace('sop_tasks_', 'sop_task_');
         if (!tasksByTable[targetTable]) tasksByTable[targetTable] = [];
+        if (!tasksByTable[singularTable]) tasksByTable[singularTable] = [];
+        if (!tasksByTable['sop_tasks']) tasksByTable['sop_tasks'] = [];
 
         initialSopsInDatabase.push({
           id: sopId,
@@ -478,6 +496,8 @@ export default function App() {
             sort_order: idx
           };
           tasksByTable[targetTable].push(item);
+          tasksByTable[singularTable].push(item);
+          tasksByTable['sop_tasks'].push(item);
         });
       });
 

@@ -478,10 +478,20 @@ export function getCanonicalSopId(date: string, division: Division | string): st
   return `SOP-${isoDate}-${divSlug.toUpperCase()}`;
 }
 
-export function getSopTaskTableName(_div?: Division | string): string {
-  return 'sop_tasks';
+export function getSopTaskTableName(div?: Division | string): string {
+  const norm = (div || '').toString().toLowerCase().trim();
+  if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_tasks_driver';
+  if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_tasks_stocking';
+  if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_tasks_masak';
+  if (norm.includes('pemorsian')) return 'sop_tasks_pemorsian';
+  if (norm.includes('kebersihan')) return 'sop_tasks_kebersihan';
+  if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_tasks_cuci';
+  if (norm.includes('keamanan') || norm.includes('security')) return 'sop_tasks_keamanan';
+  return 'sop_tasks_stocking';
 }
 
-export function getSopTaskTableNames(_div?: Division | string): string[] {
-  return ['sop_tasks'];
+export function getSopTaskTableNames(div?: Division | string): string[] {
+  const primary = getSopTaskTableName(div);
+  const singular = primary.replace('sop_tasks_', 'sop_task_');
+  return [primary, singular, 'sop_tasks'];
 }

@@ -85,7 +85,7 @@ CREATE TABLE public.sops (
 CREATE INDEX idx_sops_date ON public.sops(date);
 CREATE INDEX idx_sops_division ON public.sops(division);
 
--- C. TABEL SOP TASKS (Tabel Tunggal Terpusat Semua Divisi)
+-- C. TABEL SOP TASKS PER DIVISI (Terpisah Spesifik Per Divisi)
 CREATE TABLE public.sop_tasks (
   id TEXT PRIMARY KEY,
   sop_id TEXT NOT NULL,
@@ -95,6 +95,24 @@ CREATE TABLE public.sop_tasks (
   sort_order INT DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Tabel Jamak Per Divisi
+CREATE TABLE public.sop_tasks_driver ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks_stocking ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks_masak ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks_pemorsian ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks_kebersihan ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks_cuci ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks_keamanan ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+
+-- Tabel Tunggal Per Divisi
+CREATE TABLE public.sop_task_driver ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_task_stocking ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_task_masak ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_task_pemorsian ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_task_kebersihan ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_task_cuci ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_task_keamanan ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
 
 CREATE INDEX idx_sop_tasks_sop_id ON public.sop_tasks(sop_id);
 
