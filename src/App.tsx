@@ -145,22 +145,12 @@ export default function App() {
     }
   };
 
-  const getSopTaskTableName = (div: Division | string): string => {
-    const norm = (div || '').toLowerCase().trim();
-    if (norm.includes('driver') || norm.includes('distribusi')) return 'sop_task_driver';
-    if (norm.includes('stocking') || norm.includes('persiapan')) return 'sop_task_stocking';
-    if (norm.includes('masak') || norm.includes('pemasakan')) return 'sop_task_masak';
-    if (norm.includes('pemorsian')) return 'sop_task_pemorsian';
-    if (norm.includes('kebersihan')) return 'sop_task_kebersihan';
-    if (norm.includes('cuci') || norm.includes('pencucian')) return 'sop_task_cuci';
-    if (norm.includes('keamanan') || norm.includes('security')) return 'sop_task_keamanan';
-    return 'sop_task_stocking';
+  const getSopTaskTableName = (_div?: Division | string): string => {
+    return 'sop_tasks';
   };
 
-  const getSopTaskTableNames = (div: Division | string): string[] => {
-    const primary = getSopTaskTableName(div);
-    const plural = primary.replace('sop_task_', 'sop_tasks_');
-    return [primary, plural];
+  const getSopTaskTableNames = (_div?: Division | string): string[] => {
+    return ['sop_tasks'];
   };
 
   // Listen for route changes (standard clean pathname routing with date & division slug support)
@@ -415,10 +405,8 @@ export default function App() {
                               creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-15-${div}`;
-        const targetTable = getSopTaskTableName(div);
-        const singularTable = targetTable.replace('sop_tasks_', 'sop_task_');
+        const targetTable = 'sop_tasks';
         if (!tasksByTable[targetTable]) tasksByTable[targetTable] = [];
-        if (!tasksByTable[singularTable]) tasksByTable[singularTable] = [];
 
         initialSopsInDatabase.push({
           id: sopId,
@@ -448,7 +436,6 @@ export default function App() {
             sort_order: idx
           };
           tasksByTable[targetTable].push(item);
-          tasksByTable[singularTable].push(item);
         });
       });
 
@@ -460,10 +447,8 @@ export default function App() {
                               creatorInfo.role === UserRole.AHLI_GIZI ? 'Avianti Rahma Dianita' : 'Ahmad Maghfur';
         
         const sopId = `2026-06-16-${div}`;
-        const targetTable = getSopTaskTableName(div);
-        const singularTable = targetTable.replace('sop_tasks_', 'sop_task_');
+        const targetTable = 'sop_tasks';
         if (!tasksByTable[targetTable]) tasksByTable[targetTable] = [];
-        if (!tasksByTable[singularTable]) tasksByTable[singularTable] = [];
 
         initialSopsInDatabase.push({
           id: sopId,
@@ -493,7 +478,6 @@ export default function App() {
             sort_order: idx
           };
           tasksByTable[targetTable].push(item);
-          tasksByTable[singularTable].push(item);
         });
       });
 
@@ -576,6 +560,7 @@ export default function App() {
         const { error: errMenu } = await supabase.from('day_menus').delete().eq('date', date);
         const { error: errSops } = await supabase.from('sops').delete().eq('date', date);
         const divisionTables = [
+          'sop_tasks',
           'sop_tasks_driver', 'sop_task_driver',
           'sop_tasks_stocking', 'sop_task_stocking',
           'sop_tasks_masak', 'sop_task_masak',
@@ -633,7 +618,7 @@ export default function App() {
     { num: 6, name: 'Kedatangan Barang', icon: Truck, category: 'Distribusi & Logistik' },
     { num: 7, name: 'Galeri Kedatangan Barang', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1TBcj9LvdkzgdNRpkKvxznz5_-1VF--hw' },
     { num: 8, name: 'Dokumentasi Dapur', icon: Camera, category: 'Dokumentasi', url: 'https://drive.google.com/drive/folders/1bqTPoSzK1KscBq58gSs_LIcjK_90ExIu?usp=drive_link' },
-    { num: 18, name: 'Dokumentasi Pengiriman Ompreng', icon: Camera, category: 'Dokumentasi Pengiriman' },
+    { num: 18, name: 'Dokumentasi Pengiriman Ompreng', icon: Camera, category: 'Dokumentasi Pengiriman', url: 'https://drive.google.com/drive/folders/1-2i-2zctARA9tuLXPSTNX25of6qR7CxY' },
     { num: 19, name: 'Berita Acara Serah Terima', icon: FileText, category: 'Dokumentasi Pengiriman' },
     { num: 20, name: 'Surat Jalan', icon: Truck, category: 'Dokumentasi Pengiriman' },
     { num: 21, name: 'Organoleptik', icon: ClipboardList, category: 'Dokumentasi Pengiriman' },

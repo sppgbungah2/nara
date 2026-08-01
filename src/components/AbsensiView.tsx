@@ -302,7 +302,7 @@ export default function AbsensiView({ selectedDate, isInitialFetchDone }: Absens
           }));
         }
       } catch (err) {
-        console.error('Error fetching absensi from Supabase:', err);
+        console.warn('Note on absensi Supabase fetch (using local cache fallback):', err);
       }
     };
 

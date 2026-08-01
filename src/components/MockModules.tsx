@@ -3,7 +3,7 @@ import {
   Package, Wrench, ShieldCheck, ShoppingCart, Truck, Calendar, Sparkles,
   Camera, Users, FileText, CheckCircle, Search, AlertCircle, Plus, ClipboardCheck, ArrowRight, FileSpreadsheet,
   Trash2, Loader2, RefreshCw, Check, X, Code, Clipboard, ShieldAlert, CheckCircle2, Info,
-  Save, Archive, Download
+  Save, Archive, Download, ExternalLink
 } from 'lucide-react';
 import { DayMenu, UserRole, DRIVERS_LIST } from '../types';
 import { supabase, isSupabaseConfigured, UserProfile } from '../lib/supabase';
@@ -520,14 +520,27 @@ function ShippingDocPanel({
           <p className="text-sm text-neutral-500">{description}</p>
         </div>
         
-        <button
-          type="button"
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors self-start sm:self-auto shrink-0 cursor-pointer shadow-sm active:scale-[0.98]"
-        >
-          <Plus className="h-4 w-4" />
-          {showAddForm ? 'Tutup Form Isian' : 'Isi & Update Hari Ini'}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+          {type === 'ompreng' && (
+            <a
+              href="https://drive.google.com/drive/folders/1-2i-2zctARA9tuLXPSTNX25of6qR7CxY"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-sky-700 hover:bg-sky-800 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-[0.98]"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Buka Google Drive Dokumentasi Ompreng ↗
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            {showAddForm ? 'Tutup Form Isian' : 'Isi & Update Hari Ini'}
+          </button>
+        </div>
       </div>
 
       {successMsg && (

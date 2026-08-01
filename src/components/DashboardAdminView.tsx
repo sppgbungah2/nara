@@ -674,12 +674,20 @@ export default function DashboardAdminView({
                     </span>
                   )}
                 </td>
-                <td className="p-4 text-right">
+                <td className="p-4 text-right flex items-center justify-end gap-2">
+                  <a
+                    href="https://drive.google.com/drive/folders/1-2i-2zctARA9tuLXPSTNX25of6qR7CxY"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 font-bold text-[10px] px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors"
+                  >
+                    Drive Ompreng ↗
+                  </a>
                   <button
                     onClick={() => onGoToTab?.(18)}
                     className="text-neutral-500 hover:text-emerald-800 font-bold text-[10px]"
                   >
-                    Buka Dokumen Ompreng
+                    Buka Modul
                   </button>
                 </td>
               </tr>
@@ -1346,116 +1354,68 @@ export default function DashboardAdminView({
 
             <div className="py-4 space-y-3 overflow-y-auto flex-1 font-sans text-xs">
               <p className="text-neutral-600">
-                Gunakan query SQL ini untuk membuat tabel SOP terpisah per divisi (<code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-emerald-700">sop_task_driver</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-emerald-700">sop_task_stocking</code>, dll) di Cloud Supabase tanpa menghapus data lama.
+                Gunakan query SQL reset & recreate ini (<code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-emerald-700">sql_query_3.sql</code>) untuk menghapus/reset seluruh data & tabel lama dan membuat ulang seluruh struktur database Supabase beserta RLS Policy secara lengkap.
               </p>
               
               <div className="bg-neutral-900 text-neutral-100 rounded-xl p-4 font-mono text-[11px] leading-relaxed overflow-x-auto relative group">
                 <button
                   onClick={() => {
-                    const sqlText = `-- SQL MIGRATION SUPABASE TERBARU (sql_dapur_2.sql)
+                    const sqlText = `-- SQL RESET & RECREATE SUPABASE (sql_query_3.sql)
 -- PERINTAH: Salin seluruh skrip ini dan jalankan di Dashboard Supabase -> SQL Editor.
 
-CREATE TABLE IF NOT EXISTS public.day_menus (
-  id TEXT,
-  date TEXT PRIMARY KEY,
-  day_name TEXT,
-  menu_list JSONB NOT NULL DEFAULT '[]'::jsonb,
-  portion_count INT DEFAULT 100,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by TEXT DEFAULT 'admin@qomaruddin.com'
+DROP TABLE IF EXISTS public.day_menus CASCADE;
+DROP TABLE IF EXISTS public.sops CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks CASCADE;
+
+DROP TABLE IF EXISTS public.sop_tasks_driver CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_stocking CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_masak CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_pemorsian CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_kebersihan CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_cuci CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_keamanan CASCADE;
+
+DROP TABLE IF EXISTS public.sop_task_driver CASCADE;
+DROP TABLE IF EXISTS public.sop_task_stocking CASCADE;
+DROP TABLE IF EXISTS public.sop_task_masak CASCADE;
+DROP TABLE IF EXISTS public.sop_task_pemorsian CASCADE;
+DROP TABLE IF EXISTS public.sop_task_kebersihan CASCADE;
+DROP TABLE IF EXISTS public.sop_task_cuci CASCADE;
+DROP TABLE IF EXISTS public.sop_task_keamanan CASCADE;
+
+DROP TABLE IF EXISTS public.sisa_stok CASCADE;
+DROP TABLE IF EXISTS public.order_requests CASCADE;
+DROP TABLE IF EXISTS public.volunteer_complaints CASCADE;
+DROP TABLE IF EXISTS public.shipping_docs CASCADE;
+DROP TABLE IF EXISTS public.kedatangan_barang CASCADE;
+DROP TABLE IF EXISTS public.bast_docs CASCADE;
+DROP TABLE IF EXISTS public.organoleptik_docs CASCADE;
+DROP TABLE IF EXISTS public.absensi_logs CASCADE;
+DROP TABLE IF EXISTS public.absensi_signoffs CASCADE;
+DROP TABLE IF EXISTS public.absensi_signoff CASCADE;
+
+CREATE TABLE public.day_menus (
+  id TEXT, date TEXT PRIMARY KEY, day_name TEXT, menu_list JSONB NOT NULL DEFAULT '[]'::jsonb, portion_count INT DEFAULT 100, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), created_by TEXT DEFAULT 'admin@qomaruddin.com'
 );
 
-CREATE TABLE IF NOT EXISTS public.sops (
-  id TEXT PRIMARY KEY,
-  date TEXT NOT NULL,
-  division TEXT NOT NULL,
-  creator_role TEXT,
-  creator_name TEXT,
-  is_checked_all BOOLEAN DEFAULT FALSE,
-  signer_supervisor TEXT,
-  signature_supervisor_url TEXT,
-  signed_supervisor_at TIMESTAMP WITH TIME ZONE,
-  signer_coordinator TEXT,
-  signature_coordinator_url TEXT,
-  signed_coordinator_at TIMESTAMP WITH TIME ZONE,
-  status TEXT DEFAULT 'aktif',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.sops (
+  id TEXT PRIMARY KEY, date TEXT NOT NULL, division TEXT NOT NULL, creator_role TEXT, creator_name TEXT, is_checked_all BOOLEAN DEFAULT FALSE, signer_supervisor TEXT, signature_supervisor_url TEXT, signed_supervisor_at TIMESTAMP WITH TIME ZONE, signer_coordinator TEXT, signature_coordinator_url TEXT, signed_coordinator_at TIMESTAMP WITH TIME ZONE, status TEXT DEFAULT 'aktif', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.sop_tasks (
-  id TEXT PRIMARY KEY,
-  sop_id TEXT NOT NULL,
-  text TEXT NOT NULL,
-  completed BOOLEAN DEFAULT FALSE,
-  category TEXT DEFAULT 'aktif',
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- TABEL PER-DIVISI (JAMAK: sop_tasks_*)
-CREATE TABLE IF NOT EXISTS public.sop_tasks_driver (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_stocking (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_masak (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_pemorsian (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_kebersihan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_cuci (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_keamanan (
+CREATE TABLE public.sop_tasks (
   id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- TABEL PER-DIVISI (TUNGGAL: sop_task_*)
-CREATE TABLE IF NOT EXISTS public.sop_task_driver (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_stocking (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_masak (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_pemorsian (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_kebersihan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_cuci (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_keamanan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-ALTER TABLE public.day_menus DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sops DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_driver DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_stocking DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_masak DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_pemorsian DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_kebersihan DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_cuci DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_keamanan DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_driver DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_stocking DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_masak DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_pemorsian DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_kebersihan DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_cuci DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;
+CREATE TABLE public.sisa_stok ( id TEXT PRIMARY KEY, date TEXT NOT NULL, item_name TEXT NOT NULL, unit TEXT NOT NULL DEFAULT 'kg', stock_qty NUMERIC DEFAULT 0, notes TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.order_requests ( id TEXT PRIMARY KEY, item_name TEXT NOT NULL, qty NUMERIC NOT NULL DEFAULT 1, unit TEXT DEFAULT 'pcs', requester TEXT, department TEXT, priority TEXT DEFAULT 'Normal', status TEXT DEFAULT 'Pending', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.volunteer_complaints ( id TEXT PRIMARY KEY, date TEXT NOT NULL, volunteer_name TEXT NOT NULL, division TEXT, complaint TEXT NOT NULL, status TEXT DEFAULT 'Baru', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.shipping_docs ( id TEXT PRIMARY KEY, type TEXT DEFAULT 'ompreng', date TEXT NOT NULL, sj_no TEXT, sj_kepada TEXT, sj_driver TEXT, status TEXT DEFAULT 'Kirim Sukses', items JSONB DEFAULT '[]'::jsonb, photo_url TEXT, comments TEXT, uploaded_by TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.kedatangan_barang ( id TEXT PRIMARY KEY, date TEXT NOT NULL, item_name TEXT NOT NULL, category TEXT, qty NUMERIC DEFAULT 0, unit TEXT DEFAULT 'kg', supplier TEXT, status TEXT DEFAULT 'Sesuai', photo_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.bast_docs ( id TEXT PRIMARY KEY, date TEXT NOT NULL, bast_no TEXT, bast_sekolah TEXT, bast_driver TEXT, bast_penerima TEXT, status TEXT DEFAULT 'BAST Sah', items JSONB DEFAULT '[]'::jsonb, photo_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.organoleptik_docs ( id TEXT PRIMARY KEY, date TEXT NOT NULL, tester_name TEXT, menu_name TEXT, color_score INT DEFAULT 5, aroma_score INT DEFAULT 5, taste_score INT DEFAULT 5, texture_score INT DEFAULT 5, notes TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.absensi_logs ( id TEXT PRIMARY KEY, date TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL, check_in_time TEXT, notes TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.absensi_signoffs ( date TEXT PRIMARY KEY, signer_ketua TEXT, signature_ketua_url TEXT, signed_ketua_at TEXT, signer_aslap TEXT, signature_aslap_url TEXT, signed_aslap_at TEXT, status TEXT DEFAULT 'Draft', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.absensi_signoff ( date TEXT PRIMARY KEY, signer_ketua TEXT, signature_ketua_url TEXT, signed_ketua_at TEXT, signer_aslap TEXT, signature_aslap_url TEXT, signed_aslap_at TEXT, status TEXT DEFAULT 'Draft', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
 
 DO $$ 
 DECLARE 
@@ -1463,15 +1423,11 @@ DECLARE
 BEGIN 
   FOR tbl IN 
     SELECT table_name FROM information_schema.tables 
-    WHERE table_schema = 'public' 
-      AND table_name IN (
-        'day_menus','sops','sop_tasks',
-        'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
-        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan',
-        'absensi_logs','absensi_signoffs','absensi_signoff'
-      )
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   LOOP 
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
     EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Allow All Access" ON public.%I;', tbl);
     EXECUTE format('CREATE POLICY "Public Full Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl);
   END LOOP; 
 END $$;`;
@@ -1485,110 +1441,54 @@ END $$;`;
                   {copiedSql ? 'Tersalin!' : 'Salin SQL'}
                 </button>
                 <pre className="whitespace-pre-wrap">
-{`-- SQL MIGRATION SUPABASE TERBARU (sql_dapur_2.sql)
+{`-- SQL RESET & RECREATE SUPABASE (sql_query_3.sql)
 -- PERINTAH: Salin seluruh skrip ini dan jalankan di Dashboard Supabase -> SQL Editor.
 
-CREATE TABLE IF NOT EXISTS public.day_menus (
-  id TEXT,
-  date TEXT PRIMARY KEY,
-  day_name TEXT,
-  menu_list JSONB NOT NULL DEFAULT '[]'::jsonb,
-  portion_count INT DEFAULT 100,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by TEXT DEFAULT 'admin@qomaruddin.com'
-);
+DROP TABLE IF EXISTS public.day_menus CASCADE;
+DROP TABLE IF EXISTS public.sops CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks CASCADE;
 
-CREATE TABLE IF NOT EXISTS public.sops (
-  id TEXT PRIMARY KEY,
-  date TEXT NOT NULL,
-  division TEXT NOT NULL,
-  creator_role TEXT,
-  creator_name TEXT,
-  is_checked_all BOOLEAN DEFAULT FALSE,
-  signer_supervisor TEXT,
-  signature_supervisor_url TEXT,
-  signed_supervisor_at TIMESTAMP WITH TIME ZONE,
-  signer_coordinator TEXT,
-  signature_coordinator_url TEXT,
-  signed_coordinator_at TIMESTAMP WITH TIME ZONE,
-  status TEXT DEFAULT 'aktif',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+DROP TABLE IF EXISTS public.sop_tasks_driver CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_stocking CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_masak CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_pemorsian CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_kebersihan CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_cuci CASCADE;
+DROP TABLE IF EXISTS public.sop_tasks_keamanan CASCADE;
 
-CREATE TABLE IF NOT EXISTS public.sop_tasks (
-  id TEXT PRIMARY KEY,
-  sop_id TEXT NOT NULL,
-  text TEXT NOT NULL,
-  completed BOOLEAN DEFAULT FALSE,
-  category TEXT DEFAULT 'aktif',
-  sort_order INT DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+DROP TABLE IF EXISTS public.sop_task_driver CASCADE;
+DROP TABLE IF EXISTS public.sop_task_stocking CASCADE;
+DROP TABLE IF EXISTS public.sop_task_masak CASCADE;
+DROP TABLE IF EXISTS public.sop_task_pemorsian CASCADE;
+DROP TABLE IF EXISTS public.sop_task_kebersihan CASCADE;
+DROP TABLE IF EXISTS public.sop_task_cuci CASCADE;
+DROP TABLE IF EXISTS public.sop_task_keamanan CASCADE;
 
--- TABEL PER-DIVISI (JAMAK: sop_tasks_*)
-CREATE TABLE IF NOT EXISTS public.sop_tasks_driver (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_stocking (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_masak (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_pemorsian (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_kebersihan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_cuci (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_tasks_keamanan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+DROP TABLE IF EXISTS public.sisa_stok CASCADE;
+DROP TABLE IF EXISTS public.order_requests CASCADE;
+DROP TABLE IF EXISTS public.volunteer_complaints CASCADE;
+DROP TABLE IF EXISTS public.shipping_docs CASCADE;
+DROP TABLE IF EXISTS public.kedatangan_barang CASCADE;
+DROP TABLE IF EXISTS public.bast_docs CASCADE;
+DROP TABLE IF EXISTS public.organoleptik_docs CASCADE;
+DROP TABLE IF EXISTS public.absensi_logs CASCADE;
+DROP TABLE IF EXISTS public.absensi_signoffs CASCADE;
+DROP TABLE IF EXISTS public.absensi_signoff CASCADE;
 
--- TABEL PER-DIVISI (TUNGGAL: sop_task_*)
-CREATE TABLE IF NOT EXISTS public.sop_task_driver (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_stocking (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_masak (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_pemorsian (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_kebersihan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_cuci (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS public.sop_task_keamanan (
-  id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+CREATE TABLE public.day_menus ( id TEXT, date TEXT PRIMARY KEY, day_name TEXT, menu_list JSONB NOT NULL DEFAULT '[]'::jsonb, portion_count INT DEFAULT 100, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), created_by TEXT DEFAULT 'admin@qomaruddin.com' );
+CREATE TABLE public.sops ( id TEXT PRIMARY KEY, date TEXT NOT NULL, division TEXT NOT NULL, creator_role TEXT, creator_name TEXT, is_checked_all BOOLEAN DEFAULT FALSE, signer_supervisor TEXT, signature_supervisor_url TEXT, signed_supervisor_at TIMESTAMP WITH TIME ZONE, signer_coordinator TEXT, signature_coordinator_url TEXT, signed_coordinator_at TIMESTAMP WITH TIME ZONE, status TEXT DEFAULT 'aktif', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.sop_tasks ( id TEXT PRIMARY KEY, sop_id TEXT NOT NULL, text TEXT NOT NULL, completed BOOLEAN DEFAULT FALSE, category TEXT DEFAULT 'aktif', sort_order INT DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
 
-ALTER TABLE public.day_menus DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sops DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_driver DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_stocking DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_masak DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_pemorsian DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_kebersihan DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_cuci DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_tasks_keamanan DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_driver DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_stocking DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_masak DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_pemorsian DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_kebersihan DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_cuci DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sop_task_keamanan DISABLE ROW LEVEL SECURITY;
+CREATE TABLE public.sisa_stok ( id TEXT PRIMARY KEY, date TEXT NOT NULL, item_name TEXT NOT NULL, unit TEXT NOT NULL DEFAULT 'kg', stock_qty NUMERIC DEFAULT 0, notes TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.order_requests ( id TEXT PRIMARY KEY, item_name TEXT NOT NULL, qty NUMERIC NOT NULL DEFAULT 1, unit TEXT DEFAULT 'pcs', requester TEXT, department TEXT, priority TEXT DEFAULT 'Normal', status TEXT DEFAULT 'Pending', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.volunteer_complaints ( id TEXT PRIMARY KEY, date TEXT NOT NULL, volunteer_name TEXT NOT NULL, division TEXT, complaint TEXT NOT NULL, status TEXT DEFAULT 'Baru', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.shipping_docs ( id TEXT PRIMARY KEY, type TEXT DEFAULT 'ompreng', date TEXT NOT NULL, sj_no TEXT, sj_kepada TEXT, sj_driver TEXT, status TEXT DEFAULT 'Kirim Sukses', items JSONB DEFAULT '[]'::jsonb, photo_url TEXT, comments TEXT, uploaded_by TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.kedatangan_barang ( id TEXT PRIMARY KEY, date TEXT NOT NULL, item_name TEXT NOT NULL, category TEXT, qty NUMERIC DEFAULT 0, unit TEXT DEFAULT 'kg', supplier TEXT, status TEXT DEFAULT 'Sesuai', photo_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.bast_docs ( id TEXT PRIMARY KEY, date TEXT NOT NULL, bast_no TEXT, bast_sekolah TEXT, bast_driver TEXT, bast_penerima TEXT, status TEXT DEFAULT 'BAST Sah', items JSONB DEFAULT '[]'::jsonb, photo_url TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.organoleptik_docs ( id TEXT PRIMARY KEY, date TEXT NOT NULL, tester_name TEXT, menu_name TEXT, color_score INT DEFAULT 5, aroma_score INT DEFAULT 5, taste_score INT DEFAULT 5, texture_score INT DEFAULT 5, notes TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.absensi_logs ( id TEXT PRIMARY KEY, date TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL, check_in_time TEXT, notes TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.absensi_signoffs ( date TEXT PRIMARY KEY, signer_ketua TEXT, signature_ketua_url TEXT, signed_ketua_at TEXT, signer_aslap TEXT, signature_aslap_url TEXT, signed_aslap_at TEXT, status TEXT DEFAULT 'Draft', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
+CREATE TABLE public.absensi_signoff ( date TEXT PRIMARY KEY, signer_ketua TEXT, signature_ketua_url TEXT, signed_ketua_at TEXT, signer_aslap TEXT, signature_aslap_url TEXT, signed_aslap_at TEXT, status TEXT DEFAULT 'Draft', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() );
 
 DO $$ 
 DECLARE 
@@ -1596,15 +1496,11 @@ DECLARE
 BEGIN 
   FOR tbl IN 
     SELECT table_name FROM information_schema.tables 
-    WHERE table_schema = 'public' 
-      AND table_name IN (
-        'day_menus','sops','sop_tasks',
-        'sop_tasks_driver','sop_tasks_stocking','sop_tasks_masak','sop_tasks_pemorsian','sop_tasks_kebersihan','sop_tasks_cuci','sop_tasks_keamanan',
-        'sop_task_driver','sop_task_stocking','sop_task_masak','sop_task_pemorsian','sop_task_kebersihan','sop_task_cuci','sop_task_keamanan',
-        'absensi_logs','absensi_signoffs','absensi_signoff'
-      )
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   LOOP 
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
     EXECUTE format('DROP POLICY IF EXISTS "Public Full Access" ON public.%I;', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Allow All Access" ON public.%I;', tbl);
     EXECUTE format('CREATE POLICY "Public Full Access" ON public.%I FOR ALL USING (true) WITH CHECK (true);', tbl);
   END LOOP; 
 END $$;`}
